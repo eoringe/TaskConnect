@@ -32,7 +32,7 @@ export default function WelcomeScreen() {
 
   // Function to navigate to the Login screen using useRouter
   const handleLoginPress = () => {
-    router.push('../screens/Login');
+    router.push('/auth');
   };
 
   return (
