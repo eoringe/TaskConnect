@@ -1,17 +1,19 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { useEffect } from 'react';
-import { auth } from '../../firebase-config';
-import { signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
+import { auth, GoogleAuthProvider, signInWithCredential } from '../../firebase-config';
+import { useNavigation } from '@react-navigation/native'; // Import useNavigation
+import { router } from 'expo-router';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function useGoogleSignIn() {
+  const navigation = useNavigation(); // Get the navigation object
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: '945084869931-ciignb3148q0nufl6cnj6k25i2v86lbb.apps.googleusercontent.com',
-    androidClientId: '945084869931-ciignb3148q0nufl6cnj6k25i2v86lbb.apps.googleusercontent.com',
-    iosClientId: '945084869931-ciignb3148q0nufl6cnj6k25i2v86lbb.apps.googleusercontent.com',
-    webClientId: '945084869931-ciignb3148q0nufl6cnj6k25i2v86lbb.apps.googleusercontent.com',
+    expoClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
+    androidClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
+    iosClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
+    webClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
     scopes: ['openid', 'profile', 'email'],
     responseType: 'id_token', // Keep this if you want id_token for Firebase
     usePKCE: false,
@@ -21,7 +23,7 @@ export default function useGoogleSignIn() {
     console.log('📩 Google response:', response);
 
     if (response?.type === 'success') {
-      const id_token = response?.params?.id_token;
+      const { id_token } = response.params;
 
       if (!id_token) {
         console.error('❌ ID token missing from response.params');
@@ -41,14 +43,17 @@ export default function useGoogleSignIn() {
           console.log('📧 Email:', user.email);
           console.log('🧑 Name:', user.displayName);
           console.log('🆕 New user:', isNewUser);
+
+          // Navigate to the Home screen after successful sign-in
+          router.push('/home');
         })
-        .catch((err) => {
-          console.error('🔥 Firebase sign-in failed:', err);
+        .catch((error) => {
+          console.error('🔥 Firebase sign-in failed:', error);
         });
     } else if (response?.type === 'error') {
       console.error('🚫 Google Auth error:', response.error);
     }
-  }, [response]);
+  }, [response, navigation]); // Add navigation to the dependency array
 
   return { request, promptAsync };
 }
