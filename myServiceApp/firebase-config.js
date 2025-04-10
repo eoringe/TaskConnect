@@ -1,10 +1,6 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'; // Firestore Database
-import { getDatabase } from 'firebase/database'; // Realtime Database
-import { getStorage } from 'firebase/storage'; // Firebase Storage (optional)
+import { initializeApp } from '@react-native-firebase/app';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyApYZBGEalBlKLuG9Csk-2nhSSHVQB9BYc",
@@ -13,15 +9,10 @@ const firebaseConfig = {
   storageBucket: "taskconnect-30e07.firebasestorage.app",
   messagingSenderId: "249705110811",
   appId: "1:249705110811:web:f50b732132894e0e1b87be",
-  measurementId: "G-JEJ52055JP"
+  measurementId: "G-JEJ52055JP",
+  databaseURL: "https://taskconnect-30e07-default-rtdb.firebaseio.com", // Optional, only if you're using 
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth(app);  // For Authentication
-const firestore = getFirestore(app);  // For Firestore
-const database = getDatabase(app);  // For Realtime Database
-const storage = getStorage(app);  // For Firebase Storage (optional)
 
-export { app, auth, firestore, database, storage };
+export { app, auth, firestore };
