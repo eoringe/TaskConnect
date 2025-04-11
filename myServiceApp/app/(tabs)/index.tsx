@@ -18,8 +18,6 @@ const { width, height } = Dimensions.get('window');
 export default function WelcomeScreen() {
   const router = useRouter();
 
-
-
   const handleLogin = () => {
     router.push('/auth');
   };
@@ -90,7 +88,6 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.getStartedButton}
-            
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -112,11 +109,6 @@ export default function WelcomeScreen() {
             <Text style={styles.loginText}>I already have an account</Text>
           </TouchableOpacity>
         </View>
-        
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>v1.0.0 © 2025 Task Connect</Text>
-        </View>
       </SafeAreaView>
     </View>
   );
@@ -129,8 +121,8 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     position: 'absolute',
-    width: width,
-    height: height,
+    width: '100%',
+    height: '100%',
     top: 0,
     left: 0,
   },
@@ -268,15 +260,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
-  },
-  
-  // Footer styling
-  footer: {
-    paddingBottom: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
   },
 });
