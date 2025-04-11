@@ -34,6 +34,9 @@ export default function WelcomeScreen() {
   const handleLoginPress = () => {
     router.push('/auth');
   };
+  const handleGetStarted = () => {
+    router.push('/home');
+  };
 
   return (
     <ImageBackground
@@ -51,7 +54,7 @@ export default function WelcomeScreen() {
           <Animated.View style={[styles.buttonContainer, { transform: [{ scale: buttonScaleAnim }] }]}>
             <TouchableOpacity
               style={styles.button}
-              onPress={() => console.log('Get Started')}
+              onPress={handleGetStarted}
               onPressIn={onPressIn}
               onPressOut={onPressOut}
             >
