@@ -91,6 +91,7 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.getStartedButton}
+            onPress={handleGetStarted}
             activeOpacity={0.8}
           >
             <LinearGradient

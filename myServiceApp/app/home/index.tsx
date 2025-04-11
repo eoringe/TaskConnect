@@ -57,6 +57,7 @@ const HomeScreenContent = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showCategoryListModal, setShowCategoryListModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [filterOptions, setFilterOptions] = useState({
     minRating: 4.0,
     maxPrice: 7000,
@@ -159,9 +160,13 @@ const HomeScreenContent = () => {
           <Text style={styles.headerText}>Hi, James 👋</Text>
           <Text style={styles.subHeaderText}>Find trusted help nearby</Text>
         </View>
-        <TouchableOpacity style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={40} color="#4A80F0" />
-        </TouchableOpacity>
+        <TouchableOpacity 
+  style={styles.avatarContainer}
+  onPress={() => setShowProfileModal(true)}
+>
+  <Ionicons name="person-circle" size={40} color="#4A80F0" />
+</TouchableOpacity>
+
       </View>
 
       {isLoading && (
@@ -296,6 +301,37 @@ const HomeScreenContent = () => {
           </View>
         )}
       </ScrollView>
+{/* Profile Modal */}
+<Modal
+  transparent={true}
+  animationType="fade"
+  visible={showProfileModal}
+  onRequestClose={() => setShowProfileModal(false)}
+>
+  <TouchableOpacity 
+    style={styles.modalOverlay}
+    activeOpacity={1}
+    onPressOut={() => setShowProfileModal(false)}
+  >
+    <View style={styles.profileModalContent}>
+      <Text style={styles.profileModalTitle}>Hello James 👋</Text>
+      <TouchableOpacity style={styles.profileOption}>
+        <Ionicons name="person-outline" size={20} color="#4A80F0" />
+        <Text style={styles.profileOptionText}>View Profile</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.profileOption}>
+        <Ionicons name="settings-outline" size={20} color="#4A80F0" />
+        <Text style={styles.profileOptionText}>Settings</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.profileOption}>
+        <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+        <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
+      </TouchableOpacity>
+    </View>
+  </TouchableOpacity>
+</Modal>
+
+
 
       {/* Filter Modal */}
       <Modal
@@ -1241,6 +1277,38 @@ const styles = StyleSheet.create({
       color: '#A0A0A0',
       marginTop: 5,
     },
+    profileModalContent: {
+      position: 'absolute',
+      top: 80,
+      right: 20,
+      backgroundColor: '#fff',
+      borderRadius: 12,
+      padding: 16,
+      width: 200,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    profileModalTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#333',
+      marginBottom: 12,
+    },
+    profileOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    profileOptionText: {
+      marginLeft: 10,
+      fontSize: 14,
+      color: '#333',
+      fontWeight: '500',
+    },
+    
   });
   
   export default HomeScreen;
