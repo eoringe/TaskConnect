@@ -11,7 +11,7 @@ export default function useGoogleSignIn() {
   const navigation = useNavigation(); // Get the navigation object
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
-    androidClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
+    androidClientId: '249705110811-5rg8j28nitnffc027u1oe4rug36u7f1o.apps.googleusercontent.com',
     iosClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
     webClientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
     scopes: ['openid', 'profile', 'email'],
