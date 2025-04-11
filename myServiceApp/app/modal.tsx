@@ -10,10 +10,8 @@ export default function ModalScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.8)']}
-        style={styles.gradient}
-      />
+      {/* Plain black background */}
+      <View style={styles.background} />
       
       {/* Header with close button */}
       <View style={styles.header}>
@@ -88,7 +86,7 @@ export default function ModalScreen() {
 }
 
 // Component for feature items
-function FeatureItem({ icon, title, description }: { icon: keyof typeof Ionicons.glyphMap; title: string; description: string }) {
+function FeatureItem({ icon, title, description }: { icon: any; title: string; description: string }) {
   return (
     <View style={styles.featureItem}>
       <View style={styles.featureIconContainer}>
@@ -107,19 +105,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
-  gradient: {
+  background: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
+    backgroundColor: '#000', // Plain black background
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingTop: Platform.OS === 'ios' ? 40 : 15,
     paddingHorizontal: 20,
     backgroundColor: 'transparent',
+    marginTop: 30, // Increased margin to move the X button further from the top
   },
   closeButton: {
     width: 36,
