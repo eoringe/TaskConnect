@@ -1,134 +1,184 @@
-import { useState, useEffect } from 'react';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { auth } from '../../firebase-config';
-import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { useEffect, useState, useCallback } from 'react';
+import { auth, GoogleAuthProvider, signInWithCredential } from '../../firebase-config';
+import { router } from 'expo-router';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// Register for the auth callback
-WebBrowser.maybeCompleteAuthSession();
+// Complete any authentication session with proper configuration
+WebBrowser.maybeCompleteAuthSession({
+  skipRedirectCheck: true,
+});
 
 export default function useGoogleSignIn() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState(null);
-
-  // Get your Expo slug
-  const slug = Constants.expoConfig?.slug || 'myServiceApp';
-  const username = Constants.expoConfig?.owner || 'oringe';
-
-  // Use the original redirect URI format that works with Google Cloud Console
-  const redirectUri = `https://auth.expo.io/@${username}/${slug}`;
-
-  // Set up the Google Auth Request - only using web client ID for Expo Go
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    // Use only web client ID when in Expo Go
-    clientId: '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com',
-    // Original redirect URI that you've configured in Google Cloud Console
-    redirectUri: redirectUri,
-    scopes: ['profile', 'email'],
-  });
-
-  // Log request object on initialization
-  useEffect(() => {
-    console.log('[DEBUG] Auth request object:', JSON.stringify(request, null, 2));
-    console.log('[DEBUG] Using redirect URI:', redirectUri);
-  }, [request, redirectUri]);
-
-  // Handle the authentication response
-  const handleSignInResponse = async (responseObj) => {
-    console.log('[DEBUG] Response received:', JSON.stringify(responseObj, null, 2));
-    
-    if (responseObj?.type === 'success') {
-      setIsSigningIn(true);
-      setError(null);
-
-      try {
-        console.log('[DEBUG] Auth successful!');
-        
-        // Get the ID token from the response
-        const { id_token: idToken } = responseObj.params || {};
-        
-        if (!idToken) {
-          console.error('[ERROR] No ID token in response');
-          throw new Error('No ID token returned from Google');
-        }
-        
-        console.log('[DEBUG] ID token received (length):', idToken.length);
-        
-        // Create a Firebase credential with just the ID token
-        const credential = GoogleAuthProvider.credential(idToken);
-        console.log('[DEBUG] Firebase credential created');
-        
-        // Sign in with Firebase using the credential
-        console.log('[DEBUG] Attempting Firebase sign-in...');
-        const userCredential = await signInWithCredential(auth, credential);
-        
-        console.log('[DEBUG] Firebase sign-in successful!');
-        console.log('[DEBUG] User UID:', userCredential.user.uid);
-        console.log('[DEBUG] User email:', userCredential.user.email);
-        
-        // Navigate to home screen
-        router.push('/home');
-      } catch (err) {
-        console.error('[ERROR] Sign-in error:', err.message);
-        console.error('[ERROR] Error code:', err.code);
-        setError(err.message || 'Sign-in failed');
-      } finally {
-        setIsSigningIn(false);
-      }
-    } else if (responseObj?.type === 'error') {
-      console.error('[ERROR] Google sign-in error:', responseObj.error);
-      setError(responseObj.error?.message || 'Google Sign-In failed');
-    } else if (responseObj?.type === 'dismiss') {
-      console.log('[INFO] Google sign-in was dismissed');
-      setError('Authentication was dismissed. Please try again.');
-    } else if (responseObj?.type === 'cancel') {
-      console.log('[INFO] Google sign-in was cancelled');
-      setError('Authentication was cancelled. Please try again.');
+  
+  // Get platform-specific client ID
+  const getClientId = () => {
+    if (Platform.OS === 'ios') {
+      return 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com'; // Replace with your iOS client ID
+    } else if (Platform.OS === 'android') {
+      return '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com'; // Replace with your Android client ID
     } else {
-      console.log('[WARNING] Unexpected response type:', responseObj?.type);
-      setError('Unexpected response from authentication provider');
+      return '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com'; // Web client ID
     }
   };
 
-  // Watch for response changes and handle them
-  useEffect(() => {
-    console.log('[DEBUG] Response changed:', response ? response.type : 'null');
-    if (response) {
-      handleSignInResponse(response);
+  // Determine correct redirect URI based on environment
+  const getRedirectUri = () => {
+    if (Constants.appOwnership === 'expo') {
+      // Using Expo Go
+      return `https://auth.expo.io/@oringe/myServiceApp`;
+    } else {
+      // Production builds should use scheme-based redirect
+      const scheme = Constants.expoConfig?.scheme || 'myserviceapp';
+      return `${scheme}://`;
     }
-  }, [response]);
+  };
 
-  const triggerSignIn = async () => {
+  // Log environment info once
+  useEffect(() => {
+    console.log('[INIT] Platform:', Platform.OS);
+    console.log('[INIT] App ownership:', Constants.appOwnership);
+    console.log('[INIT] Client ID:', getClientId());
+    console.log('[INIT] Redirect URI:', getRedirectUri());
+  }, []);
+
+  // Set up Google Auth Request
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: getClientId(),
+    redirectUri: getRedirectUri(),
+    scopes: ['profile', 'email'],
+    selectAccount: true,
+    // Add prompt parameter to force account selection
+    extraParams: {
+      prompt: 'select_account',
+      // Add state and nonce for security
+      state: 'google-auth-state',
+      nonce: 'google-auth-nonce',
+    },
+    usePKCE: true,
+  });
+
+  // Log request object changes
+  useEffect(() => {
+    if (request) {
+      console.log('[REQUEST] Request object ready');
+    } else {
+      console.log('[REQUEST] Request object not ready');
+    }
+  }, [request]);
+
+  // Handle Firebase sign-in
+  const handleFirebaseSignIn = useCallback(async (idToken) => {
     try {
+      console.log('[FIREBASE] Creating credential');
+      const credential = GoogleAuthProvider.credential(idToken);
+      
+      console.log('[FIREBASE] Signing in with credential');
+      const userCredential = await signInWithCredential(auth, credential);
+      const { user } = userCredential;
+      
+      console.log('[FIREBASE] Sign-in successful, user:', user.email);
+      
+      // Navigate to home screen
+      router.push('/home');
+      return true;
+    } catch (error) {
+      console.error('[ERROR] Firebase sign-in failed:', error.code, error.message);
+      setError(`Firebase sign-in failed: ${error.message}`);
+      return false;
+    } finally {
+      setIsSigningIn(false);
+    }
+  }, []);
+  
+  // Handle Google Auth response
+  useEffect(() => {
+    if (!response) return;
+    
+    const handleResponse = async () => {
+      console.log('[RESPONSE] Type:', response.type);
+      
+      if (response.type === 'success') {
+        console.log('[SUCCESS] Authentication successful');
+        setIsSigningIn(true);
+        setError(null);
+        
+        // Log full response params for debugging
+        console.log('[SUCCESS] Response params:', JSON.stringify(response.params));
+        
+        const { id_token } = response.params;
+        if (!id_token) {
+          console.error('[ERROR] ID token missing from response');
+          setError('ID token missing from response');
+          setIsSigningIn(false);
+          return;
+        }
+        
+        await handleFirebaseSignIn(id_token);
+      } else if (response.type === 'error') {
+        // Log complete error object for debugging
+        console.error('[ERROR] Google Auth error:', JSON.stringify(response.error, null, 2));
+        setError(`Google Sign-In failed: ${response.error?.message || 'Unknown error'}`);
+        setIsSigningIn(false);
+      } else if (response.type === 'dismiss') {
+        console.log('[INFO] Authentication was dismissed by user');
+        setIsSigningIn(false);
+      }
+    };
+    
+    handleResponse();
+  }, [response, handleFirebaseSignIn]);
+  
+  // Trigger sign-in function
+  const triggerSignIn = useCallback(async () => {
+    try {
+      if (isSigningIn) {
+        console.log('[TRIGGER] Already signing in, ignoring request');
+        return;
+      }
+      
       setIsSigningIn(true);
       setError(null);
-      console.log('[DEBUG] Starting Google sign-in flow...');
+      console.log('[TRIGGER] Starting Google sign-in flow');
       
       if (!request) {
-        console.error('[ERROR] Request object is not ready yet');
-        setError('Authentication request not ready. Try again in a moment.');
+        console.error('[ERROR] Request object not ready');
+        setError('Authentication not ready. Please try again in a moment.');
         setIsSigningIn(false);
         return;
       }
       
-      console.log('[DEBUG] Opening auth URL:', request.url);
+      // Configure browser options based on environment
+      const options = {
+        // Only use proxy in Expo Go
+        useProxy: Constants.appOwnership === 'expo',
+        // Important: Use system browser for better compatibility
+        createTask: true,
+        // Prevent browser from sleeping
+        showInRecents: true,
+        // Prefer system browser when available
+        preferEphemeralSession: false,
+      };
       
-      // Important: Make sure useProxy is true for Expo Go
-      const result = await promptAsync({ useProxy: true });
+      console.log('[TRIGGER] Opening auth browser with options:', JSON.stringify(options));
+      await promptAsync(options);
       
-      console.log('[DEBUG] PromptAsync result:', JSON.stringify(result, null, 2));
     } catch (err) {
       console.error('[ERROR] Error initiating sign-in:', err.message);
-      setError(err.message || 'Failed to start sign-in');
+      setError(`Failed to start sign-in: ${err.message}`);
       setIsSigningIn(false);
     }
-  };
-
+  }, [request, promptAsync, isSigningIn]);
+  
   return {
     isSigningIn,
     error,
-    promptAsync: triggerSignIn
+    signIn: triggerSignIn,
+    // Also expose the original promptAsync for advanced use cases
+    promptAsync
   };
 }

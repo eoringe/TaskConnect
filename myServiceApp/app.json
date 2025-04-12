@@ -2,47 +2,39 @@
   "expo": {
     "name": "myServiceApp",
     "slug": "myServiceApp",
-    "owner": "oringe", 
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "myServiceApp",
-    "scheme": "myServiceApp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "myserviceapp",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.taskconnect.myserviceapp"
-    },
-    "android": {
-      "package": "com.taskconnect.myserviceapp",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
-    },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router"
     ],
-    "experiments": {
-      "typedRoutes": true
+    "android": {
+      "package": "com.taskconnect.myserviceapp",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "myserviceapp"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.taskconnect.myserviceapp"
     },
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": "dec9206f-5b3c-4c9e-b7fe-697c99edea95"
+        "projectId": "your-eas-project-id"
       }
     }
   }
