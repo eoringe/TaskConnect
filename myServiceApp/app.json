@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myServiceApp",
+    "scheme": "myServiceApp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -23,8 +24,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "googleServicesFile": "./google-services.json"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +42,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "467007b4-1f50-4c43-be9e-062f3fbfc669"
+        "projectId": "dec9206f-5b3c-4c9e-b7fe-697c99edea95"
       }
     }
   }

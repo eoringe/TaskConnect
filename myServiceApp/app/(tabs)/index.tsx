@@ -21,6 +21,9 @@ export default function WelcomeScreen() {
   const handleLogin = () => {
     router.push('/auth');
   };
+  const handleGetStarted = () => {
+    router.push('/home');
+  };
 
   return (
     <View style={styles.container}>
@@ -88,6 +91,7 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.getStartedButton}
+            onPress={handleGetStarted}
             activeOpacity={0.8}
           >
             <LinearGradient
