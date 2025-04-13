@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
-    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-community/datetimepicker": "^8.3.0",
     "@react-native-firebase/app": "^21.13.0",
     "@react-native-firebase/auth": "^21.13.0",
@@ -24,9 +24,12 @@
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "^7.2.10",
     "@types/react-dom": "^18.2.19",
+    "axios": "^1.8.4",
+    "cors": "^2.8.5",
     "expo-auth-session": "~6.0.3",
     "expo-blur": "~14.0.3",
     "expo-crypto": "~14.0.2",
+    "expo-dev-client": "~5.0.19",
     "expo-font": "~13.0.4",
     "expo-google-app-auth": "^10.0.0",
     "expo-google-sign-in": "^10.2.0",
@@ -38,6 +41,7 @@
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
     "expo-web-browser": "~14.0.2",
+    "express": "^5.1.0",
     "firebase": "^11.6.0",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
@@ -50,8 +54,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-svg": "15.8.0",
     "react-native-web": "~0.19.13",
-    "tailwind-rn": "^4.2.0",
-    "expo-dev-client": "~5.0.19"
+    "tailwind-rn": "^4.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
