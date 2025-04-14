@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, ScrollView, TouchableOpacity, StatusBar, Modal, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useRouter } from 'expo-router';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 // import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; 
 import { Platform } from 'react-native';
 // import SharedMap from './components/SharedMap'; // Ensure this file exists or update the path
 
+type RootStackParamList = {
+  Booking: { tasker: any };
+  BookingSummary: {
+    tasker: any;
+    date: Date;
+    address: string;
+    notes: string;
+  };
+};
+
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Booking'>;
 
 const Tab = createBottomTabNavigator();
 const { width } = Dimensions.get('window');
 
 // Mock data for services
 const allServices = [
-  { id: 1, name: 'Bosco Weakass', category: 'Cleaning', location: '2 km away', rating: 4.9, reviews: 42, price: 'Ksh 3500', coordinates: { latitude: -1.286389, longitude: 36.817223 } },
+  { id: 1, name: 'Yvonne Karanja', category: 'Best Administrator', location: '2 km away', rating: 4.9, reviews: 42, price: 'Ksh 3500', coordinates: { latitude: -1.286389, longitude: 36.817223 } },
   { id: 2, name: 'Green Gardeners', category: 'Gardening', location: '4.5 km away', rating: 4.7, reviews: 38, price: 'Ksh 1500', coordinates: { latitude: -1.289389, longitude: 36.824223 } },
   { id: 3, name: 'HomeBright Cleaners', category: 'Cleaning', location: '6 km away', rating: 4.8, reviews: 56, price: 'Ksh 1000', coordinates: { latitude: -1.292389, longitude: 36.807223 } },
   { id: 4, name: 'FixIt Plumbers', category: 'Plumbing', location: '3.8 km away', rating: 4.6, reviews: 29, price: 'Ksh 2000', coordinates: { latitude: -1.281389, longitude: 36.820223 } },
@@ -66,12 +79,16 @@ const HomeScreenContent = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const handleBecomeTasker = () => {
+    router.push('/tasker-onboarding/personal-details');
+  };
 
   // Function to filter services based on category
   const filterByCategory = (category: string) => {
     setIsLoading(true);
     setSelectedCategory(category);
-    
+
     setTimeout(() => {
       if (category === 'All') {
         setServices(allServices.slice(0, 5));
@@ -91,43 +108,43 @@ const HomeScreenContent = () => {
   // Function to apply filters
   const applyFilters = () => {
     setIsLoading(true);
-    
+
     setTimeout(() => {
       let filtered = [...allServices];
-      
+
       // Apply min rating filter
       filtered = filtered.filter(service => service.rating >= filterOptions.minRating);
-      
+
       // Apply price filter (mock implementation)
-      filtered = filtered.filter(service => 
+      filtered = filtered.filter(service =>
         parseInt(service.price.replace('Ksh', '').split('/')[0]) <= filterOptions.maxPrice
       );
-      
+
       // Apply distance filter (mock implementation)
-      filtered = filtered.filter(service => 
+      filtered = filtered.filter(service =>
         parseFloat(service.location.replace(' km away', '')) <= filterOptions.maxDistance
       );
-      
+
       // Apply category filter if not "All"
       if (selectedCategory !== 'All') {
         filtered = filtered.filter(service => service.category === selectedCategory);
       }
-      
+
       // Apply sorting
       if (filterOptions.sortBy === 'rating') {
         filtered.sort((a, b) => b.rating - a.rating);
       } else if (filterOptions.sortBy === 'price') {
-        filtered.sort((a, b) => 
-          parseInt(a.price.replace('Ksh', '').split('/')[0]) - 
+        filtered.sort((a, b) =>
+          parseInt(a.price.replace('Ksh', '').split('/')[0]) -
           parseInt(b.price.replace('Ksh', '').split('/')[0])
         );
       } else if (filterOptions.sortBy === 'distance') {
-        filtered.sort((a, b) => 
-          parseFloat(a.location.replace(' km away', '')) - 
+        filtered.sort((a, b) =>
+          parseFloat(a.location.replace(' km away', '')) -
           parseFloat(b.location.replace(' km away', ''))
         );
       }
-      
+
       setServices(filtered.slice(0, 5));
       setShowFilterModal(false);
       setIsLoading(false);
@@ -138,7 +155,7 @@ const HomeScreenContent = () => {
   const changeLocation = (location: React.SetStateAction<{ name: string; country: string; coordinates: { latitude: number; longitude: number; }; }>) => {
     setIsLoading(true);
     setCurrentLocation(location);
-    
+
     setTimeout(() => {
       // Here you would typically make an API call to fetch services near the new location
       // For now, we'll just simulate a change
@@ -153,19 +170,19 @@ const HomeScreenContent = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerText}>Hi, James 👋</Text>
           <Text style={styles.subHeaderText}>Find trusted help nearby</Text>
         </View>
-        <TouchableOpacity 
-  style={styles.avatarContainer}
-  onPress={() => setShowProfileModal(true)}
->
-  <Ionicons name="person-circle" size={40} color="#4A80F0" />
-</TouchableOpacity>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => setShowProfileModal(true)}
+        >
+          <Ionicons name="person-circle" size={40} color="#4A80F0" />
+        </TouchableOpacity>
 
       </View>
 
@@ -186,7 +203,7 @@ const HomeScreenContent = () => {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
           >
@@ -207,18 +224,48 @@ const HomeScreenContent = () => {
             <Ionicons name="home" size={60} color="#fff" style={styles.bannerImage} />
           </View>
         </View>
-
+        <View style={styles.becomeTaskerCard}>
+          <View style={styles.cardContent}>
+            <View style={styles.cardTextContent}>
+              <Text style={styles.cardTitle}>Become a Tasker</Text>
+              <Text style={styles.cardDescription}>
+                Turn your skills into income. Join our community of professional taskers and start earning on your own schedule.
+              </Text>
+              <View style={styles.benefitsList}>
+                <View style={styles.benefitItem}>
+                  <Ionicons name="time-outline" size={24} color="#4A80F0" />
+                  <Text style={styles.benefitText}>Flexible Schedule</Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Ionicons name="cash-outline" size={24} color="#4A80F0" />
+                  <Text style={styles.benefitText}>Competitive Pay</Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Ionicons name="shield-checkmark-outline" size={24} color="#4A80F0" />
+                  <Text style={styles.benefitText}>Secure Platform</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.becomeTaskerButton}
+                onPress={handleBecomeTasker}
+              >
+                <Text style={styles.becomeTaskerButtonText}>Get Started</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
         {/* Category Scroll */}
         <Text style={styles.sectionTitle}>Categories</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           style={styles.horizontalScroll}
           contentContainerStyle={styles.categoryContainer}
         >
           {categories.map((cat, idx) => (
-            <TouchableOpacity 
-              key={idx} 
+            <TouchableOpacity
+              key={idx}
               style={[
                 styles.categoryItem,
                 selectedCategory === cat.name && styles.selectedCategoryItem
@@ -229,10 +276,10 @@ const HomeScreenContent = () => {
                 styles.categoryIconContainer,
                 selectedCategory === cat.name && styles.selectedCategoryIconContainer
               ]}>
-                <Ionicons 
-                  name={cat.icon as any} 
-                  size={22} 
-                  color={selectedCategory === cat.name ? "#fff" : "#4A80F0"} 
+                <Ionicons
+                  name={cat.icon as any}
+                  size={22}
+                  color={selectedCategory === cat.name ? "#fff" : "#4A80F0"}
                 />
               </View>
               <Text style={[
@@ -287,10 +334,17 @@ const HomeScreenContent = () => {
                   </View>
                 </View>
               </View>
-              <TouchableOpacity style={styles.bookBtn}>
+              <TouchableOpacity
+                style={styles.bookBtn}
+                onPress={() => router.push({
+                  pathname: "/booking",
+                  params: { tasker: JSON.stringify(service) }
+                })}
+              >
                 <Text style={styles.bookBtnText}>Book</Text>
                 <Ionicons name="arrow-forward" size={16} color="#fff" style={styles.bookBtnIcon} />
               </TouchableOpacity>
+
             </View>
           ))
         ) : (
@@ -301,35 +355,35 @@ const HomeScreenContent = () => {
           </View>
         )}
       </ScrollView>
-{/* Profile Modal */}
-<Modal
-  transparent={true}
-  animationType="fade"
-  visible={showProfileModal}
-  onRequestClose={() => setShowProfileModal(false)}
->
-  <TouchableOpacity 
-    style={styles.modalOverlay}
-    activeOpacity={1}
-    onPressOut={() => setShowProfileModal(false)}
-  >
-    <View style={styles.profileModalContent}>
-      <Text style={styles.profileModalTitle}>Hello James 👋</Text>
-      <TouchableOpacity style={styles.profileOption}>
-        <Ionicons name="person-outline" size={20} color="#4A80F0" />
-        <Text style={styles.profileOptionText}>View Profile</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.profileOption}>
-        <Ionicons name="settings-outline" size={20} color="#4A80F0" />
-        <Text style={styles.profileOptionText}>Settings</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.profileOption}>
-        <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
-        <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-</Modal>
+      {/* Profile Modal */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={showProfileModal}
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setShowProfileModal(false)}
+        >
+          <View style={styles.profileModalContent}>
+            <Text style={styles.profileModalTitle}>Hello James 👋</Text>
+            <TouchableOpacity style={styles.profileOption}>
+              <Ionicons name="person-outline" size={20} color="#4A80F0" />
+              <Text style={styles.profileOptionText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileOption}>
+              <Ionicons name="settings-outline" size={20} color="#4A80F0" />
+              <Text style={styles.profileOptionText}>Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileOption}>
+              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+              <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
 
 
@@ -348,20 +402,20 @@ const HomeScreenContent = () => {
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Minimum Rating</Text>
               <View style={styles.sliderContainer}>
                 <Text style={styles.sliderValue}>{filterOptions.minRating.toFixed(1)}</Text>
                 <View style={styles.sliderTrack}>
                   {[3.0, 3.5, 4.0, 4.5, 5.0].map((value) => (
-                    <TouchableOpacity 
-                      key={value} 
+                    <TouchableOpacity
+                      key={value}
                       style={[
-                        styles.sliderMarker, 
+                        styles.sliderMarker,
                         filterOptions.minRating >= value && styles.sliderMarkerActive
                       ]}
-                      onPress={() => setFilterOptions({...filterOptions, minRating: value})}
+                      onPress={() => setFilterOptions({ ...filterOptions, minRating: value })}
                     />
                   ))}
                 </View>
@@ -371,20 +425,20 @@ const HomeScreenContent = () => {
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Maximum Price (Ksh)</Text>
               <View style={styles.sliderContainer}>
                 <Text style={styles.sliderValue}>Ksh{filterOptions.maxPrice}</Text>
                 <View style={styles.sliderTrack}>
-                {[500, 2000, 3500, 5000, 7000].map((value) => (
-                    <TouchableOpacity 
-                      key={value} 
+                  {[500, 2000, 3500, 5000, 7000].map((value) => (
+                    <TouchableOpacity
+                      key={value}
                       style={[
-                        styles.sliderMarker, 
+                        styles.sliderMarker,
                         filterOptions.maxPrice >= value && styles.sliderMarkerActive
                       ]}
-                      onPress={() => setFilterOptions({...filterOptions, maxPrice: value})}
+                      onPress={() => setFilterOptions({ ...filterOptions, maxPrice: value })}
                     />
                   ))}
                 </View>
@@ -394,20 +448,20 @@ const HomeScreenContent = () => {
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Maximum Distance (km)</Text>
               <View style={styles.sliderContainer}>
                 <Text style={styles.sliderValue}>{filterOptions.maxDistance} km</Text>
                 <View style={styles.sliderTrack}>
                   {[2, 4, 6, 8, 10].map((value) => (
-                    <TouchableOpacity 
-                      key={value} 
+                    <TouchableOpacity
+                      key={value}
                       style={[
-                        styles.sliderMarker, 
+                        styles.sliderMarker,
                         filterOptions.maxDistance >= value && styles.sliderMarkerActive
                       ]}
-                      onPress={() => setFilterOptions({...filterOptions, maxDistance: value})}
+                      onPress={() => setFilterOptions({ ...filterOptions, maxDistance: value })}
                     />
                   ))}
                 </View>
@@ -417,20 +471,20 @@ const HomeScreenContent = () => {
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Sort By</Text>
               <View style={styles.sortOptions}>
                 {['rating', 'price', 'distance'].map((option) => (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     key={option}
                     style={[
                       styles.sortOption,
                       filterOptions.sortBy === option && styles.sortOptionActive
                     ]}
-                    onPress={() => setFilterOptions({...filterOptions, sortBy: option})}
+                    onPress={() => setFilterOptions({ ...filterOptions, sortBy: option })}
                   >
-                    <Text 
+                    <Text
                       style={[
                         styles.sortOptionText,
                         filterOptions.sortBy === option && styles.sortOptionTextActive
@@ -442,9 +496,9 @@ const HomeScreenContent = () => {
                 ))}
               </View>
             </View>
-            
+
             <View style={styles.filterActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.resetButton}
                 onPress={() => setFilterOptions({
                   minRating: 4.0,
@@ -455,7 +509,7 @@ const HomeScreenContent = () => {
               >
                 <Text style={styles.resetButtonText}>Reset</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.applyButton}
                 onPress={applyFilters}
               >
@@ -481,11 +535,11 @@ const HomeScreenContent = () => {
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View> */}
-            
-            {/* Map View */}
-    
 
-{/* <View style={styles.mapContainer}>
+      {/* Map View */}
+
+
+      {/* <View style={styles.mapContainer}>
   {isWeb ? (
     <View style={[styles.map, { justifyContent: 'center', alignItems: 'center' }]}>
       <Text style={{ color: '#A0A0A0' }}>Map is unavailable on web.</Text>
@@ -527,8 +581,8 @@ const HomeScreenContent = () => {
             
             <Text style={styles.locationListTitle}>Popular Cities</Text>
              */}
-            {/* City List */}
-            {/* <FlatList
+      {/* City List */}
+      {/* <FlatList
               data={cities}
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item }) => (
@@ -561,7 +615,7 @@ const HomeScreenContent = () => {
         </View>
       </Modal> */}
 
-      {/* See All Categories Modal */}
+      {/* Category List Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -578,12 +632,11 @@ const HomeScreenContent = () => {
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <FlatList
-              data={selectedCategory === 'All' 
-                ? allServices 
-                : allServices.filter(service => service.category === selectedCategory)
-              }
+              data={selectedCategory === 'All'
+                ? allServices
+                : allServices.filter(service => service.category === selectedCategory)}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => (
                 <View style={styles.serviceListItem}>
@@ -606,7 +659,13 @@ const HomeScreenContent = () => {
                         <Text style={styles.serviceListLocationText}>{item.location}</Text>
                       </View>
                     </View>
-                    <TouchableOpacity style={styles.miniBookBtn}>
+                    <TouchableOpacity
+                      style={styles.miniBookBtn}
+                      onPress={() => router.push({
+                        pathname: "/booking",
+                        params: { tasker: JSON.stringify(item) }
+                      })}
+                    >
                       <Text style={styles.miniBookBtnText}>Book</Text>
                     </TouchableOpacity>
                   </View>
@@ -789,526 +848,635 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-    bannerSubtitle: {
-      fontSize: 14,
-      color: '#E0E8FF',
-      marginTop: 5,
-      marginBottom: 15,
-    },
-    bannerButton: {
-      backgroundColor: '#fff',
-      borderRadius: 10,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      alignSelf: 'flex-start',
-    },
-    bannerButtonText: {
-      color: '#4A80F0',
-      fontWeight: '600',
-    },
-    bannerImageContainer: {
-      flex: 1,
-      alignItems: 'flex-end',
-    },
-    bannerImage: {
-      opacity: 0.8,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      marginBottom: 15,
-      marginHorizontal: 20,
-      color: '#333',
-    },
-    horizontalScroll: {
-      marginBottom: 25,
-    },
-    categoryContainer: {
-      paddingHorizontal: 20,
-    },
-    categoryItem: {
-      alignItems: 'center',
-      marginRight: 18,
-      width: 75,
-    },
-    selectedCategoryItem: {
-      transform: [{scale: 1.05}],
-    },
-    categoryIconContainer: {
-      height: 60,
-      width: 60,
-      borderRadius: 20,
-      backgroundColor: '#F0F4FF',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 8,
-      shadowColor: '#4A80F0',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 6,
-      elevation: 3,
-    },
-    selectedCategoryIconContainer: {
-      backgroundColor: '#4A80F0',
-    },
-    categoryText: {
-      color: '#555',
-      fontWeight: '500',
-      fontSize: 12,
-      textAlign: 'center',
-    },
-    selectedCategoryText: {
-      color: '#4A80F0',
-      fontWeight: '700',
-    },
-    locationContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#fff',
-      paddingVertical: 10,
-      paddingHorizontal: 15,
-      borderRadius: 12,
-      marginHorizontal: 20,
-      marginBottom: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 1,
-    },
-    locationText: {
-      marginLeft: 6,
-      fontSize: 14,
-      color: '#333',
-      flex: 1,
-    },
-    changeText: {
-      color: '#4A80F0',
-      fontWeight: '600',
-      fontSize: 13,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginHorizontal: 20,
-      marginBottom: 15,
-    },
-    seeAllText: {
-      color: '#4A80F0',
-      fontWeight: '600',
-    },
-    serviceCard: {
-      backgroundColor: '#fff',
-      borderRadius: 20,
-      padding: 15,
-      marginHorizontal: 20,
-      marginBottom: 15,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-    serviceCardTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    serviceImageContainer: {
-      height: 65,
-      width: 65,
-      borderRadius: 20,
-      backgroundColor: '#F0F4FF',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 15,
-    },
-    serviceInfo: {
-      flex: 1,
-    },
-    serviceName: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: '#333',
-      marginBottom: 5,
-    },
-    ratingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 5,
-    },
-    ratingText: {
-      fontSize: 14,
-      color: '#333',
-      fontWeight: '700',
-      marginLeft: 4,
-    },
-    reviewsText: {
-      fontSize: 12,
-      color: '#A0A0A0',
-      marginLeft: 4,
-    },
-    locationRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 5,
-    },
-    priceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    priceText: {
-      fontSize: 13,
-      color: '#4A80F0',
-      fontWeight: '600',
-      marginLeft: 4,
-    },
-    serviceLocation: {
-      fontSize: 13,
-      color: '#A0A0A0',
-      marginLeft: 4,
-    },
-    bookBtn: {
-      marginTop: 15,
-      backgroundColor: '#4A80F0',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 12,
-      alignSelf: 'flex-end',
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    bookBtnText: {
-      color: '#fff',
-      fontWeight: '600',
-      marginRight: 5,
-    },
-    bookBtnIcon: {
-      marginLeft: 3,
-    },
-    center: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#F8F9FD',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'flex-end',
-    },
-    filterModalContent: {
-      backgroundColor: '#fff',
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 30,
-      maxHeight: '80%',
-    },
-    locationModalContent: {
-      backgroundColor: '#fff',
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      paddingTop: 20,
-      paddingBottom: 20,
-      maxHeight: '90%',
-    },
-    categoryListModalContent: {
-      backgroundColor: '#fff',
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      paddingTop: 20,
-      paddingBottom: 20,
-      maxHeight: '80%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 20,
-      paddingHorizontal: 20,
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: '#333',
-    },
-    filterSection: {
-      marginBottom: 20,
-    },
-    filterLabel: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: '#333',
-      marginBottom: 10,
-    },
-    sliderContainer: {
-      marginHorizontal: 10,
-    },
-    sliderValue: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: '#4A80F0',
-      textAlign: 'center',
-      marginBottom: 10,
-    },
-    sliderTrack: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      height: 4,
-      backgroundColor: '#E0E0E0',
-      borderRadius: 2,
-      marginBottom: 10,
-    },
-    sliderMarker: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: '#fff',
-      borderWidth: 2,
-      borderColor: '#E0E0E0',
-      marginLeft: -8,
-    },
-    sliderMarkerActive: {
-      borderColor: '#4A80F0',
-      backgroundColor: '#4A80F0',
-    },
-    sliderLabels: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    sliderLabelText: {
-      fontSize: 12,
-      color: '#A0A0A0',
-    },
-    sortOptions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    sortOption: {
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 15,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: '#E0E0E0',
-      alignItems: 'center',
-      marginHorizontal: 5,
-    },
-    sortOptionActive: {
-      backgroundColor: '#4A80F0',
-      borderColor: '#4A80F0',
-    },
-    sortOptionText: {
-      color: '#333',
-      fontWeight: '500',
-    },
-    sortOptionTextActive: {
-      color: '#fff',
-    },
-    filterActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 20,
-    },
-    resetButton: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: 14,
-      borderWidth: 1,
-      borderColor: '#E0E0E0',
-      borderRadius: 12,
-      marginRight: 10,
-    },
-    resetButtonText: {
-      color: '#333',
-      fontWeight: '600',
-    },
-    applyButton: {
-      flex: 2,
-      alignItems: 'center',
-      backgroundColor: '#4A80F0',
-      paddingVertical: 14,
-      borderRadius: 12,
-    },
-    applyButtonText: {
-      color: '#fff',
-      fontWeight: '600',
-    },
-    mapContainer: {
-      width: '100%',
-      height: 200,
-      marginBottom: 20,
-    },
-    map: {
-      width: '100%',
-      height: '100%',
-    },
-    locationListTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: '#333',
-      marginVertical: 10,
-      paddingHorizontal: 20,
-    },
-    cityList: {
-      maxHeight: 300,
-    },
-    cityItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 15,
-      paddingHorizontal: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F0',
-    },
-    selectedCityItem: {
-      backgroundColor: '#F0F4FF',
-    },
-    cityItemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    cityName: {
-      fontSize: 16,
-      color: '#333',
-      marginLeft: 10,
-    },
-    countryName: {
-      fontSize: 12,
-      color: '#A0A0A0',
-      marginLeft: 10,
-    },
-    serviceListItem: {
-      backgroundColor: '#fff',
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F0',
-    },
-    serviceListItemTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    serviceListImageContainer: {
-      width: 50,
-      height: 50,
-      borderRadius: 15,
-      backgroundColor: '#F0F4FF',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 15,
-    },
-    serviceListInfo: {
-      flex: 1,
-    },
-    serviceListName: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: '#333',
-      marginBottom: 4,
-    },
-    serviceListMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 4,
-    },
-    miniRatingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginRight: 10,
-    },
-    miniRatingText: {
-      fontSize: 12,
-      fontWeight: '600',
-      marginLeft: 3,
-    },
-    serviceListCategory: {
-      fontSize: 12,
-      color: '#4A80F0',
-      backgroundColor: '#F0F4FF',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 10,
-      marginRight: 10,
-    },
-    serviceListPrice: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#4A80F0',
-    },
-    serviceListLocation: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    serviceListLocationText: {
-      fontSize: 12,
-      color: '#A0A0A0',
-      marginLeft: 4,
-    },
-    miniBookBtn: {
-      backgroundColor: '#4A80F0',
-      paddingVertical: 6,
-      paddingHorizontal: 15,
-      borderRadius: 10,
-    },
-    miniBookBtnText: {
-      color: '#fff',
-      fontWeight: '600',
-      fontSize: 12,
-    },
-    noResultsContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 30,
-      marginHorizontal: 20,
-    },
-    noResultsText: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: '#333',
-      marginTop: 15,
-    },
-    noResultsSubtext: {
-      fontSize: 14,
-      color: '#A0A0A0',
-      marginTop: 5,
-    },
-    profileModalContent: {
-      position: 'absolute',
-      top: 80,
-      right: 20,
-      backgroundColor: '#fff',
-      borderRadius: 12,
-      padding: 16,
-      width: 200,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 6,
-    },
-    profileModalTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#333',
-      marginBottom: 12,
-    },
-    profileOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 10,
-    },
-    profileOptionText: {
-      marginLeft: 10,
-      fontSize: 14,
-      color: '#333',
-      fontWeight: '500',
-    },
-    
-  });
-  
-  export default HomeScreen;
+  bannerSubtitle: {
+    fontSize: 14,
+    color: '#E0E8FF',
+    marginTop: 5,
+    marginBottom: 15,
+  },
+  bannerButton: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+  },
+  bannerButtonText: {
+    color: '#4A80F0',
+    fontWeight: '600',
+  },
+  bannerImageContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  bannerImage: {
+    opacity: 0.8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 15,
+    marginHorizontal: 20,
+    color: '#333',
+  },
+  horizontalScroll: {
+    marginBottom: 25,
+  },
+  categoryContainer: {
+    paddingHorizontal: 20,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    marginRight: 18,
+    width: 75,
+  },
+  selectedCategoryItem: {
+    transform: [{ scale: 1.05 }],
+  },
+  categoryIconContainer: {
+    height: 60,
+    width: 60,
+    borderRadius: 20,
+    backgroundColor: '#F0F4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#4A80F0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  selectedCategoryIconContainer: {
+    backgroundColor: '#4A80F0',
+  },
+  categoryText: {
+    color: '#555',
+    fontWeight: '500',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  selectedCategoryText: {
+    color: '#4A80F0',
+    fontWeight: '700',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  locationText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  changeText: {
+    color: '#4A80F0',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 15,
+  },
+  seeAllText: {
+    color: '#4A80F0',
+    fontWeight: '600',
+  },
+  serviceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  serviceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceImageContainer: {
+    height: 65,
+    width: 65,
+    borderRadius: 20,
+    backgroundColor: '#F0F4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  reviewsText: {
+    fontSize: 12,
+    color: '#A0A0A0',
+    marginLeft: 4,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  priceText: {
+    fontSize: 13,
+    color: '#4A80F0',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  serviceLocation: {
+    fontSize: 13,
+    color: '#A0A0A0',
+    marginLeft: 4,
+  },
+  bookBtn: {
+    marginTop: 15,
+    backgroundColor: '#4A80F0',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bookBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    marginRight: 5,
+  },
+  bookBtnIcon: {
+    marginLeft: 3,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FD',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    maxHeight: '80%',
+  },
+  locationModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 20,
+    paddingBottom: 20,
+    maxHeight: '90%',
+  },
+  categoryListModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 20,
+    paddingBottom: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  sliderContainer: {
+    marginHorizontal: 10,
+  },
+  sliderValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4A80F0',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  sliderTrack: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    marginBottom: 10,
+  },
+  sliderMarker: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    marginLeft: -8,
+  },
+  sliderMarkerActive: {
+    borderColor: '#4A80F0',
+    backgroundColor: '#4A80F0',
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sliderLabelText: {
+    fontSize: 12,
+    color: '#A0A0A0',
+  },
+  sortOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sortOption: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  sortOptionActive: {
+    backgroundColor: '#4A80F0',
+    borderColor: '#4A80F0',
+  },
+  sortOptionText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  sortOptionTextActive: {
+    color: '#fff',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  resetButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    marginRight: 10,
+  },
+  resetButtonText: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  applyButton: {
+    flex: 2,
+    alignItems: 'center',
+    backgroundColor: '#4A80F0',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  mapContainer: {
+    width: '100%',
+    height: 200,
+    marginBottom: 20,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  locationListTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginVertical: 10,
+    paddingHorizontal: 20,
+  },
+  cityList: {
+    maxHeight: 300,
+  },
+  cityItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  selectedCityItem: {
+    backgroundColor: '#F0F4FF',
+  },
+  cityItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cityName: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+  },
+  countryName: {
+    fontSize: 12,
+    color: '#A0A0A0',
+    marginLeft: 10,
+  },
+  serviceListItem: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  serviceListItemTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceListImageContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: '#F0F4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  serviceListInfo: {
+    flex: 1,
+  },
+  serviceListName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  serviceListMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  miniRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  miniRatingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 3,
+  },
+  serviceListCategory: {
+    fontSize: 12,
+    color: '#4A80F0',
+    backgroundColor: '#F0F4FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  serviceListPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4A80F0',
+  },
+  serviceListLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceListLocationText: {
+    fontSize: 12,
+    color: '#A0A0A0',
+    marginLeft: 4,
+  },
+  miniBookBtn: {
+    backgroundColor: '#4A80F0',
+    paddingVertical: 6,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+  },
+  miniBookBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    marginHorizontal: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 15,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#A0A0A0',
+    marginTop: 5,
+  },
+  profileModalContent: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    width: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  profileModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 12,
+  },
+  profileOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  profileOptionText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  becomeTaskerCard: {
+    margin: 20,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fd',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  cardContent: {
+    padding: 20,
+  },
+  cardTextContent: {
+    gap: 15,
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  cardDescription: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+  },
+  benefitsList: {
+    marginTop: 20,
+    gap: 15,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  benefitText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  becomeTaskerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4A80F0',
+    padding: 18,
+    borderRadius: 12,
+    marginTop: 20,
+    gap: 10,
+  },
+  becomeTaskerButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  section: {
+    padding: 20,
+  },
+
+  servicesScroll: {
+    marginLeft: -5,
+  },
+
+  serviceIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#f0f5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  serviceText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+  },
+  stepsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  stepCard: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#f8f9fd',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  stepIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f0f5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  stepTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5,
+  },
+  stepDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  }
+
+});
+
+export default HomeScreen;
