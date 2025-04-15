@@ -11,5 +11,5 @@
   "include": [
     "**/*.ts",
     "**/*.tsx"
-, "app/auth/LoginScreen.js"  ]
+, "app/auth/index.js"  ], "app/home/index.js"
 }

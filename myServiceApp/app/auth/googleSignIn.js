@@ -104,8 +104,8 @@ export default function useGoogleSignIn() {
   };
 
   // Use ngrok redirect URI for all platforms
-  const ngrokRedirectUri = 'https://b591-197-237-175-62.ngrok-free.app/oauth2callback';
-  const serverBaseUrl = 'https://b591-197-237-175-62.ngrok-free.app';
+  const ngrokRedirectUri = 'https://9295-197-237-175-62.ngrok-free.app/oauth2callback';
+  const serverBaseUrl = 'https://9295-197-237-175-62.ngrok-free.app';
   
   // Function to log current auth status
   const logAuthStatus = useCallback(() => {

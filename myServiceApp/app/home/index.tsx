@@ -4,6 +4,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../../firebase-config'; // Adjust the path as needed
+import { Alert } from 'react-native';
+import { router } from 'expo-router'; // If you're using Expo Router for navigation
 // import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; 
 import { Platform } from 'react-native';
 // import SharedMap from './components/SharedMap'; // Ensure this file exists or update the path
@@ -18,12 +21,46 @@ type RootStackParamList = {
   };
 };
 
+
+
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Booking'>;
 
 const Tab = createBottomTabNavigator();
 const { width } = Dimensions.get('window');
 
 // Mock data for services
+const handleLogout = async () => {
+  try {
+    // Show confirmation alert
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Yes, Logout", 
+          onPress: async () => {
+            // Sign out from Firebase
+            await auth.signOut();
+            
+            // Navigate to login screen
+            router.replace('/'); // Adjust the route as needed
+            
+            // You can add additional cleanup here if needed
+            console.log('User logged out successfully');
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    console.error('Error signing out:', error);
+    Alert.alert('Error', 'Failed to log out. Please try again.');
+  }
+};
+
 const allServices = [
   { id: 1, name: 'Yvonne Karanja', category: 'Best Administrator', location: '2 km away', rating: 4.9, reviews: 42, price: 'Ksh 3500', coordinates: { latitude: -1.286389, longitude: 36.817223 } },
   { id: 2, name: 'Green Gardeners', category: 'Gardening', location: '4.5 km away', rating: 4.7, reviews: 38, price: 'Ksh 1500', coordinates: { latitude: -1.289389, longitude: 36.824223 } },
@@ -367,21 +404,24 @@ const HomeScreenContent = () => {
           activeOpacity={1}
           onPressOut={() => setShowProfileModal(false)}
         >
-          <View style={styles.profileModalContent}>
-            <Text style={styles.profileModalTitle}>Hello James 👋</Text>
-            <TouchableOpacity style={styles.profileOption}>
-              <Ionicons name="person-outline" size={20} color="#4A80F0" />
-              <Text style={styles.profileOptionText}>View Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileOption}>
-              <Ionicons name="settings-outline" size={20} color="#4A80F0" />
-              <Text style={styles.profileOptionText}>Settings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileOption}>
-              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
-              <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.profileModalContent}>
+  <Text style={styles.profileModalTitle}>Hello James 👋</Text>
+  <TouchableOpacity style={styles.profileOption}>
+    <Ionicons name="person-outline" size={20} color="#4A80F0" />
+    <Text style={styles.profileOptionText}>View Profile</Text>
+  </TouchableOpacity>
+  <TouchableOpacity style={styles.profileOption}>
+    <Ionicons name="settings-outline" size={20} color="#4A80F0" />
+    <Text style={styles.profileOptionText}>Settings</Text>
+  </TouchableOpacity>
+  <TouchableOpacity 
+    style={styles.profileOption}
+    onPress={handleLogout}
+  >
+    <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+    <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
+  </TouchableOpacity>
+</View>
         </TouchableOpacity>
       </Modal>
 
