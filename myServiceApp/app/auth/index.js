@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -18,6 +18,327 @@ import useGoogleSignIn from './googleSignIn';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth'; 
 import { auth } from '../../firebase-config';
+
+const LoginScreen = () => {
+  // Extract necessary functions from the hook
+  const { 
+    signIn, 
+    waitingForManualReturn, 
+    authCode, 
+    setAuthCode, 
+    handleCodeSubmit,
+    error: googleSignInError, 
+    forceShowCodeInput 
+  } = useGoogleSignIn();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [loginError, setLoginError] = useState('');
+  
+  const validateForm = () => {
+    let isValid = true;
+    
+    // Reset previous errors
+    setEmailError('');
+    setPasswordError('');
+    
+    // Validate email
+    if (!email.trim()) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError('Email format is invalid');
+      isValid = false;
+    }
+    
+    // Validate password
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      isValid = false;
+    }
+    
+    return isValid;
+  };
+
+  const handleEmailSignIn = async () => {
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    setLoginError('');
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/home');
+    } catch (error) {
+      // Handle specific Firebase auth errors
+      let errorMessage = 'Failed to sign in. Please try again.';
+      
+      if (error && error.code === 'auth/user-not-found' || 
+          error && error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect email or password';
+      } else if (error && error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later';
+      }
+      
+      setLoginError(errorMessage);
+      Alert.alert('Sign-In Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoginError('');
+    try {
+      await signIn();
+    } catch (err) {
+      console.error('Error during Google sign-in:', err);
+    }
+  };
+  
+  const handleSignUp = () => {
+    router.push('/auth/signup');
+  };
+
+  const handleForgotPassword = () => {
+    router.push('/auth/forgot-password');
+  };
+
+  // Custom implementation of CodeInputComponent without any spinner
+  const renderCodeInput = () => {
+    return (
+      <View style={styles.codeInputWrapper}>
+        <View style={styles.codeInputHeaderContainer}>
+          <View style={styles.logoContainer}>
+            <LinearGradient
+              colors={['#5CBD6A', '#3C9D4E']}
+              start={[0, 0]}
+              end={[1, 1]}
+              style={styles.logoGradient}
+            >
+              <Text style={styles.logoText}>TC</Text>
+            </LinearGradient>
+          </View>
+          <Text style={styles.headerText}>Google Sign-In</Text>
+          <Text style={styles.subHeaderText}>Enter the authentication code from the browser</Text>
+        </View>
+        
+        <View style={styles.codeInputContainer}>
+          <Text style={styles.codeInputTitle}>Enter Authentication Code</Text>
+          <Text style={styles.codeInputInstructions}>
+            After signing in with Google, you'll receive a code in the browser. 
+            Please copy and paste that code below.
+          </Text>
+          
+          <TextInput
+            style={styles.codeInput}
+            value={authCode}
+            onChangeText={setAuthCode}
+            placeholder="Enter code from browser"
+            placeholderTextColor="#999"
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect={false}
+          />
+          
+          <TouchableOpacity
+            style={styles.submitButtonContainer}
+            onPress={handleCodeSubmit}
+          >
+            <LinearGradient
+              colors={['#5CBD6A', '#3C9D4E']}
+              start={[0, 0]}
+              end={[1, 0]}
+              style={styles.submitButtonGradient}
+            >
+              <Text style={styles.submitButtonText}>Complete Sign-In</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          {googleSignInError ? (
+            <Text style={styles.errorText}>{googleSignInError}</Text>
+          ) : null}
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.cancelButton}
+          onPress={() => router.push('/')}
+        >
+          <Text style={styles.cancelButtonText}>Cancel Sign-In</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+    >
+      <StatusBar barStyle="light-content" />
+      
+      <LinearGradient
+        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+        style={styles.gradient}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        {waitingForManualReturn ? (
+          renderCodeInput()
+        ) : (
+          <>
+            <View style={styles.headerContainer}>
+              <View style={styles.logoContainer}>
+                <LinearGradient
+                  colors={['#5CBD6A', '#3C9D4E']}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={styles.logoGradient}
+                >
+                  <Text style={styles.logoText}>TC</Text>
+                </LinearGradient>
+              </View>
+              <Text style={styles.headerText}>Welcome</Text>
+              <Text style={styles.subHeaderText}>Sign in to continue</Text>
+            </View>
+
+            <View style={styles.formContainer}>
+              {/* Email Input */}
+              <View style={[
+                styles.inputContainer, 
+                emailError ? styles.inputError : null
+              ]}>
+                <Ionicons name="mail-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email Address"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (emailError) setEmailError('');
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+              </View>
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+              {/* Password Input */}
+              <View style={[
+                styles.inputContainer,
+                passwordError ? styles.inputError : null
+              ]}>
+                <Ionicons name="lock-closed-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={22} 
+                    color="rgba(255,255,255,0.7)" 
+                  />
+                </TouchableOpacity>
+              </View>
+              {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+              <TouchableOpacity 
+                style={styles.forgotPasswordButton}
+                onPress={handleForgotPassword}
+                disabled={isLoading}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+
+              {/* General login error message */}
+              {loginError ? <Text style={[styles.errorText, styles.generalError]}>{loginError}</Text> : null}
+
+              {/* Sign In Button */}
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={handleEmailSignIn}
+                disabled={isLoading}
+              >
+                <LinearGradient
+                  colors={['#5CBD6A', '#3C9D4E']}
+                  start={[0, 0]}
+                  end={[1, 0]}
+                  style={styles.signInButton}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.signInButtonText}>Sign In</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Social Login Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
+                <View style={styles.divider} />
+              </View>
+
+              {/* Social Login Buttons */}
+              <View style={styles.socialButtonsContainer}>
+                {/* Google Login */}
+                <TouchableOpacity 
+                  style={styles.socialButton}
+                  onPress={handleGoogleSignIn}
+                >
+                  <FontAwesome name="google" size={20} color="#DB4437" />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Debug Button - For Development Only */}
+              {__DEV__ && (
+                <TouchableOpacity 
+                  style={styles.debugButton}
+                  onPress={forceShowCodeInput}
+                >
+                  <Text style={styles.debugButtonText}>Debug: Show Code Input</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Sign Up Link */}
+            <View style={styles.signUpContainer}>
+              <Text style={styles.signUpText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={handleSignUp}>
+                <Text style={styles.signUpLink}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </SafeAreaView>
+    </KeyboardAvoidingView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -215,7 +536,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
   },
-  // Additional styles for the code input component
+  // Styles for the code input component
   codeInputContainer: {
     marginVertical: 20,
     padding: 20,
@@ -272,345 +593,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
-const LoginScreen = () => {
-  // Extract necessary functions from the hook
-  const { 
-    signIn, 
-    waitingForManualReturn, 
-    authCode, 
-    setAuthCode, 
-    handleCodeSubmit,
-    error: googleSignInError, 
-    forceShowCodeInput 
-  } = useGoogleSignIn();
-
-  
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [loginError, setLoginError] = useState('');
-  
-  const validateForm = () => {
-    let isValid = true;
-    
-    // Reset previous errors
-    setEmailError('');
-    setPasswordError('');
-    
-    // Validate email
-    if (!email.trim()) {
-      setEmailError('Email is required');
-      isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError('Email format is invalid');
-      isValid = false;
-    }
-    
-    // Validate password
-    if (!password) {
-      setPasswordError('Password is required');
-      isValid = false;
-    } else if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
-      isValid = false;
-    }
-    
-    return isValid;
-  };
-
-  const handleEmailSignIn = async () => {
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    setLoginError('');
-    
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push('/home');
-    } catch (error) {
-      // Handle specific Firebase auth errors
-      let errorMessage = 'Failed to sign in. Please try again.';
-      
-      if (error && error.code === 'auth/user-not-found' || 
-          error && error.code === 'auth/wrong-password') {
-        errorMessage = 'Incorrect email or password';
-      } else if (error && error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed login attempts. Please try again later';
-      }
-      
-      setLoginError(errorMessage);
-      Alert.alert('Sign-In Error', errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setLoginError('');
-    try {
-      await signIn();
-    } catch (err) {
-      console.error('Error during Google sign-in:', err);
-    }
-  };
-  
-  const handleSignUp = () => {
-    router.push('/auth/signup');
-  };
-
-  const handleForgotPassword = () => {
-    router.push('/auth/forgot-password');
-  };
-
-  // Custom implementation of CodeInputComponent without any spinner
-  const renderCodeInput = () => {
-    return (
-      <View style={styles.codeInputWrapper}>
-        <View style={styles.codeInputHeaderContainer}>
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#5CBD6A', '#3C9D4E']}
-              start={[0, 0]}
-              end={[1, 1]}
-              style={styles.logoGradient}
-            >
-              <Text style={styles.logoText}>TC</Text>
-            </LinearGradient>
-          </View>
-          <Text style={styles.headerText}>Google Sign-In</Text>
-          <Text style={styles.subHeaderText}>Enter the authentication code from the browser</Text>
-        </View>
-        
-        <View style={styles.codeInputContainer}>
-          <Text style={styles.codeInputTitle}>Enter Authentication Code</Text>
-          <Text style={styles.codeInputInstructions}>
-            After signing in with Google, you'll receive a code in the browser. 
-            Please copy and paste that code below.
-          </Text>
-          
-          <TextInput
-            style={styles.codeInput}
-            value={authCode}
-            onChangeText={setAuthCode}
-            placeholder="Enter code from browser"
-            placeholderTextColor="#999"
-            autoCapitalize="none"
-            autoComplete="off"
-            autoCorrect={false}
-          />
-          
-          <TouchableOpacity
-            style={styles.submitButtonContainer}
-            onPress={handleCodeSubmit}
-          >
-            <LinearGradient
-              colors={['#5CBD6A', '#3C9D4E']}
-              start={[0, 0]}
-              end={[1, 0]}
-              style={styles.submitButtonGradient}
-            >
-              <Text style={styles.submitButtonText}>Complete Sign-In</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          {googleSignInError ? (
-            <Text style={styles.errorText}>{googleSignInError}</Text>
-          ) : null}
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => router.push('/')}
-        >
-          <Text style={styles.cancelButtonText}>Cancel Sign-In</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-    >
-      <StatusBar barStyle="light-content" />
-      
-      <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
-        style={styles.gradient}
-      />
-      
-      <SafeAreaView style={styles.safeArea}>
-        {waitingForManualReturn ? (
-          renderCodeInput()
-        ) : (
-          <>
-            <View style={styles.headerContainer}>
-              <View style={styles.logoContainer}>
-                <LinearGradient
-                  colors={['#5CBD6A', '#3C9D4E']}
-                  start={[0, 0]}
-                  end={[1, 1]}
-                  style={styles.logoGradient}
-                >
-                  <Text style={styles.logoText}>TC</Text>
-                </LinearGradient>
-              </View>
-              <Text style={styles.headerText}>Welcome Back</Text>
-              <Text style={styles.subHeaderText}>Sign in to continue</Text>
-            </View>
-
-            <View style={styles.formContainer}>
-              {/* Email Input */}
-              <View style={[
-                styles.inputContainer, 
-                emailError ? styles.inputError : null
-              ]}>
-                <Ionicons name="mail-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email Address"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (emailError) setEmailError('');
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-              </View>
-              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-
-              {/* Password Input */}
-              <View style={[
-                styles.inputContainer,
-                passwordError ? styles.inputError : null
-              ]}>
-                <Ionicons name="lock-closed-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (passwordError) setPasswordError('');
-                  }}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-                <TouchableOpacity 
-                  style={styles.passwordToggle}
-                  onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={22} 
-                    color="rgba(255,255,255,0.7)" 
-                  />
-                </TouchableOpacity>
-              </View>
-              {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
-              <TouchableOpacity 
-                style={styles.forgotPasswordButton}
-                onPress={handleForgotPassword}
-                disabled={isLoading}
-              >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-
-              {/* General login error message */}
-              {loginError ? <Text style={[styles.errorText, styles.generalError]}>{loginError}</Text> : null}
-
-              {/* Sign In Button */}
-              <TouchableOpacity 
-                activeOpacity={0.8}
-                onPress={handleEmailSignIn}
-                disabled={isLoading}
-              >
-                <LinearGradient
-                  colors={['#5CBD6A', '#3C9D4E']}
-                  start={[0, 0]}
-                  end={[1, 0]}
-                  style={styles.signInButton}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.signInButtonText}>Sign In</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Social Login Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Social Login Buttons */}
-              <View style={styles.socialButtonsContainer}>
-                {/* Google Login */}
-                <TouchableOpacity 
-                  style={styles.socialButton}
-                  onPress={handleGoogleSignIn}
-                >
-                  <FontAwesome name="google" size={20} color="#DB4437" />
-                </TouchableOpacity>
-
-                {/* Facebook Login */}
-                <TouchableOpacity 
-                  style={styles.socialButton}
-                >
-                  <FontAwesome name="facebook" size={20} color="#4267B2" />
-                </TouchableOpacity>
-
-                {/* X (Twitter) Login */}
-                <TouchableOpacity 
-                  style={styles.socialButton}
-                >
-                  <FontAwesome name="twitter" size={20} color="#1DA1F2" />
-                </TouchableOpacity>
-              </View>
-              
-              {/* Debug Button - For Development Only */}
-              {__DEV__ && (
-                <TouchableOpacity 
-                  style={styles.debugButton}
-                  onPress={forceShowCodeInput}
-                >
-                  <Text style={styles.debugButtonText}>Debug: Show Code Input</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Sign Up Link */}
-            <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Don't have an account? </Text>
-              <TouchableOpacity 
-                onPress={handleSignUp} 
-                disabled={isLoading}
-              >
-                <Text style={styles.signUpLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </SafeAreaView>
-    </KeyboardAvoidingView>
-  );
-};
 
 export default LoginScreen;

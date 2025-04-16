@@ -95,7 +95,7 @@ export default function useGoogleSignIn() {
   // Get platform-specific client ID
   const getClientId = () => {
     if (Platform.OS === 'ios') {
-      return 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com'; // Replace with your iOS client ID
+      return '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com'; // Replace with your iOS client ID
     } else if (Platform.OS === 'android') {
       return '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com'; // Android client ID
     } else {
