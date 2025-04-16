@@ -4,6 +4,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../../firebase-config'; // Adjust the path as needed
+import { Alert } from 'react-native';
+import { router } from 'expo-router'; // If you're using Expo Router for navigation
 // import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; 
 import { Platform } from 'react-native';
 // import SharedMap from './components/SharedMap'; // Ensure this file exists or update the path
@@ -24,6 +27,38 @@ const Tab = createBottomTabNavigator();
 const { width } = Dimensions.get('window');
 
 // Mock data for services
+const handleLogout = async () => {
+  try {
+    // Show confirmation alert
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Yes, Logout", 
+          onPress: async () => {
+            // Sign out from Firebase
+            await auth.signOut();
+            
+            // Navigate to login screen
+            router.replace('/'); // Adjust the route as needed
+            
+            // You can add additional cleanup here if needed
+            console.log('User logged out successfully');
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    console.error('Error signing out:', error);
+    Alert.alert('Error', 'Failed to log out. Please try again.');
+  }
+};
+
 const allServices = [
   { id: 1, name: 'Yvonne Karanja', category: 'Best Administrator', location: '2 km away', rating: 4.9, reviews: 42, price: 'Ksh 3500', coordinates: { latitude: -1.286389, longitude: 36.817223 } },
   { id: 2, name: 'Green Gardeners', category: 'Gardening', location: '4.5 km away', rating: 4.7, reviews: 38, price: 'Ksh 1500', coordinates: { latitude: -1.289389, longitude: 36.824223 } },
@@ -79,7 +114,30 @@ const HomeScreenContent = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userName, setUserName] = useState('User');
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const router = useRouter();
+  
+  useEffect(() => {
+    // Get current user info when component mounts
+    const currentUser = auth.currentUser;
+    
+    if (currentUser) {
+      console.log("Current user:", currentUser);
+      
+      // Set the display name, use first name only if full name exists
+      if (currentUser.displayName) {
+        const firstName = currentUser.displayName.split(' ')[0];
+        setUserName(firstName);
+      }
+      
+      // Set photo URL if it exists
+      if (currentUser.photoURL) {
+        setUserPhoto(currentUser.photoURL);
+      }
+    }
+  }, []);
+  
   const handleBecomeTasker = () => {
     router.push('/tasker-onboarding/personal-details');
   };
@@ -171,10 +229,10 @@ const HomeScreenContent = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header */}
+      {/* Updated Header with current user name */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerText}>Hi, James 👋</Text>
+          <Text style={styles.headerText}>Hi, {userName} 👋</Text>
           <Text style={styles.subHeaderText}>Find trusted help nearby</Text>
         </View>
         <TouchableOpacity
@@ -183,7 +241,6 @@ const HomeScreenContent = () => {
         >
           <Ionicons name="person-circle" size={40} color="#4A80F0" />
         </TouchableOpacity>
-
       </View>
 
       {isLoading && (
@@ -290,15 +347,6 @@ const HomeScreenContent = () => {
           ))}
         </ScrollView>
 
-        {/* Location */}
-        {/* <View style={styles.locationContainer}>
-          <Ionicons name="location" size={18} color="#FF6B6B" />
-          <Text style={styles.locationText}>{currentLocation.name}, {currentLocation.country}</Text>
-          <TouchableOpacity onPress={() => setShowLocationModal(true)}>
-            <Text style={styles.changeText}>Change</Text>
-          </TouchableOpacity>
-        </View> */}
-
         {/* Top Rated Services */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
@@ -355,7 +403,8 @@ const HomeScreenContent = () => {
           </View>
         )}
       </ScrollView>
-      {/* Profile Modal */}
+      
+      {/* Updated Profile Modal with current user name */}
       <Modal
         transparent={true}
         animationType="fade"
@@ -368,7 +417,7 @@ const HomeScreenContent = () => {
           onPressOut={() => setShowProfileModal(false)}
         >
           <View style={styles.profileModalContent}>
-            <Text style={styles.profileModalTitle}>Hello James 👋</Text>
+            <Text style={styles.profileModalTitle}>Hello {userName} 👋</Text>
             <TouchableOpacity style={styles.profileOption}>
               <Ionicons name="person-outline" size={20} color="#4A80F0" />
               <Text style={styles.profileOptionText}>View Profile</Text>
@@ -377,15 +426,16 @@ const HomeScreenContent = () => {
               <Ionicons name="settings-outline" size={20} color="#4A80F0" />
               <Text style={styles.profileOptionText}>Settings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileOption}>
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={handleLogout}
+            >
               <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
               <Text style={[styles.profileOptionText, { color: '#FF6B6B' }]}>Logout</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
-
-
 
       {/* Filter Modal */}
       <Modal
@@ -519,101 +569,6 @@ const HomeScreenContent = () => {
           </View>
         </View>
       </Modal>
-
-      {/* Location Change Modal */}
-      {/* <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showLocationModal}
-        onRequestClose={() => setShowLocationModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.locationModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Location</Text>
-              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View> */}
-
-      {/* Map View */}
-
-
-      {/* <View style={styles.mapContainer}>
-  {isWeb ? (
-    <View style={[styles.map, { justifyContent: 'center', alignItems: 'center' }]}>
-      <Text style={{ color: '#A0A0A0' }}>Map is unavailable on web.</Text>
-    </View>
-  ) : (
-    (() => {
-      const MapView = require('react-native-maps').default;
-      const Marker = require('react-native-maps').Marker;
-      const PROVIDER_GOOGLE = require('react-native-maps').PROVIDER_GOOGLE;
-
-      return (
-        <MapView
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation.coordinates.latitude,
-            longitude: currentLocation.coordinates.longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          }}
-        >
-          {cities.map((city, index) => (
-            <Marker
-              key={index}
-              coordinate={city.coordinates}
-              title={city.name}
-              description={city.country}
-              pinColor={currentLocation.name === city.name ? '#4A80F0' : '#FF6B6B'}
-            />
-          ))}
-        </MapView>
-      );
-    })()
-  )}
-</View>
-
-
-
-            
-            <Text style={styles.locationListTitle}>Popular Cities</Text>
-             */}
-      {/* City List */}
-      {/* <FlatList
-              data={cities}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[
-                    styles.cityItem,
-                    currentLocation.name === item.name && styles.selectedCityItem
-                  ]}
-                  onPress={() => changeLocation(item)}
-                >
-                  <View style={styles.cityItemLeft}>
-                    <Ionicons 
-                      name="location" 
-                      size={20} 
-                      color={currentLocation.name === item.name ? "#4A80F0" : "#A0A0A0"} 
-                    />
-                    <View>
-                      <Text style={styles.cityName}>{item.name}</Text>
-                      <Text style={styles.countryName}>{item.country}</Text>
-                    </View>
-                  </View>
-                  {currentLocation.name === item.name && (
-                    <Ionicons name="checkmark-circle" size={22} color="#4A80F0" />
-                  )}
-                </TouchableOpacity>
-              )}
-              style={styles.cityList}
-            />
-          </View>
-        </View>
-      </Modal> */}
 
       {/* Category List Modal */}
       <Modal
@@ -1423,11 +1378,9 @@ const styles = StyleSheet.create({
   section: {
     padding: 20,
   },
-
   servicesScroll: {
     marginLeft: -5,
   },
-
   serviceIconContainer: {
     width: 70,
     height: 70,
@@ -1476,7 +1429,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   }
-
 });
 
 export default HomeScreen;
