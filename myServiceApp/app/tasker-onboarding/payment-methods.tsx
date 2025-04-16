@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,6 +19,7 @@ export default function PaymentMethodsScreen() {
         name: '',
     });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [showMpesaModal, setShowMpesaModal] = useState(false);
 
     const paymentMethods = [
         { id: 'mpesa', label: 'M-Pesa', icon: 'phone-portrait-outline' },
@@ -29,7 +30,13 @@ export default function PaymentMethodsScreen() {
     const togglePaymentMethod = (method: PaymentMethod) => {
         setSelectedMethods(prev => {
             if (prev.includes(method)) {
+                if (method === 'mpesa') {
+                    setShowMpesaModal(false);
+                }
                 return prev.filter(m => m !== method);
+            }
+            if (method === 'mpesa') {
+                setShowMpesaModal(true);
             }
             return [...prev, method];
         });
@@ -78,100 +85,137 @@ export default function PaymentMethodsScreen() {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Payment Methods</Text>
-            </View>
-
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Select the payment methods you want to accept from clients.
-                </Text>
-
-                <View style={styles.methodsContainer}>
-                    {paymentMethods.map((method) => (
-                        <TouchableOpacity
-                            key={method.id}
-                            style={[
-                                styles.methodButton,
-                                selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonSelected,
-                            ]}
-                            onPress={() => togglePaymentMethod(method.id as PaymentMethod)}
-                        >
-                            <Ionicons
-                                name={method.icon as any}
-                                size={24}
-                                color={selectedMethods.includes(method.id as PaymentMethod) ? '#fff' : '#666'}
-                            />
-                            <Text style={[
-                                styles.methodButtonText,
-                                selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonTextSelected,
-                            ]}>
-                                {method.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+        <View style={styles.container}>
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#333" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Payment Methods</Text>
                 </View>
 
-                {errors.methods && (
-                    <Text style={styles.errorText}>{errors.methods}</Text>
-                )}
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        Select the payment methods you want to accept from clients.
+                    </Text>
 
-                {selectedMethods.includes('mpesa') && (
-                    <View style={styles.mpesaDetailsContainer}>
-                        <Text style={styles.sectionTitle}>M-Pesa Details</Text>
-                        <Text style={styles.subtitle}>
-                            Enter the M-Pesa details where you want to receive payments.
-                        </Text>
+                    <View style={styles.methodsContainer}>
+                        {paymentMethods.map((method) => (
+                            <TouchableOpacity
+                                key={method.id}
+                                style={[
+                                    styles.methodButton,
+                                    selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonSelected,
+                                ]}
+                                onPress={() => togglePaymentMethod(method.id as PaymentMethod)}
+                            >
+                                <Ionicons
+                                    name={method.icon as any}
+                                    size={24}
+                                    color={selectedMethods.includes(method.id as PaymentMethod) ? '#fff' : '#666'}
+                                />
+                                <Text style={[
+                                    styles.methodButtonText,
+                                    selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonTextSelected,
+                                ]}>
+                                    {method.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Phone Number</Text>
-                            <TextInput
-                                style={[styles.input, errors.phoneNumber && styles.inputError]}
-                                value={mpesaDetails.phoneNumber}
-                                onChangeText={(text) => {
-                                    setMpesaDetails(prev => ({ ...prev, phoneNumber: text }));
-                                    if (errors.phoneNumber) {
-                                        setErrors(prev => ({ ...prev, phoneNumber: undefined }));
-                                    }
-                                }}
-                                placeholder="Enter M-Pesa number"
-                                keyboardType="phone-pad"
-                            />
-                            {errors.phoneNumber && (
-                                <Text style={styles.errorText}>{errors.phoneNumber}</Text>
-                            )}
+                    {errors.methods && (
+                        <Text style={styles.errorText}>{errors.methods}</Text>
+                    )}
+
+                    <TouchableOpacity style={styles.button} onPress={handleNext}>
+                        <Text style={styles.buttonText}>Next</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+
+            {/* M-Pesa Details Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={showMpesaModal}
+                onRequestClose={() => setShowMpesaModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>M-Pesa Details</Text>
+                            <TouchableOpacity onPress={() => setShowMpesaModal(false)}>
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Account Name</Text>
-                            <TextInput
-                                style={[styles.input, errors.name && styles.inputError]}
-                                value={mpesaDetails.name}
-                                onChangeText={(text) => {
-                                    setMpesaDetails(prev => ({ ...prev, name: text }));
-                                    if (errors.name) {
-                                        setErrors(prev => ({ ...prev, name: undefined }));
+                        <View style={styles.modalBody}>
+                            <Text style={styles.modalDescription}>
+                                Enter your M-Pesa details to receive payments from clients.
+                            </Text>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Phone Number</Text>
+                                <TextInput
+                                    style={[styles.input, errors.phoneNumber && styles.inputError]}
+                                    value={mpesaDetails.phoneNumber}
+                                    onChangeText={(text) => {
+                                        setMpesaDetails(prev => ({ ...prev, phoneNumber: text }));
+                                        if (errors.phoneNumber) {
+                                            setErrors(prev => {
+                                                const newErrors = { ...prev };
+                                                delete newErrors.phoneNumber;
+                                                return newErrors;
+                                            });
+                                        }
+                                    }}
+                                    placeholder="Enter M-Pesa number"
+                                    keyboardType="phone-pad"
+                                />
+                                {errors.phoneNumber && (
+                                    <Text style={styles.errorText}>{errors.phoneNumber}</Text>
+                                )}
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Account Name</Text>
+                                <TextInput
+                                    style={[styles.input, errors.name && styles.inputError]}
+                                    value={mpesaDetails.name}
+                                    onChangeText={(text) => {
+                                        setMpesaDetails(prev => ({ ...prev, name: text }));
+                                        if (errors.name) {
+                                            setErrors(prev => {
+                                                const newErrors = { ...prev };
+                                                delete newErrors.name;
+                                                return newErrors;
+                                            });
+                                        }
+                                    }}
+                                    placeholder="Enter account name"
+                                />
+                                {errors.name && (
+                                    <Text style={styles.errorText}>{errors.name}</Text>
+                                )}
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.modalButton}
+                                onPress={() => {
+                                    if (validateForm()) {
+                                        setShowMpesaModal(false);
                                     }
                                 }}
-                                placeholder="Enter account name"
-                            />
-                            {errors.name && (
-                                <Text style={styles.errorText}>{errors.name}</Text>
-                            )}
+                            >
+                                <Text style={styles.modalButtonText}>Save Details</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-                )}
-
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                </View>
+            </Modal>
+        </View>
     );
 }
 
@@ -179,6 +223,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    scrollView: {
+        flex: 1,
     },
     header: {
         flexDirection: 'row',
@@ -231,21 +278,54 @@ const styles = StyleSheet.create({
     methodButtonTextSelected: {
         color: '#fff',
     },
-    mpesaDetailsContainer: {
-        marginTop: 20,
-        padding: 20,
-        backgroundColor: '#f8f9fd',
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#4A80F0',
+        padding: 18,
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#eee',
+        marginTop: 30,
+        gap: 10,
     },
-    sectionTitle: {
+    buttonText: {
+        color: '#fff',
         fontSize: 18,
         fontWeight: '600',
-        color: '#333',
-        marginBottom: 10,
     },
-    subtitle: {
+    errorText: {
+        color: '#ff4444',
+        fontSize: 12,
+        marginTop: 5,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        width: '100%',
+        padding: 20,
+        paddingBottom: 40,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    modalBody: {
+        marginTop: 10,
+    },
+    modalDescription: {
         fontSize: 14,
         color: '#666',
         marginBottom: 20,
@@ -270,24 +350,16 @@ const styles = StyleSheet.create({
     inputError: {
         borderColor: '#ff4444',
     },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: 5,
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+    modalButton: {
         backgroundColor: '#4A80F0',
-        padding: 18,
+        padding: 15,
         borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
+        alignItems: 'center',
+        marginTop: 20,
     },
-    buttonText: {
+    modalButtonText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '600',
     },
 }); 
