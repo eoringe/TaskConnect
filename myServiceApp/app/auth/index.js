@@ -28,13 +28,13 @@ const LoginScreen = () => {
     setAuthCode, 
     handleCodeSubmit,
     error: googleSignInError, 
-    forceShowCodeInput 
   } = useGoogleSignIn();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCodeSubmitting, setIsCodeSubmitting] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -111,6 +111,23 @@ const LoginScreen = () => {
     router.push('/auth/forgot-password');
   };
 
+  const handleCodeSubmitWithLoading = async () => {
+    if (!authCode.trim()) {
+      Alert.alert('Error', 'Please enter the authentication code');
+      return;
+    }
+
+    setIsCodeSubmitting(true);
+    try {
+      await handleCodeSubmit();
+    } catch (error) {
+      console.error('Code submission error:', error);
+      Alert.alert('Error', 'Failed to submit authentication code');
+    } finally {
+      setIsCodeSubmitting(false);
+    }
+  };
+
   // Custom implementation of CodeInputComponent without any spinner
   const renderCodeInput = () => {
     return (
@@ -150,7 +167,8 @@ const LoginScreen = () => {
           
           <TouchableOpacity
             style={styles.submitButtonContainer}
-            onPress={handleCodeSubmit}
+            onPress={handleCodeSubmitWithLoading}
+            disabled={isCodeSubmitting}
           >
             <LinearGradient
               colors={['#5CBD6A', '#3C9D4E']}
@@ -158,7 +176,11 @@ const LoginScreen = () => {
               end={[1, 0]}
               style={styles.submitButtonGradient}
             >
-              <Text style={styles.submitButtonText}>Complete Sign-In</Text>
+              {isCodeSubmitting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.submitButtonText}>Complete Sign-In</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
           
@@ -314,16 +336,6 @@ const LoginScreen = () => {
                   <FontAwesome name="google" size={20} color="#DB4437" />
                 </TouchableOpacity>
               </View>
-              
-              {/* Debug Button - For Development Only */}
-              {__DEV__ && (
-                <TouchableOpacity 
-                  style={styles.debugButton}
-                  onPress={forceShowCodeInput}
-                >
-                  <Text style={styles.debugButtonText}>Debug: Show Code Input</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Sign Up Link */}
@@ -522,19 +534,6 @@ const styles = StyleSheet.create({
     color: '#5CBD6A',
     fontSize: 15,
     fontWeight: 'bold',
-  },
-  debugButton: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: 'rgba(255, 0, 0, 0.2)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 0, 0, 0.3)',
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
   },
   // Styles for the code input component
   codeInputContainer: {

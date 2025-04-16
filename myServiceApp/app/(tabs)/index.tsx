@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,23 +7,52 @@ import {
   ImageBackground,
   Dimensions,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../firebase-config';
 
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, redirect to home
+        router.replace('/home');
+      } else {
+        // No user is signed in, stay on welcome screen
+        setIsLoading(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
   const handleLogin = () => {
     router.push('/auth');
   };
+
   const handleGetStarted = () => {
     router.push('/home');
   };
+
+  // Show loading indicator while checking authentication
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#5CBD6A" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -119,150 +148,158 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000', // Fallback color
-  },
-  backgroundImage: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    top: 0,
-    left: 0,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)', // Dark overlay for better readability
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: StatusBar.currentHeight || 20,
-  },
-  
-  // Header styling
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  logoContainer: {
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  logoGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  
-  // Main content styling
-  mainContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginBottom: 40,
-  },
-  tagline: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 3,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 40,
-    lineHeight: 26,
-    maxWidth: '90%',
-  },
-  
-  // Features styling
-  features: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  featureIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  featureText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '500',
-  },
-  
-  // Action buttons styling
-  actions: {
-    width: '100%',
-    marginBottom: 30,
-  },
-  getStartedButton: {
-    width: '100%',
-    height: 56,
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  gradientButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  getStartedText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginRight: 8,
-  },
-  loginButton: {
-    width: '100%',
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '500',
-  },
+  ...{
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#000',
+    },
+    container: {
+      flex: 1,
+      backgroundColor: '#000', // Fallback color
+    },
+    backgroundImage: {
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      top: 0,
+      left: 0,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.65)', // Dark overlay for better readability
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: 24,
+      paddingTop: StatusBar.currentHeight || 20,
+    },
+    
+    // Header styling
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 20,
+      marginBottom: 40,
+    },
+    logoContainer: {
+      marginRight: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
+      elevation: 6,
+    },
+    logoGradient: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    logoText: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    appName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+      letterSpacing: 0.5,
+    },
+    
+    // Main content styling
+    mainContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+      marginBottom: 40,
+    },
+    tagline: {
+      fontSize: 42,
+      fontWeight: 'bold',
+      color: '#fff',
+      marginBottom: 16,
+      letterSpacing: 0.5,
+      textShadowColor: 'rgba(0,0,0,0.3)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 3,
+    },
+    subtitle: {
+      fontSize: 18,
+      color: 'rgba(255,255,255,0.8)',
+      marginBottom: 40,
+      lineHeight: 26,
+      maxWidth: '90%',
+    },
+    
+    // Features styling
+    features: {
+      width: '100%',
+      marginBottom: 20,
+    },
+    featureItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    featureIconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    featureText: {
+      fontSize: 16,
+      color: 'rgba(255,255,255,0.9)',
+      fontWeight: '500',
+    },
+    
+    // Action buttons styling
+    actions: {
+      width: '100%',
+      marginBottom: 30,
+    },
+    getStartedButton: {
+      width: '100%',
+      height: 56,
+      borderRadius: 16,
+      overflow: 'hidden',
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 5,
+      elevation: 6,
+    },
+    gradientButton: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+    },
+    getStartedText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#fff',
+      marginRight: 8,
+    },
+    loginButton: {
+      width: '100%',
+      height: 56,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loginText: {
+      fontSize: 16,
+      color: 'rgba(255,255,255,0.9)',
+      fontWeight: '500',
+    },
+  }
 });
