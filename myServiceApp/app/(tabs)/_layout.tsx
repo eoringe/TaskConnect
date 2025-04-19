@@ -34,12 +34,23 @@ export default function TabLayout() {
         tabBarBackground: () => <View style={styles.tabBarBackground} />,
       }}>
       
+      {/* Home route with header completely hidden */}
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: '',
+          headerShown: false, // This is the key line to hide the header for home
+          headerTitle: '',
+          headerTransparent: true,
+        }}
+      />
+      
       <Tabs.Screen
         name="index"
         options={{
           title: '',
           headerTitle: '',
-          headerTransparent: true, // Make header transparent too
+          headerTransparent: true,
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (
@@ -73,7 +84,7 @@ export default function TabLayout() {
         options={{
           title: '',
           headerTitle: '',
-          headerTransparent: true, // Make header transparent too
+          headerTransparent: true,
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (
@@ -93,7 +104,7 @@ export default function TabLayout() {
         options={{
           title: '',
           headerTitle: '',
-          headerTransparent: true, // Make header transparent too
+          headerTransparent: true,
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (

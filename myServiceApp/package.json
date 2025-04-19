@@ -51,6 +51,7 @@
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
     "react-native": "0.76.9",
+    "react-native-date-picker": "^5.0.12",
     "react-native-maps": "1.18.0",
     "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "4.12.0",
