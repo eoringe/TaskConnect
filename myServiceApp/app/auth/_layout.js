@@ -1,50 +1,55 @@
-// File: app/auth/_layout.js
 import React from 'react';
 import { Stack } from 'expo-router';
-import { View, StyleSheet, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider } from '../auth/AuthContext';
+import AuthGuard from '../auth/AddGuard';
 
-export default function AuthLayout() {
-  const colorScheme = useColorScheme();
-
+// Main layout component using Expo Router
+export default function AppLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerTransparent: true,
-        headerTitle: "Login", // Setting the title explicitly to "Login"
-        headerTitleStyle: {
-          color: '#fff',
-          fontWeight: 'bold',
-        },
-        headerTintColor: '#fff',
-        headerBackground: () => (
-          <View style={styles.headerBackground}>
-            {Platform.OS === 'ios' && (
-              <BlurView
-                intensity={25}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            )}
-          </View>
-        ),
-      }}
-    >
-      <Stack.Screen
-        name="index"
-        options={{
-          title: "Login", // This ensures the title is "Login" instead of "auth/index"
-        }}
-      />
-    </Stack>
+    <AuthProvider>
+      <AuthGuard>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen
+            name="index"
+            redirect={true}
+          />
+          <Stack.Screen
+            name="../home/index"
+            options={{
+              title: 'Home',
+            }}
+          />
+          <Stack.Screen
+            name="../auth/index"
+            options={{
+              title: 'Login',
+            }}
+          />
+          <Stack.Screen
+            name="../auth/signUp"
+            options={{
+              title: 'Sign Up',
+            }}
+          />
+          <Stack.Screen
+            name="../auth/ForgotPassword"
+            options={{
+              title: 'Forgot Password',
+            }}
+          />
+          <Stack.Screen
+            name="../profile/index"
+            options={{
+              title: 'Profile',
+            }}
+          />
+        </Stack>
+      </AuthGuard>
+    </AuthProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  headerBackground: {
-    flex: 1,
-    backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(0,0,0,0.5)',
-  },
-});

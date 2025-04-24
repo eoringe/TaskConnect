@@ -37,12 +37,12 @@ export default function WelcomeScreen() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = () => {
-    router.push('/auth');
+  const handleLogin = () => { 
+    router.push('/auth/Login');
   };
 
   const handleGetStarted = () => {
-    router.push('/home');
+    router.push('/auth/signUp');
   };
 
   // Show loading indicator while checking authentication

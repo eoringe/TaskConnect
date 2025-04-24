@@ -17,7 +17,7 @@
     "**/*.ts",
     "**/*.tsx",
     "app/auth/LoginScreen.js",
-    "app/auth/index.js",
+    "app/auth/Login.js",
     "app/home/index.js",
     "app/**/*.js",
     "app/**/*.jsx"

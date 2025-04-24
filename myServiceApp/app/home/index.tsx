@@ -1,7 +1,10 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '@/firebase-config';
+import { onAuthStateChanged } from 'firebase/auth';
+import { router } from 'expo-router';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 
 // Screens
 import HomeScreenContent from './screens/HomeScreenContent';
@@ -12,12 +15,42 @@ import ProfileScreen from './screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 const HomeScreen = () => {
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  
+  // Check authentication state when component mounts
+  useEffect(() => {
+    console.log("Setting up auth state listener in Tab Navigator");
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User is authenticated in Tab Navigator:", user.email);
+        setIsAuthChecking(false);
+      } else {
+        console.log("No authenticated user found in Tab Navigator, redirecting to login");
+        router.replace('/auth/Login');
+      }
+    });
+    
+    // Clean up the listener on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Show loading indicator while checking authentication
+  if (isAuthChecking) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A80F0" />
+        <Text style={styles.loadingText}>Checking authentication...</Text>
+      </View>
+    );
+  }
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName = 'home-outline';
-
+          
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Notifications') {
@@ -27,7 +60,7 @@ const HomeScreen = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
-
+          
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#4A80F0',
@@ -55,5 +88,19 @@ const HomeScreen = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FD',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
+  },
+});
 
 export default HomeScreen;
