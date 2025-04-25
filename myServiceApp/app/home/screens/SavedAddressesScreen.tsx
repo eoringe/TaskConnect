@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { auth } from '@/firebase-config';
+import * as Location from 'expo-location';
 import { 
   getUserAddresses,
   addUserAddress,
@@ -30,19 +31,82 @@ const SavedAddressesScreen = () => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [currentAddress, setCurrentAddress] = useState<Address>({
     id: '',
     street: '',
     city: '',
     state: '',
     postalCode: '',
-    country: '',
+    country: 'Kenya', // Default to Kenya
     isDefault: false
   });
   
   useEffect(() => {
     loadAddresses();
+    requestLocationPermission();
   }, []);
+  
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission',
+          'To provide you with the best experience, we need your location to suggest addresses. You can enable this in your device settings.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+    }
+  };
+  
+  const getCurrentLocation = async () => {
+    if (!locationPermission) {
+      Alert.alert(
+        'Location Permission Required',
+        'Please enable location services to use this feature.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Settings', onPress: requestLocationPermission }
+        ]
+      );
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      
+      // Reverse geocode to get address details
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+      
+      if (geocode && geocode.length > 0) {
+        const addressDetails = geocode[0];
+        setCurrentAddress({
+          ...currentAddress,
+          street: addressDetails.street || addressDetails.name || '',
+          city: addressDetails.city || addressDetails.region || '',
+          state: addressDetails.region || '',
+          postalCode: addressDetails.postalCode || '',
+          country: 'Kenya' // Always set to Kenya
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Failed to get your current location. Please enter address manually.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const loadAddresses = async () => {
     setIsLoading(true);
@@ -76,7 +140,7 @@ const SavedAddressesScreen = () => {
         city: '',
         state: '',
         postalCode: '',
-        country: '',
+        country: 'Kenya', // Always Kenya
         isDefault: addresses.length === 0 // Make default if it's the first address
       });
       setIsEditMode(false);
@@ -86,8 +150,8 @@ const SavedAddressesScreen = () => {
   
   const handleSaveAddress = async () => {
     // Basic validation
-    if (!currentAddress.street || !currentAddress.city || !currentAddress.country) {
-      Alert.alert('Missing Information', 'Please fill in at least street, city, and country.');
+    if (!currentAddress.street || !currentAddress.city) {
+      Alert.alert('Missing Information', 'Please fill in at least street and city.');
       return;
     }
     
@@ -234,6 +298,16 @@ const SavedAddressesScreen = () => {
             </TouchableOpacity>
           </View>
           
+          {!isEditMode && (
+            <TouchableOpacity 
+              style={styles.locationButton}
+              onPress={getCurrentLocation}
+            >
+              <Ionicons name="locate" size={20} color="#fff" />
+              <Text style={styles.locationButtonText}>Use Current Location</Text>
+            </TouchableOpacity>
+          )}
+          
           <ScrollView style={styles.modalForm}>
             <Text style={styles.inputLabel}>Street Address*</Text>
             <TextInput
@@ -268,13 +342,10 @@ const SavedAddressesScreen = () => {
               keyboardType="number-pad"
             />
             
-            <Text style={styles.inputLabel}>Country*</Text>
-            <TextInput
-              style={styles.input}
-              value={currentAddress.country}
-              onChangeText={(text) => setCurrentAddress({...currentAddress, country: text})}
-              placeholder="Enter your country"
-            />
+            <Text style={styles.inputLabel}>Country</Text>
+            <View style={styles.disabledInput}>
+              <Text style={styles.disabledInputText}>Kenya</Text>
+            </View>
             
             <View style={styles.defaultCheckbox}>
               <TouchableOpacity
@@ -513,6 +584,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 10,
   },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5CBD6A',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   overlayLoading: {
     position: 'absolute',
     top: 0,
@@ -563,6 +649,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 15,
+  },
+  disabledInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginBottom: 15,
+    backgroundColor: '#f5f5f5',
+  },
+  disabledInputText: {
+    fontSize: 16,
+    color: '#666',
   },
   defaultCheckbox: {
     flexDirection: 'row',
