@@ -1,8 +1,9 @@
 // app/(tabs)/home/components/Header.tsx
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '@/firebase-config';
 
 interface HeaderProps {
   userName: string;
@@ -10,6 +11,26 @@ interface HeaderProps {
 }
 
 const Header = ({ userName, onProfilePress }: HeaderProps) => {
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  
+  // Load the profile image from Firebase Auth
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user && user.photoURL) {
+      setProfileImage(user.photoURL);
+    }
+    
+    // Set up a listener to detect changes to the user's profile
+    const interval = setInterval(() => {
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.photoURL !== profileImage) {
+        setProfileImage(currentUser.photoURL);
+      }
+    }, 2000); // Check every 2 seconds
+    
+    return () => clearInterval(interval);
+  }, [profileImage]);
+  
   return (
     <View style={styles.header}>
       <View>
@@ -20,7 +41,14 @@ const Header = ({ userName, onProfilePress }: HeaderProps) => {
         style={styles.avatarContainer}
         onPress={onProfilePress}
       >
-        <Ionicons name="person-circle" size={40} color="#4A80F0" />
+        {profileImage ? (
+          <Image 
+            source={{ uri: profileImage }} 
+            style={styles.profileImage} 
+          />
+        ) : (
+          <Ionicons name="person-circle" size={40} color="#4A80F0" />
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -61,6 +89,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F4FF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
   },
 });
 
