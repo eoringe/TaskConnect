@@ -1,9 +1,12 @@
 // app/(tabs)/home/screens/HomeScreenContent.tsx
 
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { auth } from '@/firebase-config';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
+import StatusBarSpace from '@/app/components/StatusBarSpace';
 
 // Components
 import Header from '../components/Header';
@@ -22,6 +25,9 @@ import { allServices, categories, cities } from '../data/mockData';
 import { Service, Category, City, FilterOptions } from '../types';
 
 const HomeScreenContent = () => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   const isWeb = Platform.OS === 'web';
   const [services, setServices] = useState<Service[]>(allServices.slice(0, 5));
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -130,6 +136,7 @@ const HomeScreenContent = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBarSpace />
       <Header 
         userName={userName} 
         onProfilePress={() => setShowProfileModal(true)} 
@@ -137,7 +144,7 @@ const HomeScreenContent = () => {
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4A80F0" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       )}
 
@@ -176,7 +183,7 @@ const HomeScreenContent = () => {
           ))
         ) : (
           <View style={styles.noResultsContainer}>
-            <Ionicons name="search-outline" size={50} color="#A0A0A0" />
+            <Ionicons name="search-outline" size={50} color={theme.colors.textLight} />
             <Text style={styles.noResultsText}>No services found</Text>
             <Text style={styles.noResultsSubtext}>Try adjusting your filters</Text>
           </View>
@@ -217,10 +224,10 @@ const HomeScreenContent = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: theme.colors.background,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -228,7 +235,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: theme.dark 
+      ? 'rgba(0, 0, 0, 0.7)' 
+      : 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
@@ -241,7 +250,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 15,
     marginHorizontal: 20,
-    color: '#333',
+    color: theme.colors.text,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -251,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   seeAllText: {
-    color: '#4A80F0',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   noResultsContainer: {
@@ -263,14 +272,14 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginTop: 15,
   },
   noResultsSubtext: {
     fontSize: 14,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
     marginTop: 5,
   },
-});
+}));
 
 export default HomeScreenContent;

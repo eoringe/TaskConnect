@@ -1,10 +1,15 @@
 // app/(tabs)/home/components/Banner.tsx
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 const Banner = () => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   return (
     <View style={styles.bannerContainer}>
       <View style={styles.bannerContent}>
@@ -21,9 +26,9 @@ const Banner = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   bannerContainer: {
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     borderRadius: 20,
     marginHorizontal: 20,
     padding: 20,
@@ -31,7 +36,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 25,
-    shadowColor: '#4A80F0',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -47,7 +52,7 @@ const styles = StyleSheet.create({
   },
   bannerSubtitle: {
     fontSize: 14,
-    color: '#E0E8FF',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 5,
     marginBottom: 15,
   },
@@ -59,7 +64,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   bannerButtonText: {
-    color: '#4A80F0',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   bannerImageContainer: {
@@ -69,6 +74,6 @@ const styles = StyleSheet.create({
   bannerImage: {
     opacity: 0.8,
   },
-});
+}));
 
 export default Banner;

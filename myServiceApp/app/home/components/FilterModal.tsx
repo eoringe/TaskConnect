@@ -1,9 +1,11 @@
 // app/(tabs)/home/components/FilterModal.tsx
 
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FilterOptions } from '../types';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface FilterModalProps {
   visible: boolean;
@@ -14,6 +16,9 @@ interface FilterModalProps {
 }
 
 const FilterModal = ({ visible, onClose, filterOptions, setFilterOptions, onApply }: FilterModalProps) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       animationType="slide"
@@ -26,7 +31,7 @@ const FilterModal = ({ visible, onClose, filterOptions, setFilterOptions, onAppl
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filter Services</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -149,14 +154,14 @@ const FilterModal = ({ visible, onClose, filterOptions, setFilterOptions, onAppl
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   filterModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingHorizontal: 20,
@@ -173,7 +178,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
   },
   filterSection: {
     marginBottom: 20,
@@ -181,7 +186,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 10,
   },
   sliderContainer: {
@@ -190,7 +195,7 @@ const styles = StyleSheet.create({
   sliderValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#4A80F0',
+    color: theme.colors.primary,
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -199,7 +204,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: theme.dark ? '#444' : '#E0E0E0',
     borderRadius: 2,
     marginBottom: 10,
   },
@@ -207,14 +212,14 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: theme.dark ? '#444' : '#E0E0E0',
     marginLeft: -8,
   },
   sliderMarkerActive: {
-    borderColor: '#4A80F0',
-    backgroundColor: '#4A80F0',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   sliderLabels: {
     flexDirection: 'row',
@@ -222,7 +227,7 @@ const styles = StyleSheet.create({
   },
   sliderLabelText: {
     fontSize: 12,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
   },
   sortOptions: {
     flexDirection: 'row',
@@ -234,16 +239,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: theme.colors.border,
     alignItems: 'center',
     marginHorizontal: 5,
   },
   sortOptionActive: {
-    backgroundColor: '#4A80F0',
-    borderColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   sortOptionText: {
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '500',
   },
   sortOptionTextActive: {
@@ -259,18 +264,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: theme.colors.border,
     borderRadius: 12,
     marginRight: 10,
   },
   resetButtonText: {
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '600',
   },
   applyButton: {
     flex: 2,
     alignItems: 'center',
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
   },
@@ -278,6 +283,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-});
+}));
 
 export default FilterModal;

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
-  StyleSheet, 
   Image, 
   TouchableOpacity, 
   ScrollView, 
@@ -21,6 +20,7 @@ import { updateProfile } from 'firebase/auth';
 import { router } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
+import StatusBarSpace from '@/app/components/StatusBarSpace';
 
 const ProfileScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
@@ -239,6 +239,7 @@ const ProfileScreen = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBarSpace />
       <LinearGradient
         colors={isDarkMode 
           ? ['rgba(92, 189, 106, 0.2)', 'rgba(18, 18, 18, 0)']
@@ -295,8 +296,8 @@ const createProfileStyles = createThemedStyles(theme => ({
   },
   profileHeader: {
     alignItems: 'center',
-    paddingTop: 70,
-    paddingBottom: 30,
+    paddingTop: 30,
+    paddingBottom: 20,
   },
   profileImageContainer: {
     position: 'relative',

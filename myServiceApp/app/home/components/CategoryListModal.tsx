@@ -1,10 +1,12 @@
 // app/(tabs)/home/components/CategoryListModal.tsx
 
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Service } from '../types';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface CategoryListModalProps {
   visible: boolean;
@@ -15,6 +17,8 @@ interface CategoryListModalProps {
 
 const CategoryListModal = ({ visible, onClose, selectedCategory, services }: CategoryListModalProps) => {
   const router = useRouter();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <Modal
@@ -30,7 +34,7 @@ const CategoryListModal = ({ visible, onClose, selectedCategory, services }: Cat
               {selectedCategory === 'All' ? 'All Services' : selectedCategory + ' Services'}
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -41,7 +45,7 @@ const CategoryListModal = ({ visible, onClose, selectedCategory, services }: Cat
               <View style={styles.serviceListItem}>
                 <View style={styles.serviceListItemTop}>
                   <View style={styles.serviceListImageContainer}>
-                    <Ionicons name="person" size={30} color="#4A80F0" />
+                    <Ionicons name="person" size={30} color={theme.colors.primary} />
                   </View>
                   <View style={styles.serviceListInfo}>
                     <Text style={styles.serviceListName}>{item.name}</Text>
@@ -54,7 +58,7 @@ const CategoryListModal = ({ visible, onClose, selectedCategory, services }: Cat
                       <Text style={styles.serviceListPrice}>{item.price}</Text>
                     </View>
                     <View style={styles.serviceListLocation}>
-                      <Ionicons name="location-outline" size={12} color="#A0A0A0" />
+                      <Ionicons name="location-outline" size={12} color={theme.colors.textLight} />
                       <Text style={styles.serviceListLocationText}>{item.location}</Text>
                     </View>
                   </View>
@@ -77,14 +81,14 @@ const CategoryListModal = ({ visible, onClose, selectedCategory, services }: Cat
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   categoryListModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingTop: 20,
@@ -101,14 +105,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
   },
   serviceListItem: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: theme.colors.borderLight,
   },
   serviceListItemTop: {
     flexDirection: 'row',
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 15,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.2)' : '#F0F4FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -129,7 +133,7 @@ const styles = StyleSheet.create({
   serviceListName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   serviceListMeta: {
@@ -146,11 +150,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 3,
+    color: theme.colors.text,
   },
   serviceListCategory: {
     fontSize: 12,
-    color: '#4A80F0',
-    backgroundColor: '#F0F4FF',
+    color: theme.colors.primary,
+    backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.15)' : theme.colors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -159,7 +164,7 @@ const styles = StyleSheet.create({
   serviceListPrice: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4A80F0',
+    color: theme.colors.primary,
   },
   serviceListLocation: {
     flexDirection: 'row',
@@ -167,11 +172,11 @@ const styles = StyleSheet.create({
   },
   serviceListLocationText: {
     fontSize: 12,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
     marginLeft: 4,
   },
   miniBookBtn: {
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 15,
     borderRadius: 10,
@@ -181,6 +186,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
-});
+}));
 
 export default CategoryListModal;

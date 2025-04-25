@@ -1,11 +1,15 @@
 // app/(tabs)/home/components/BecomeTaskerCard.tsx
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 const BecomeTaskerCard = () => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   
   const handleBecomeTasker = () => {
@@ -22,15 +26,15 @@ const BecomeTaskerCard = () => {
           </Text>
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
-              <Ionicons name="time-outline" size={24} color="#4A80F0" />
+              <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
               <Text style={styles.benefitText}>Flexible Schedule</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="cash-outline" size={24} color="#4A80F0" />
+              <Ionicons name="cash-outline" size={24} color={theme.colors.primary} />
               <Text style={styles.benefitText}>Competitive Pay</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="shield-checkmark-outline" size={24} color="#4A80F0" />
+              <Ionicons name="shield-checkmark-outline" size={24} color={theme.colors.primary} />
               <Text style={styles.benefitText}>Secure Platform</Text>
             </View>
           </View>
@@ -47,14 +51,14 @@ const BecomeTaskerCard = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   becomeTaskerCard: {
     margin: 20,
     borderRadius: 20,
-    backgroundColor: '#f8f9fd',
+    backgroundColor: theme.dark ? theme.colors.card : '#f8f9fd',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.dark ? theme.colors.border : '#eee',
   },
   cardContent: {
     padding: 20,
@@ -65,12 +69,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 10,
   },
   cardDescription: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
     lineHeight: 24,
   },
   benefitsList: {
@@ -84,13 +88,13 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   becomeTaskerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     padding: 18,
     borderRadius: 12,
     marginTop: 20,
@@ -101,6 +105,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-});
+}));
 
 export default BecomeTaskerCard;

@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { auth } from '@/firebase-config';
 import { onAuthStateChanged } from 'firebase/auth';
 import { router } from 'expo-router';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // Screens
 import HomeScreenContent from './screens/HomeScreenContent';
@@ -15,6 +17,9 @@ import ProfileScreen from './screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 const HomeScreen = () => {
+  const { theme, isDarkMode } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   
   // Check authentication state when component mounts
@@ -39,7 +44,7 @@ const HomeScreen = () => {
   if (isAuthChecking) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A80F0" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
@@ -63,19 +68,19 @@ const HomeScreen = () => {
           
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4A80F0',
-        tabBarInactiveTintColor: '#A0A0A0',
+        tabBarActiveTintColor: theme.colors.primary, // Use the primary color (green) for active icons
+        tabBarInactiveTintColor: theme.colors.tabBarInactiveTint,
         tabBarStyle: {
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
-          backgroundColor: '#fff',
+          backgroundColor: theme.colors.card,
           borderTopWidth: 1,
-          borderTopColor: '#F0F0F0',
+          borderTopColor: theme.colors.border,
           elevation: 8,
-          shadowColor: '#000',
+          shadowColor: theme.colors.shadow,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
+          shadowOpacity: isDarkMode ? 0.3 : 0.1,
           shadowRadius: 4,
         },
         headerShown: false,
@@ -89,18 +94,18 @@ const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FD',
+    backgroundColor: theme.colors.background,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
-});
+}));
 
 export default HomeScreen;

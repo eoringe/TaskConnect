@@ -1,9 +1,11 @@
 // app/(tabs)/home/components/CategoryScroll.tsx
 
 import React from 'react';
-import { ScrollView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, TouchableOpacity, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Category } from '../types';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface CategoryScrollProps {
   categories: Category[];
@@ -12,6 +14,9 @@ interface CategoryScrollProps {
 }
 
 const CategoryScroll = ({ categories, selectedCategory, onCategorySelect }: CategoryScrollProps) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <ScrollView
       horizontal
@@ -35,7 +40,7 @@ const CategoryScroll = ({ categories, selectedCategory, onCategorySelect }: Cate
             <Ionicons
               name={cat.icon as any}
               size={22}
-              color={selectedCategory === cat.name ? "#fff" : "#4A80F0"}
+              color={selectedCategory === cat.name ? "#fff" : "#666666"}
             />
           </View>
           <Text style={[
@@ -48,7 +53,7 @@ const CategoryScroll = ({ categories, selectedCategory, onCategorySelect }: Cate
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   horizontalScroll: {
     marginBottom: 25,
   },
@@ -67,29 +72,29 @@ const styles = StyleSheet.create({
     height: 60,
     width: 60,
     borderRadius: 20,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: theme.dark ? 'rgba(60, 60, 60, 0.5)' : '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: '#4A80F0',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
   },
   selectedCategoryIconContainer: {
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
   },
   categoryText: {
-    color: '#555',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
     fontSize: 12,
     textAlign: 'center',
   },
   selectedCategoryText: {
-    color: '#4A80F0',
+    color: theme.colors.primary,
     fontWeight: '700',
   },
-});
+}));
 
 export default CategoryScroll;

@@ -1,9 +1,11 @@
 // app/(tabs)/home/components/Header.tsx
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '@/firebase-config';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface HeaderProps {
   userName: string;
@@ -11,6 +13,9 @@ interface HeaderProps {
 }
 
 const Header = ({ userName, onProfilePress }: HeaderProps) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   const [profileImage, setProfileImage] = useState<string | null>(null);
   
   // Load the profile image from Firebase Auth
@@ -43,31 +48,31 @@ const Header = ({ userName, onProfilePress }: HeaderProps) => {
       >
         {profileImage ? (
           <Image 
-            source={{ uri: profileImage }} 
-            style={styles.profileImage} 
+            source={{ uri: profileImage }}
+            style={styles.profileImage}
           />
         ) : (
-          <Ionicons name="person-circle" size={40} color="#4A80F0" />
+          <Ionicons name="person-circle" size={40} color={theme.colors.primary} />
         )}
       </TouchableOpacity>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: 15,
     paddingBottom: 15,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: theme.dark ? 0.3 : 0.1,
     shadowRadius: 10,
     elevation: 5,
     zIndex: 100,
@@ -75,18 +80,18 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
   },
   subHeaderText: {
     fontSize: 14,
-    color: '#A0A0A0',
+    color: theme.colors.textSecondary,
     marginTop: 3,
   },
   avatarContainer: {
     height: 45,
     width: 45,
     borderRadius: 22.5,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.2)' : '#F0F4FF',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -95,6 +100,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-});
+}));
 
 export default Header;
