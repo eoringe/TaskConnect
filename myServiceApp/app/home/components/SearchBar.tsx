@@ -1,8 +1,10 @@
 // app/(tabs)/home/components/SearchBar.tsx
 
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface SearchBarProps {
   value: string;
@@ -11,13 +13,16 @@ interface SearchBarProps {
 }
 
 const SearchBar = ({ value, onChangeText, onFilterPress }: SearchBarProps) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.searchBarContainer}>
-      <Ionicons name="search" size={22} color="#A0A0A0" style={styles.searchIcon} />
+      <Ionicons name="search" size={22} color={theme.colors.textLight} style={styles.searchIcon} />
       <TextInput
         style={styles.searchBar}
         placeholder="What do you need done?"
-        placeholderTextColor="#A0A0A0"
+        placeholderTextColor={theme.colors.textLight}
         value={value}
         onChangeText={onChangeText}
       />
@@ -31,10 +36,10 @@ const SearchBar = ({ value, onChangeText, onFilterPress }: SearchBarProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   searchBarContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderRadius: 15,
     alignItems: 'center',
     paddingHorizontal: 15,
@@ -42,9 +47,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: theme.dark ? 0.3 : 0.05,
     shadowRadius: 5,
     elevation: 3,
   },
@@ -54,13 +59,13 @@ const styles = StyleSheet.create({
   searchBar: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   filterButton: {
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     borderRadius: 10,
     padding: 8,
   },
-});
+}));
 
 export default SearchBar;

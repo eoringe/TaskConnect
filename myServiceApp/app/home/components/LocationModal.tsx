@@ -1,9 +1,11 @@
 // app/(tabs)/home/components/LocationModal.tsx
 
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { City } from '../types';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface LocationModalProps {
   visible: boolean;
@@ -14,6 +16,9 @@ interface LocationModalProps {
 }
 
 const LocationModal = ({ visible, onClose, currentLocation, cities, onLocationChange }: LocationModalProps) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       animationType="slide"
@@ -26,7 +31,7 @@ const LocationModal = ({ visible, onClose, currentLocation, cities, onLocationCh
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Choose Your Location</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -43,12 +48,12 @@ const LocationModal = ({ visible, onClose, currentLocation, cities, onLocationCh
                 onPress={() => onLocationChange(item)}
               >
                 <View style={styles.cityItemLeft}>
-                  <Ionicons name="location" size={20} color="#4A80F0" />
+                  <Ionicons name="location" size={20} color={theme.colors.primary} />
                   <Text style={styles.cityName}>{item.name}</Text>
                   <Text style={styles.countryName}>{item.country}</Text>
                 </View>
                 {currentLocation.name === item.name && (
-                  <Ionicons name="checkmark-circle" size={20} color="#4A80F0" />
+                  <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
                 )}
               </TouchableOpacity>
             )}
@@ -59,14 +64,14 @@ const LocationModal = ({ visible, onClose, currentLocation, cities, onLocationCh
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   locationModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingTop: 20,
@@ -83,7 +88,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
   },
   cityList: {
     maxHeight: 300,
@@ -95,10 +100,10 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : '#F0F0F0',
   },
   selectedCityItem: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.15)' : theme.colors.primaryLight,
   },
   cityItemLeft: {
     flexDirection: 'row',
@@ -106,14 +111,14 @@ const styles = StyleSheet.create({
   },
   cityName: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
     marginLeft: 10,
   },
   countryName: {
     fontSize: 12,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
     marginLeft: 10,
   },
-});
+}));
 
 export default LocationModal;

@@ -1,10 +1,12 @@
 // app/(tabs)/home/components/ServiceCard.tsx
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Service } from '../types';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 interface ServiceCardProps {
   service: Service;
@@ -12,12 +14,14 @@ interface ServiceCardProps {
 
 const ServiceCard = ({ service }: ServiceCardProps) => {
   const router = useRouter();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.serviceCard}>
       <View style={styles.serviceCardTop}>
         <View style={styles.serviceImageContainer}>
-          <Ionicons name="person" size={36} color="#4A80F0" />
+          <Ionicons name="person" size={36} color={theme.colors.primary} />
         </View>
         <View style={styles.serviceInfo}>
           <Text style={styles.serviceName}>{service.name}</Text>
@@ -27,11 +31,11 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
             <Text style={styles.reviewsText}>({service.reviews} reviews)</Text>
           </View>
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color="#A0A0A0" />
+            <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
             <Text style={styles.serviceLocation}>{service.location}</Text>
           </View>
           <View style={styles.priceRow}>
-            <Ionicons name="cash-outline" size={14} color="#4A80F0" />
+            <Ionicons name="cash-outline" size={14} color={theme.colors.primary} />
             <Text style={styles.priceText}>{service.price}</Text>
           </View>
         </View>
@@ -50,16 +54,16 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   serviceCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderRadius: 20,
     padding: 15,
     marginHorizontal: 20,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
+    shadowOpacity: theme.dark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -71,7 +75,7 @@ const styles = StyleSheet.create({
     height: 65,
     width: 65,
     borderRadius: 20,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.15)' : '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -82,7 +86,7 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 5,
   },
   ratingContainer: {
@@ -92,13 +96,13 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 14,
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '700',
     marginLeft: 4,
   },
   reviewsText: {
     fontSize: 12,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
     marginLeft: 4,
   },
   locationRow: {
@@ -112,18 +116,18 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontSize: 13,
-    color: '#4A80F0',
+    color: theme.colors.primary,
     fontWeight: '600',
     marginLeft: 4,
   },
   serviceLocation: {
     fontSize: 13,
-    color: '#A0A0A0',
+    color: theme.colors.textLight,
     marginLeft: 4,
   },
   bookBtn: {
     marginTop: 15,
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -139,6 +143,6 @@ const styles = StyleSheet.create({
   bookBtnIcon: {
     marginLeft: 3,
   },
-});
+}));
 
 export default ServiceCard;
