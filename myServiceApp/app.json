@@ -9,8 +9,15 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Task Connect to use your location to suggest addresses."
+        }
+      ]
     ],
+
     "android": {
       "package": "com.taskconnect.myserviceapp",
       "intentFilters": [
