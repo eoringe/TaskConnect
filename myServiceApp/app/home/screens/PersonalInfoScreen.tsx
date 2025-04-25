@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
-  StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
   TextInput,
@@ -21,8 +20,13 @@ import {
   updateUserProfile, 
   UserProfile 
 } from '@/app/services/userDatabaseService';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 const PersonalInfoScreen = () => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [userData, setUserData] = useState<Partial<UserProfile>>({
@@ -118,7 +122,7 @@ const PersonalInfoScreen = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5CBD6A" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -151,7 +155,7 @@ const PersonalInfoScreen = () => {
               }
             }}
           >
-            <Ionicons name="arrow-back" size={24} color="#333" />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Personal Information</Text>
           <TouchableOpacity 
@@ -166,7 +170,7 @@ const PersonalInfoScreen = () => {
             disabled={isSaving}
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color="#5CBD6A" />
+              <ActivityIndicator size="small" color="#FFF" />
             ) : (
               <Text style={styles.editButtonText}>{editMode ? 'Save' : 'Edit'}</Text>
             )}
@@ -184,6 +188,7 @@ const PersonalInfoScreen = () => {
                 value={userData.displayName}
                 onChangeText={(text) => setUserData({...userData, displayName: text})}
                 placeholder="Enter your name"
+                placeholderTextColor={theme.colors.textLight}
               />
             ) : (
               <Text style={styles.infoValue}>{userData.displayName || 'Not set'}</Text>
@@ -210,6 +215,7 @@ const PersonalInfoScreen = () => {
                 value={userData.phoneNumber}
                 onChangeText={(text) => setUserData({...userData, phoneNumber: text})}
                 placeholder="Enter your phone number"
+                placeholderTextColor={theme.colors.textLight}
                 keyboardType="phone-pad"
               />
             ) : (
@@ -225,6 +231,7 @@ const PersonalInfoScreen = () => {
                 value={userData.userType}
                 onChangeText={(text) => setUserData({...userData, userType: text})}
                 placeholder="Enter user type"
+                placeholderTextColor={theme.colors.textLight}
               />
             ) : (
               <Text style={styles.infoValue}>{userData.userType || 'Not set'}</Text>
@@ -240,10 +247,10 @@ const PersonalInfoScreen = () => {
             onPress={() => Alert.alert('Feature', 'Password change functionality will be implemented soon.')}
           >
             <View style={styles.securityItemLeft}>
-              <Ionicons name="lock-closed-outline" size={24} color="#555" style={styles.securityIcon} />
+              <Ionicons name="lock-closed-outline" size={24} color={theme.colors.textSecondary} style={styles.securityIcon} />
               <Text style={styles.securityText}>Change Password</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#BDBDBD" />
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -251,10 +258,10 @@ const PersonalInfoScreen = () => {
             onPress={() => Alert.alert('Feature', 'Two-factor authentication will be implemented soon.')}
           >
             <View style={styles.securityItemLeft}>
-              <Ionicons name="shield-checkmark-outline" size={24} color="#555" style={styles.securityIcon} />
+              <Ionicons name="shield-checkmark-outline" size={24} color={theme.colors.textSecondary} style={styles.securityIcon} />
               <Text style={styles.securityText}>Two-Factor Authentication</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#BDBDBD" />
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
           </TouchableOpacity>
         </View>
         
@@ -276,15 +283,16 @@ const PersonalInfoScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.colors.background,
   },
   contentContainer: {
     padding: 16,
@@ -302,13 +310,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   editButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     minWidth: 70,
     alignItems: 'center',
   },
@@ -317,15 +325,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: theme.dark ? 0.3 : 0.05,
         shadowRadius: 3.84,
       },
       android: {
@@ -336,7 +344,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 15,
   },
   infoItem: {
@@ -344,18 +352,18 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginBottom: 5,
   },
   infoValue: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   infoInput: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: theme.colors.border,
     paddingVertical: 8,
   },
   emailContainer: {
@@ -364,20 +372,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   changeEmailText: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontWeight: '600',
     fontSize: 14,
   },
   securitySection: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: theme.dark ? 0.3 : 0.05,
         shadowRadius: 3.84,
       },
       android: {
@@ -391,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.colors.borderLight,
   },
   securityItemLeft: {
     flexDirection: 'row',
@@ -402,7 +410,7 @@ const styles = StyleSheet.create({
   },
   securityText: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   deleteAccountButton: {
     alignItems: 'center',
@@ -411,10 +419,10 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   deleteAccountText: {
-    color: '#FF5252',
+    color: theme.colors.secondary,
     fontSize: 16,
     fontWeight: '600',
   },
-});
+}));
 
 export default PersonalInfoScreen;

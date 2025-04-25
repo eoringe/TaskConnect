@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
-  StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
   Alert,
@@ -25,8 +24,13 @@ import {
   setDefaultAddress,
   Address
 } from '@/app/services/userDatabaseService';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 const SavedAddressesScreen = () => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -250,14 +254,14 @@ const SavedAddressesScreen = () => {
             style={styles.editButton}
             onPress={() => openAddressModal(address)}
           >
-            <Ionicons name="create-outline" size={20} color="#5CBD6A" />
+            <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.deleteButton}
             onPress={() => handleDeleteAddress(address.id)}
           >
-            <Ionicons name="trash-outline" size={20} color="#FF5252" />
+            <Ionicons name="trash-outline" size={20} color={theme.colors.secondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -294,7 +298,7 @@ const SavedAddressesScreen = () => {
               {isEditMode ? 'Edit Address' : 'Add New Address'}
             </Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
           
@@ -315,6 +319,7 @@ const SavedAddressesScreen = () => {
               value={currentAddress.street}
               onChangeText={(text) => setCurrentAddress({...currentAddress, street: text})}
               placeholder="Enter your street address"
+              placeholderTextColor={theme.colors.textLight}
             />
             
             <Text style={styles.inputLabel}>City*</Text>
@@ -323,6 +328,7 @@ const SavedAddressesScreen = () => {
               value={currentAddress.city}
               onChangeText={(text) => setCurrentAddress({...currentAddress, city: text})}
               placeholder="Enter your city"
+              placeholderTextColor={theme.colors.textLight}
             />
             
             <Text style={styles.inputLabel}>State/Province</Text>
@@ -331,6 +337,7 @@ const SavedAddressesScreen = () => {
               value={currentAddress.state}
               onChangeText={(text) => setCurrentAddress({...currentAddress, state: text})}
               placeholder="Enter your state or province"
+              placeholderTextColor={theme.colors.textLight}
             />
             
             <Text style={styles.inputLabel}>Postal Code</Text>
@@ -339,6 +346,7 @@ const SavedAddressesScreen = () => {
               value={currentAddress.postalCode}
               onChangeText={(text) => setCurrentAddress({...currentAddress, postalCode: text})}
               placeholder="Enter your postal code"
+              placeholderTextColor={theme.colors.textLight}
               keyboardType="number-pad"
             />
             
@@ -380,7 +388,7 @@ const SavedAddressesScreen = () => {
   if (isLoading && addresses.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5CBD6A" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -392,7 +400,7 @@ const SavedAddressesScreen = () => {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Saved Addresses</Text>
         <View style={styles.placeholder} />
@@ -401,7 +409,7 @@ const SavedAddressesScreen = () => {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {addresses.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="location-outline" size={60} color="#CCCCCC" />
+            <Ionicons name="location-outline" size={60} color={theme.colors.textLight} />
             <Text style={styles.emptyStateText}>No addresses saved yet</Text>
             <Text style={styles.emptyStateSubtext}>
               Add your first address to make checkout faster
@@ -424,22 +432,23 @@ const SavedAddressesScreen = () => {
       
       {isLoading && (
         <View style={styles.overlayLoading}>
-          <ActivityIndicator size="large" color="#5CBD6A" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -447,12 +456,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 15,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: theme.dark ? 0.3 : 0.05,
         shadowRadius: 3.84,
       },
       android: {
@@ -466,7 +475,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   placeholder: {
     width: 40,
@@ -487,24 +496,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: '#777',
+    color: theme.colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
   addressItem: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: theme.dark ? 0.3 : 0.05,
         shadowRadius: 3.84,
       },
       android: {
@@ -519,15 +528,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   defaultBadge: {
-    backgroundColor: 'rgba(92, 189, 106, 0.1)',
+    backgroundColor: theme.colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#5CBD6A',
+    borderColor: theme.colors.primary,
   },
   defaultBadgeText: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -543,7 +552,7 @@ const styles = StyleSheet.create({
   },
   addressLine: {
     fontSize: 15,
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   setDefaultButton: {
@@ -551,7 +560,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   setDefaultText: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -560,7 +569,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -568,7 +577,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 3.84,
@@ -588,7 +597,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
@@ -605,7 +614,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: theme.dark 
+      ? 'rgba(0, 0, 0, 0.7)' 
+      : 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
@@ -616,7 +627,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -631,38 +642,40 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   modalForm: {
     maxHeight: '80%',
   },
   inputLabel: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginBottom: 5,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 15,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.background,
   },
   disabledInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 15,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
   },
   disabledInputText: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   defaultCheckbox: {
     flexDirection: 'row',
@@ -675,20 +688,20 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#5CBD6A',
+    borderColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
   checkboxChecked: {
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
   },
   checkboxLabel: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   saveButton: {
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -699,6 +712,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-});
+}));
 
 export default SavedAddressesScreen;
