@@ -295,8 +295,8 @@ const createProfileStyles = createThemedStyles(theme => ({
   },
   profileHeader: {
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 20,
+    paddingTop: 70,
+    paddingBottom: 30,
   },
   profileImageContainer: {
     position: 'relative',

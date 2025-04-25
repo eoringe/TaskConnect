@@ -455,8 +455,8 @@ const createStyles = createThemedStyles(theme => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 15,
-    backgroundColor: theme.colors.card,
+    paddingVertical: 40,
+    backgroundColor: theme.colors.background,
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.shadow,

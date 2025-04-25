@@ -302,7 +302,7 @@ const createStyles = createThemedStyles(theme => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
-    paddingVertical: 10,
+    paddingVertical: 30,
   },
   backButton: {
     padding: 8,
