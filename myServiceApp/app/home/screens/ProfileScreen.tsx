@@ -10,7 +10,8 @@ import {
   ScrollView, 
   Alert,
   ActivityIndicator,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,8 +19,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { auth } from '@/firebase-config';
 import { updateProfile } from 'firebase/auth';
 import { router } from 'expo-router';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 const ProfileScreen = () => {
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const styles = useThemedStyles(createProfileStyles);
+  
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -140,6 +146,10 @@ const ProfileScreen = () => {
       case 'editProfile':
         router.push('/home/screens/PersonalInfoScreen');
         break;
+      case 'darkMode':
+        // Toggle theme instead of navigating
+        toggleTheme();
+        break;
       default:
         // For other screens that are not yet implemented
         Alert.alert('Coming Soon', `${destination} will be available in a future update.`);
@@ -152,7 +162,7 @@ const ProfileScreen = () => {
       <View style={styles.profileImageContainer}>
         {uploadingImage ? (
           <View style={styles.profileImage}>
-            <ActivityIndicator size="large" color="#5CBD6A" />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         ) : (
           <>
@@ -198,18 +208,30 @@ const ProfileScreen = () => {
       onPress={() => navigateTo(item.destination)}
     >
       <View style={styles.menuItemLeft}>
-        <Ionicons name={item.icon} size={24} color="#555" style={styles.menuItemIcon} />
+        <Ionicons 
+          name={item.icon} 
+          size={24} 
+          color={theme.colors.textSecondary} 
+          style={styles.menuItemIcon} 
+        />
         <Text style={styles.menuItemTitle}>{item.title}</Text>
       </View>
       
       <View style={styles.menuItemRight}>
         {item.value && <Text style={styles.menuItemValue}>{item.value}</Text>}
         {item.toggle ? (
-          <View style={styles.toggleButton}>
-            <Ionicons name="toggle-outline" size={36} color="#5CBD6A" />
-          </View>
+          <Switch
+            value={isDarkMode}
+            onValueChange={toggleTheme}
+            thumbColor={isDarkMode ? theme.colors.primary : '#f4f3f4'}
+            trackColor={{ 
+              false: '#767577', 
+              true: `${theme.colors.primary}80`
+            }}
+            ios_backgroundColor="#3e3e3e"
+          />
         ) : (
-          <Ionicons name="chevron-forward" size={20} color="#BDBDBD" />
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
         )}
       </View>
     </TouchableOpacity>
@@ -218,7 +240,9 @@ const ProfileScreen = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['rgba(92, 189, 106, 0.2)', 'rgba(255, 255, 255, 0)']}
+        colors={isDarkMode 
+          ? ['rgba(92, 189, 106, 0.2)', 'rgba(18, 18, 18, 0)']
+          : ['rgba(92, 189, 106, 0.2)', 'rgba(255, 255, 255, 0)']}
         style={styles.headerGradient}
       />
       
@@ -257,10 +281,10 @@ const ProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createProfileStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FD',
+    backgroundColor: theme.colors.background,
   },
   headerGradient: {
     position: 'absolute',
@@ -283,7 +307,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: theme.colors.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -291,11 +315,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: theme.colors.card,
   },
   profileImagePlaceholderText: {
     fontSize: 40,
@@ -306,36 +330,36 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    backgroundColor: '#5CBD6A',
+    backgroundColor: theme.colors.primary,
     borderRadius: 15,
     width: 30,
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: theme.colors.card,
   },
   userName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   userEmail: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginTop: 5,
   },
   editProfileButton: {
     marginTop: 15,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: 'rgba(92, 189, 106, 0.1)',
+    backgroundColor: theme.colors.primaryLight,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#5CBD6A',
+    borderColor: theme.colors.primary,
   },
   editProfileButtonText: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   contentContainer: {
@@ -344,7 +368,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: theme.colors.text,
     marginTop: 25,
     marginBottom: 15,
   },
@@ -352,16 +376,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     paddingVertical: 15,
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 10,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: theme.dark ? 0.3 : 0.05,
         shadowRadius: 3.84,
       },
       android: {
@@ -378,7 +402,7 @@ const styles = StyleSheet.create({
   },
   menuItemTitle: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   menuItemRight: {
     flexDirection: 'row',
@@ -386,17 +410,14 @@ const styles = StyleSheet.create({
   },
   menuItemValue: {
     fontSize: 14,
-    color: '#999',
+    color: theme.colors.textLight,
     marginRight: 10,
-  },
-  toggleButton: {
-    // Toggle styling
   },
   signOutButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FF5252',
+    backgroundColor: theme.colors.secondary,
     paddingVertical: 15,
     borderRadius: 12,
     marginTop: 30,
@@ -411,11 +432,11 @@ const styles = StyleSheet.create({
   },
   versionText: {
     textAlign: 'center',
-    color: '#999',
+    color: theme.colors.textLight,
     fontSize: 12,
     marginTop: 20,
     marginBottom: 30,
   }
-});
+}));
 
 export default ProfileScreen;

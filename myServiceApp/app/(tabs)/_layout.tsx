@@ -4,7 +4,7 @@ import { Link, Tabs } from 'expo-router';
 import { Pressable, StyleSheet, View, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 
-import Colors from '@/constants/Colors';
+import Colors from '@/app/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 

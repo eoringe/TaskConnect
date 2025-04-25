@@ -1,12 +1,15 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { useColorScheme as useRNColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
-import { useColorScheme } from '@/components/useColorScheme';
+// Import our custom theme provider
+import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -42,14 +45,22 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  // Wrap RootLayoutNav with our ThemeProvider
+  return (
+    <ThemeProvider>
+      <RootLayoutNav />
+    </ThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  // Use our custom theme hook
+  const { isDarkMode } = useTheme();
 
+  // Pass the theme value to React Navigation's ThemeProvider
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="home" options={{ headerShown: false }} /> {/* Add this line */}
@@ -70,6 +81,6 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }
