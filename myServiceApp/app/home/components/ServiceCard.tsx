@@ -43,7 +43,7 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
       <TouchableOpacity
         style={styles.bookBtn}
         onPress={() => router.push({
-          pathname: "/booking",
+          pathname: "/home/screens/bookingScreen",
           params: { tasker: JSON.stringify(service) }
         })}
       >
