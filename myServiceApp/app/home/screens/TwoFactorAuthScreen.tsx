@@ -794,7 +794,7 @@ const TwoFactorAuthScreen = () => {
   
   return (
     <View style={styles.container}>
-      <StatusBarSpace />
+   
       
       {/* Main content - different views based on current step */}
       {isLoading && step === 0 ? (
