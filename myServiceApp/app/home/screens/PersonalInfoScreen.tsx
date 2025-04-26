@@ -119,6 +119,16 @@ const PersonalInfoScreen = () => {
     );
   };
   
+  // Navigate to Change Password screen
+  const navigateToChangePassword = () => {
+    router.push('/home/screens/ChangePasswordScreen');
+  };
+  
+  // Navigate to Two-Factor Authentication screen
+  const navigateToTwoFactorAuth = () => {
+    router.push('/home/screens/TwoFactorAuthScreen');
+  };
+  
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -244,7 +254,7 @@ const PersonalInfoScreen = () => {
           
           <TouchableOpacity 
             style={styles.securityItem}
-            onPress={() => Alert.alert('Feature', 'Password change functionality will be implemented soon.')}
+            onPress={navigateToChangePassword}
           >
             <View style={styles.securityItemLeft}>
               <Ionicons name="lock-closed-outline" size={24} color={theme.colors.textSecondary} style={styles.securityIcon} />
@@ -255,7 +265,7 @@ const PersonalInfoScreen = () => {
           
           <TouchableOpacity 
             style={styles.securityItem}
-            onPress={() => Alert.alert('Feature', 'Two-factor authentication will be implemented soon.')}
+            onPress={navigateToTwoFactorAuth}
           >
             <View style={styles.securityItemLeft}>
               <Ionicons name="shield-checkmark-outline" size={24} color={theme.colors.textSecondary} style={styles.securityIcon} />

@@ -145,20 +145,6 @@ const ChangePasswordScreen = () => {
   
   return (
     <View style={styles.container}>
-      <StatusBarSpace />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={handleGoBack}
-          disabled={isLoading}
-        >
-          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Change Password</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
       
       <ScrollView 
         style={styles.content} 
