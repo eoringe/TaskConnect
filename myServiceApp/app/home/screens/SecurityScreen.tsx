@@ -243,7 +243,7 @@ const SecurityScreen = () => {
   
   return (
     <View style={styles.container}>
-      <StatusBarSpace />
+
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionDescription}>
