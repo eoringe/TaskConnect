@@ -20,7 +20,7 @@ import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
-import BiometricHelper from '../utils/BiometricHelper'; // Assuming you have a utility for biometric operations
+import BiometricHelper from '../utils/BiometricHelper'; // Using the full path to your BiometricHelper
 
 
 const SecurityScreen = () => {
@@ -222,10 +222,10 @@ const SecurityScreen = () => {
   const handleAction = (action: string) => {
     switch (action) {
       case 'changePassword':
-        promptChangePassword();
+        router.push('/home/screens/ChangePasswordScreen');
         break;
       case 'enableTwoFactor':
-        Alert.alert('Coming Soon', 'Two-Factor Authentication will be available in a future update.');
+        router.push('/home/screens/TwoFactorAuthScreen');
         break;
       case 'appLock':
         Alert.alert('Coming Soon', 'App Lock will be available in a future update.');
@@ -239,25 +239,6 @@ const SecurityScreen = () => {
       default:
         break;
     }
-  };
-  
-  const promptChangePassword = () => {
-    // In a real app, you would navigate to a proper password change screen
-    // This is just a simplified example
-    Alert.alert(
-      'Change Password',
-      'This would navigate to a password change screen in a real app.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Proceed',
-          onPress: () => Alert.alert('Coming Soon', 'Password change functionality will be implemented in a future update.'),
-        },
-      ]
-    );
   };
   
   return (

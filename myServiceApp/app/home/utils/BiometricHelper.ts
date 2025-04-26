@@ -199,6 +199,56 @@ class BiometricHelper {
       return { success: false, errorType: 'error' };
     }
   }
+  
+  /**
+   * Get stored credentials after biometric authentication
+   * Simplified version returning object with email and password directly
+   */
+  static async getCredentials(): Promise<{ email: string, password: string } | null> {
+    try {
+      const result = await this.authenticateAndGetCredentials();
+      
+      if (result.success) {
+        return {
+          email: result.email ?? '',
+          password: result.password ?? ''
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.log('Error getting credentials:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Authenticate with biometric for general purposes
+   * @param promptMessage Custom message to show during authentication prompt
+   */
+  static async authenticate(promptMessage: string = 'Authenticate to continue'): Promise<boolean> {
+    try {
+      // First check if biometric is available and enabled
+      const isAvailable = await BiometricHelper.isBiometricAvailable();
+      const isEnabled = await BiometricHelper.isBiometricEnabled();
+      
+      if (!isAvailable || !isEnabled) {
+        return false;
+      }
+      
+      // Authenticate with biometric
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage,
+        fallbackLabel: 'Use password',
+        disableDeviceFallback: false,
+      });
+      
+      return result.success;
+    } catch (error) {
+      console.log('Error authenticating with biometric:', error);
+      return false;
+    }
+  }
 }
 
 export default BiometricHelper;
