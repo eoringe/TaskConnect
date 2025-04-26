@@ -34,6 +34,11 @@
       ]
     },
     "ios": {
+      
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "This app uses Face ID to securely log you in."
+      }, 
+
       "bundleIdentifier": "com.taskconnect.myserviceapp"
     },
     "extra": {

@@ -1,23 +1,32 @@
-// app/(tabs)/home/screens/_layout.tsx
-import { Stack } from 'expo-router';
+// app/(tabs)/home/screens/_layout.tsx 
 
-export default function ScreensLayout() {
-  return (
-    <Stack>
-      <Stack.Screen
-        name="PersonalInfoScreen"
-        options={{
-          headerShown: false,
-          title: "Personal Information"
-        }}
+import { Stack } from 'expo-router';  
+
+export default function ScreensLayout() {   
+  return (     
+    <Stack>       
+      <Stack.Screen         
+        name="PersonalInfoScreen"         
+        options={{           
+          headerShown: false,           
+          title: "Personal Information"         
+        }}       
+      />       
+      <Stack.Screen         
+        name="SavedAddressesScreen"         
+        options={{           
+          headerShown: false,           
+          title: "Saved Addresses"         
+        }}       
       />
       <Stack.Screen
-        name="SavedAddressesScreen"
+        name="SecurityScreen"
         options={{
-          headerShown: false,
-          title: "Saved Addresses"
+          headerShown: true,
+          title: "Security",
+          headerBackTitle: "Back"
         }}
       />
-    </Stack>
-  );
+    </Stack>   
+  ); 
 }
