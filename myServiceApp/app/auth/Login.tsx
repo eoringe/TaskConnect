@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// app/(tabs)/auth/Login.tsx
+
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -18,6 +20,8 @@ import useGoogleSignIn from './googleSignIn';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth'; 
 import { auth } from '../../firebase-config';
+import BiometricHelper from '../home/utils/BiometricHelper';
+import { FirebaseError } from 'firebase/app';
 
 const LoginScreen = () => {
   // Extract necessary functions from the hook
@@ -38,7 +42,109 @@ const LoginScreen = () => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
   
+  // Check for biometric authentication availability on component mount
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+  
+  // Function to check biometric availability
+  const checkBiometricAvailability = async () => {
+    try {
+      const isEnabled = await BiometricHelper.isBiometricEnabled();
+      const isAvailable = await BiometricHelper.isBiometricAvailable();
+      const hasCredentials = await BiometricHelper.hasStoredCredentials();
+      
+      // Only show biometric option if all three conditions are met
+      setIsBiometricAvailable(isEnabled && isAvailable && hasCredentials);
+      
+      // Get the biometric type name
+      const biometricName = BiometricHelper.getBiometricName();
+      setBiometricType(biometricName);
+      
+      // If biometric is available and enabled, show the biometric prompt immediately
+      if (isEnabled && isAvailable && hasCredentials) {
+        // Get the stored email to show in the UI
+        const storedEmail = await BiometricHelper.getStoredEmail();
+        if (storedEmail) {
+          setEmail(storedEmail); // Pre-fill the email field
+        }
+        
+        // Small delay before showing biometric prompt
+        setTimeout(() => {
+          handleBiometricLogin();
+        }, 500);
+      }
+    } catch (error) {
+      console.log('Error checking biometric status:', error);
+    }
+  };
+  
+  // Handle biometric login
+  const handleBiometricLogin = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Use the new method to get stored credentials after biometric authentication
+      const result = await BiometricHelper.authenticateAndGetCredentials();
+      
+      if (result.success && result.email && result.password) {
+        try {
+          // Sign in to Firebase using the stored credentials
+          await signInWithEmailAndPassword(auth, result.email, result.password);
+          
+          // Navigate to home screen on success
+          router.push('/home');
+        } catch (error) {
+          console.log('Firebase authentication error:', error);
+          setIsLoading(false);
+          
+          // Handle authentication errors
+          if ((error as FirebaseError).code === 'auth/invalid-credential' || 
+              (error as FirebaseError).code === 'auth/user-not-found' || 
+              (error as FirebaseError).code === 'auth/wrong-password') {
+            Alert.alert(
+              'Authentication Failed',
+              'Your saved login credentials are no longer valid. Please sign in with your email and password, then re-enable biometric login.',
+              [{ text: 'OK' }]
+            );
+          } else {
+            Alert.alert(
+              'Login Error',
+              'Failed to sign in. Please try again or use your email and password.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      } else {
+        setIsLoading(false);
+        
+        // Handle specific error types
+        if (result.errorType === 'no_credentials') {
+          Alert.alert(
+            'No Biometric Data',
+            'No user account is linked to your biometrics. Please log in with your email and password first, then enable biometric login in Security settings.',
+            [{ text: 'OK' }]
+          );
+        } else if (result.errorType === 'user_cancelled') {
+          // User cancelled, no need to show alert
+        } else if (result.errorType === 'auth_failed') {
+          Alert.alert(
+            'Authentication Failed',
+            'Biometric authentication failed. Please try again or use your password.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    } catch (error) {
+      console.log('Error during biometric authentication:', error);
+      setIsLoading(false);
+      Alert.alert('Authentication Error', 'Failed to authenticate using biometrics');
+    }
+  };
+
   const validateForm = () => {
     let isValid = true;
     
@@ -74,16 +180,26 @@ const LoginScreen = () => {
     setLoginError('');
     
     try {
+      // Sign in with firebase using email and password
       await signInWithEmailAndPassword(auth, email, password);
+      
+      // Store email and password for future biometric login
+      // This happens quietly in the background - user can enable biometric in Security screen
+      if (await BiometricHelper.isBiometricAvailable()) {
+        // We're not enabling biometrics here, just storing the credentials
+        // User will need to explicitly enable biometrics in Security screen
+        await BiometricHelper.storeCredentials(email, password);
+      }
+      
       router.push('/home');
     } catch (error) {
       // Handle specific Firebase auth errors
       let errorMessage = 'Failed to sign in. Please try again.';
       
-      if (error && error.code === 'auth/user-not-found' || 
-          error && error.code === 'auth/wrong-password') {
+      if ((error as FirebaseError).code === 'auth/user-not-found' || 
+          (error as FirebaseError).code === 'auth/wrong-password') {
         errorMessage = 'Incorrect email or password';
-      } else if (error && error.code === 'auth/too-many-requests') {
+      } else if ((error as FirebaseError).code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed login attempts. Please try again later';
       }
       
@@ -319,6 +435,27 @@ const LoginScreen = () => {
                 </LinearGradient>
               </TouchableOpacity>
 
+              {/* Biometric Login Button (visible only if biometric is available) */}
+              {isBiometricAvailable && (
+                <TouchableOpacity 
+                  style={styles.biometricButton}
+                  onPress={handleBiometricLogin}
+                  disabled={isLoading}
+                >
+                  <View style={styles.biometricButtonContent}>
+                    <Ionicons 
+                      name={Platform.OS === 'ios' ? "finger-print-outline" : "finger-print"} 
+                      size={22} 
+                      color="#5CBD6A" 
+                      style={styles.biometricIcon} 
+                    />
+                    <Text style={styles.biometricButtonText}>
+                      Sign in with {biometricType}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* Social Login Divider */}
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
@@ -485,6 +622,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  biometricButton: {
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 189, 106, 0.6)',
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: 'rgba(92, 189, 106, 0.1)',
+  },
+  biometricButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  biometricIcon: {
+    marginRight: 8,
+  },
+  biometricButtonText: {
+    color: '#5CBD6A',
+    fontSize: 16,
+    fontWeight: '600',
   },
   dividerContainer: {
     flexDirection: 'row',

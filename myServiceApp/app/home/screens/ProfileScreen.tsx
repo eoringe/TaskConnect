@@ -21,6 +21,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
+import BiometricHelper from '../utils/BiometricHelper';
 
 const ProfileScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
@@ -37,7 +38,7 @@ const ProfileScreen = () => {
     { icon: 'person-outline', title: 'Personal Information', destination: 'personalInfo' },
     { icon: 'card-outline', title: 'Payment Methods', destination: 'paymentMethods' },
     { icon: 'location-outline', title: 'Saved Addresses', destination: 'SavedAddressesScreen' },
-    { icon: 'shield-outline', title: 'Security', destination: 'security' },
+    { icon: 'shield-outline', title: 'Security', destination: 'SecurityScreen' },
   ];
   
   const appSettings = [
@@ -125,6 +126,10 @@ const ProfileScreen = () => {
   const handleSignOut = async () => {
     setIsLoading(true);
     try {
+      // Clear biometric credentials when signing out for security
+      await BiometricHelper.clearCredentials();
+      
+      // Sign out from Firebase
       await auth.signOut();
       router.replace('/auth/Login');
     } catch (error) {
@@ -142,6 +147,9 @@ const ProfileScreen = () => {
         break;
       case 'SavedAddressesScreen':
         router.push('/home/screens/SavedAddressesScreen');
+        break;
+      case 'SecurityScreen':
+        router.push('/home/screens/SecurityScreen');
         break;
       case 'editProfile':
         router.push('/home/screens/PersonalInfoScreen');
