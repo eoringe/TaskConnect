@@ -11,68 +11,171 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Switch,
   Modal,
+  Clipboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { auth } from '@/firebase-config';
-import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { auth, db } from '@/firebase-config';
+import { 
+  EmailAuthProvider, 
+  reauthenticateWithCredential, 
+  getAuth
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
+// Import the fixed TOTP service
+import TOTPService from '../utils/TOTPService';
+// Import QR code helper
+import QRCodeHelper from '../utils/QrCodeHelper';
 
-// Mock function for 2FA service - in a real app, you would use Firebase or a third-party 2FA service
+// Real Firebase service for 2FA management
 const TwoFactorAuthService = {
-  isEnabled: false,
-  
-  // Generate a QR code for the user to scan
-  generateQRCode: async (email: string) => {
-    // This would actually call your backend to generate a QR code URL
-    // For demo purposes, we return a placeholder image path
-    return '/api/placeholder/200/200';
+  // Check if 2FA is enabled for the current user
+  checkEnabled: async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        return !!userData.twoFactorAuth?.enabled;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking 2FA status:', error);
+      return false;
+    }
   },
   
-  // Get the recovery codes for the user
-  getRecoveryCodes: async () => {
-    // This would actually generate and store recovery codes
-    return [
-      'ABCD-1234-EFGH-5678',
-      'IJKL-9012-MNOP-3456',
-      'QRST-7890-UVWX-1234',
-      'YZ12-5678-AB90-CDEF',
-      'GHIJ-3456-KLMN-7890',
-      'OPQR-1234-STUV-5678',
-      'WXYZ-9012-1234-5678',
-      'ABCD-7890-EFGH-1234'
-    ];
+  // Set up 2FA for a user
+  setup: async (userId: string, email: string) => {
+    try {
+      // Generate a secret key (shorter key)
+      const secret = TOTPService.generateSecret();
+      
+      // Generate QR code URI
+      const totpUri = QRCodeHelper.generateTOTPUri('YourApp', email, secret);
+      
+      // Generate local QR code image
+      const qrCodeUrl = await QRCodeHelper.generateQRCode(totpUri);
+      
+      // Generate recovery codes (shorter format)
+      const recoveryCodes = TOTPService.generateRecoveryCodes();
+      
+      // Store setup data in Firestore (not enabled yet)
+      await setDoc(doc(db, 'users', userId), {
+        twoFactorAuth: {
+          secret,
+          recoveryCodes,
+          enabled: false,
+          setupPending: true,
+          createdAt: new Date().toISOString()
+        }
+      }, { merge: true });
+      
+      return {
+        secret,
+        qrCodeUrl,
+        recoveryCodes,
+        totpUri
+      };
+    } catch (error) {
+      console.error('Error setting up 2FA:', error);
+      throw error;
+    }
   },
   
-  // Verify the OTP code entered by the user
-  verifyOTP: async (code: string) => {
-    // This would validate against the actual OTP
-    // For demo purposes, we'll accept "123456" as a valid code
-    return code === '123456';
+  // Verify a TOTP code and enable 2FA if valid
+  verifyAndEnable: async (userId: string, token: string) => {
+    try {
+      // Get the user's 2FA data
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+      
+      const userData = userDoc.data();
+      const twoFactorData = userData.twoFactorAuth;
+      
+      if (!twoFactorData || !twoFactorData.secret) {
+        throw new Error('2FA not set up');
+      }
+      
+      // Verify the token
+      const isValid = TOTPService.verifyTOTP(twoFactorData.secret, token);
+      
+      if (isValid) {
+        // Enable 2FA
+        await updateDoc(doc(db, 'users', userId), {
+          'twoFactorAuth.enabled': true,
+          'twoFactorAuth.setupPending': false,
+          'twoFactorAuth.enabledAt': new Date().toISOString()
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error verifying and enabling 2FA:', error);
+      throw error;
+    }
   },
   
-  // Enable 2FA for the user
-  enable2FA: async () => {
-    // This would store the 2FA status in your backend
-    TwoFactorAuthService.isEnabled = true;
-    return true;
+  // Disable 2FA for a user
+  disable: async (userId: string) => {
+    try {
+      // Remove 2FA data from the user document
+      await updateDoc(doc(db, 'users', userId), {
+        twoFactorAuth: deleteField()
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error disabling 2FA:', error);
+      throw error;
+    }
   },
   
-  // Disable 2FA for the user
-  disable2FA: async () => {
-    // This would remove 2FA status in your backend
-    TwoFactorAuthService.isEnabled = false;
-    return true;
-  },
-  
-  // Check if 2FA is enabled
-  check2FAStatus: async () => {
-    // This would check with your backend
-    return TwoFactorAuthService.isEnabled;
+  // Get 2FA setup data for a user
+  getSetupData: async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+      
+      const userData = userDoc.data();
+      const twoFactorData = userData.twoFactorAuth;
+      
+      if (!twoFactorData) {
+        return null;
+      }
+      
+      // Re-create QR code URL
+      const auth = getAuth();
+      const user = auth.currentUser;
+      let qrCodeUrl = '';
+      let totpUri = '';
+      
+      if (user?.email && twoFactorData.secret) {
+        totpUri = QRCodeHelper.generateTOTPUri('YourApp', user.email, twoFactorData.secret);
+        qrCodeUrl = await QRCodeHelper.generateQRCode(totpUri);
+      }
+      
+      return {
+        secret: twoFactorData.secret,
+        qrCodeUrl,
+        totpUri,
+        recoveryCodes: twoFactorData.recoveryCodes,
+        enabled: twoFactorData.enabled,
+        setupPending: twoFactorData.setupPending
+      };
+    } catch (error) {
+      console.error('Error getting 2FA setup data:', error);
+      throw error;
+    }
   }
 };
 
@@ -84,7 +187,10 @@ const TwoFactorAuthScreen = () => {
   const [step, setStep] = useState(0); // 0: intro, 1: setup, 2: verify, 3: recovery codes, 4: success
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [setupPending, setSetupPending] = useState(false);
   const [qrCodeUri, setQrCodeUri] = useState('');
+  const [secret, setSecret] = useState('');
+  const [totpUri, setTotpUri] = useState(''); // Store the raw TOTP URI
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationCodeError, setVerificationCodeError] = useState('');
   const [password, setPassword] = useState('');
@@ -104,10 +210,31 @@ const TwoFactorAuthScreen = () => {
   
   const checkTwoFactorStatus = async () => {
     try {
-      const enabled = await TwoFactorAuthService.check2FAStatus();
+      setIsLoading(true);
+      
+      const user = auth.currentUser;
+      if (!user || !user.uid) {
+        throw new Error('User not logged in');
+      }
+      
+      // Check if 2FA is enabled
+      const enabled = await TwoFactorAuthService.checkEnabled(user.uid);
       setIs2FAEnabled(enabled);
+      
+      // If 2FA is not enabled, check if setup is pending
+      if (!enabled) {
+        const setupData = await TwoFactorAuthService.getSetupData(user.uid);
+        if (setupData && setupData.setupPending) {
+          setSetupPending(true);
+          setQrCodeUri(setupData.qrCodeUrl);
+          setSecret(setupData.secret);
+          setTotpUri(setupData.totpUri || '');
+          setRecoveryCodes(setupData.recoveryCodes);
+        }
+      }
     } catch (error) {
       console.log('Error checking 2FA status:', error);
+      Alert.alert('Error', 'Failed to check two-factor authentication status.');
     } finally {
       setIsLoading(false);
     }
@@ -138,7 +265,13 @@ const TwoFactorAuthScreen = () => {
       return;
     }
     
-    setShowVerificationDialog(true);
+    // If setup is pending, continue from where we left off
+    if (setupPending) {
+      setStep(1);
+    } else {
+      // Otherwise, start fresh with password verification
+      setShowVerificationDialog(true);
+    }
   };
   
   // Verify user password before proceeding
@@ -166,13 +299,15 @@ const TwoFactorAuthScreen = () => {
       setShowVerificationDialog(false);
       setPassword('');
       
-      // Generate QR code
-      const qrCode = await TwoFactorAuthService.generateQRCode(user.email);
-      setQrCodeUri(qrCode);
+      // Set up 2FA for the user
+      const setupData = await TwoFactorAuthService.setup(user.uid, user.email);
       
-      // Generate recovery codes
-      const codes = await TwoFactorAuthService.getRecoveryCodes();
-      setRecoveryCodes(codes);
+      // Store the setup data
+      setQrCodeUri(setupData.qrCodeUrl);
+      setSecret(setupData.secret);
+      setTotpUri(setupData.totpUri || '');
+      setRecoveryCodes(setupData.recoveryCodes);
+      setSetupPending(true);
       
       // Move to setup step
       setStep(1);
@@ -191,7 +326,22 @@ const TwoFactorAuthScreen = () => {
   // Format inputted verification code
   const handleCodeInput = (index: number, text: string) => {
     if (text.length === 0) {
-      // If deleting, stay at the current input
+      // Handle backspace - clear current digit and focus previous input
+      const newVerificationCode = 
+        verificationCode.substring(0, index) + 
+        ' ' +
+        verificationCode.substring(index + 1);
+      
+      setVerificationCode(newVerificationCode.trim());
+      
+      if (index > 0) {
+        inputRefs.current[index - 1]?.focus();
+      }
+      return;
+    }
+    
+    // Only allow numbers
+    if (!/^\d+$/.test(text)) {
       return;
     }
     
@@ -226,7 +376,13 @@ const TwoFactorAuthScreen = () => {
     setIsLoading(true);
     
     try {
-      const isValid = await TwoFactorAuthService.verifyOTP(verificationCode);
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+      
+      // Verify the code and enable 2FA
+      const isValid = await TwoFactorAuthService.verifyAndEnable(user.uid, verificationCode);
       
       if (isValid) {
         // Move to recovery codes step
@@ -247,17 +403,12 @@ const TwoFactorAuthScreen = () => {
     setIsLoading(true);
     
     try {
-      const success = await TwoFactorAuthService.enable2FA();
-      
-      if (success) {
-        setIs2FAEnabled(true);
-        setStep(4);
-      } else {
-        throw new Error('Failed to enable two-factor authentication');
-      }
+      // At this point, 2FA is already enabled
+      setIs2FAEnabled(true);
+      setStep(4);
     } catch (error) {
       console.log('Error enabling 2FA:', error);
-      Alert.alert('Error', 'Failed to enable two-factor authentication. Please try again.');
+      Alert.alert('Error', 'Failed to complete two-factor authentication setup.');
     } finally {
       setIsLoading(false);
     }
@@ -265,9 +416,27 @@ const TwoFactorAuthScreen = () => {
   
   // Copy recovery codes to clipboard
   const copyRecoveryCodes = () => {
-    // In a real app, you would use Clipboard.setString(recoveryCodes.join('\n'))
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    try {
+      Clipboard.setString(recoveryCodes.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch (error) {
+      console.log('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy recovery codes to clipboard.');
+    }
+  };
+  
+  // Copy secret key to clipboard
+  const copySecret = () => {
+    try {
+      // Copy without spaces
+      Clipboard.setString(secret.replace(/\s+/g, ''));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch (error) {
+      console.log('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy secret key to clipboard.');
+    }
   };
   
   // Disable 2FA
@@ -287,10 +456,17 @@ const TwoFactorAuthScreen = () => {
     setIsLoading(true);
     
     try {
-      const success = await TwoFactorAuthService.disable2FA();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+      
+      // Disable 2FA
+      const success = await TwoFactorAuthService.disable(user.uid);
       
       if (success) {
         setIs2FAEnabled(false);
+        setSetupPending(false);
         setStep(0);
         Alert.alert('Success', 'Two-factor authentication has been disabled.');
       } else {
@@ -308,6 +484,20 @@ const TwoFactorAuthScreen = () => {
   const resetVerification = () => {
     setVerificationCode('');
     setVerificationCodeError('');
+    // Focus first input
+    inputRefs.current[0]?.focus();
+  };
+  
+  // Format secret key for display (split into groups of 4)
+  const formatSecret = (secret: string) => {
+    // First remove any existing spaces
+    const cleanSecret = secret.replace(/\s+/g, '');
+    
+    const groups = [];
+    for (let i = 0; i < cleanSecret.length; i += 4) {
+      groups.push(cleanSecret.substring(i, i + 4));
+    }
+    return groups.join(' ');
   };
   
   // Render intro screen
@@ -376,6 +566,7 @@ const TwoFactorAuthScreen = () => {
           <>
             <Text style={styles.statusText}>
               Two-factor authentication is currently <Text style={styles.disabledText}>disabled</Text>
+              {setupPending && ' (setup pending)'}
             </Text>
             <TouchableOpacity
               style={styles.setupButton}
@@ -385,7 +576,9 @@ const TwoFactorAuthScreen = () => {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.setupButtonText}>Set Up 2FA</Text>
+                <Text style={styles.setupButtonText}>
+                  {setupPending ? 'Continue Setup' : 'Set Up 2FA'}
+                </Text>
               )}
             </TouchableOpacity>
           </>
@@ -422,11 +615,17 @@ const TwoFactorAuthScreen = () => {
       </Text>
       
       <View style={styles.qrContainer}>
-        <Image
-          source={{ uri: qrCodeUri }}
-          style={styles.qrCode}
-          resizeMode="contain"
-        />
+        {qrCodeUri ? (
+          <Image
+            source={{ uri: qrCodeUri }}
+            style={styles.qrCode}
+            resizeMode="contain"
+          />
+        ) : (
+          <View style={styles.qrPlaceholder}>
+            <Text style={styles.qrPlaceholderText}>Unable to generate QR code</Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.orDivider}>
@@ -435,9 +634,22 @@ const TwoFactorAuthScreen = () => {
         <View style={styles.dividerLine} />
       </View>
       
-      <Text style={styles.setupCode}>ABCD EFGH IJKL MNOP</Text>
+      <Text style={styles.setupInstructions}>
+        Enter this code in your authenticator app:
+      </Text>
+      
+      <View style={styles.secretContainer}>
+        <Text style={styles.setupCode}>{formatSecret(secret)}</Text>
+        <TouchableOpacity 
+          style={styles.copySecretButton}
+          onPress={copySecret}
+        >
+          <Ionicons name="copy-outline" size={18} color={theme.colors.primary} />
+        </TouchableOpacity>
+      </View>
+      
       <Text style={styles.manualInstructions}>
-        If you can't scan the QR code, enter this setup code manually in your authenticator app
+        Do NOT include spaces when entering the code manually.
       </Text>
       
       <TouchableOpacity
@@ -582,7 +794,7 @@ const TwoFactorAuthScreen = () => {
   
   return (
     <View style={styles.container}>
-
+      <StatusBarSpace />
       
       {/* Main content - different views based on current step */}
       {isLoading && step === 0 ? (
@@ -892,6 +1104,8 @@ const createTwoFactorAuthStyles = createThemedStyles(theme => ({
     padding: 16,
     borderRadius: 12,
     alignSelf: 'center',
+    width: 240,
+    height: 240,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -908,6 +1122,19 @@ const createTwoFactorAuthStyles = createThemedStyles(theme => ({
     width: 200,
     height: 200,
   },
+  qrPlaceholder: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  qrPlaceholderText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    padding: 8,
+  },
   orDivider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -923,19 +1150,35 @@ const createTwoFactorAuthStyles = createThemedStyles(theme => ({
     color: theme.colors.textSecondary,
     fontSize: 14,
   },
+  setupInstructions: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+  },
+  secretContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   setupCode: {
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8,
     letterSpacing: 1,
+  },
+  copySecretButton: {
+    marginLeft: 8,
+    padding: 6,
   },
   manualInstructions: {
     textAlign: 'center',
     fontSize: 13,
     color: theme.colors.textSecondary,
     marginBottom: 32,
+    fontStyle: 'italic',
   },
   nextButton: {
     backgroundColor: theme.colors.primary,
@@ -1240,7 +1483,7 @@ const createTwoFactorAuthStyles = createThemedStyles(theme => ({
     fontSize: 16,
     fontWeight: '500',
   },
-  
+
 }));
 
 export default TwoFactorAuthScreen;
