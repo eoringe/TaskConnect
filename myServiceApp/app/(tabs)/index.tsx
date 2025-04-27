@@ -9,7 +9,8 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  Alert
+  Alert,
+  BackHandler
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +28,9 @@ export default function WelcomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+  const [isLockActive, setIsLockActive] = useState(false);
+  const [authAttempts, setAuthAttempts] = useState(0);
 
   useEffect(() => {
     // Get biometric type for better UX
@@ -39,22 +43,35 @@ export default function WelcomeScreen() {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is signed in, check if app lock is enabled
-        await checkAppLockAndNavigate();
+        // User is signed in
+        setIsUserLoggedIn(true);
+        await checkAppLock();
       } else {
         // No user is signed in, stay on welcome screen
+        setIsUserLoggedIn(false);
         setIsLoading(false);
       }
     });
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, []);
+    // Handle hardware back button when lock is active
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isLockActive) {
+        // Prevent back navigation when lock is active
+        retryAuthentication();
+        return true;
+      }
+      return false;
+    });
 
-  const checkAppLockAndNavigate = async () => {
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribe();
+      backHandler.remove();
+    };
+  }, [isLockActive]);
+
+  const checkAppLock = async () => {
     try {
-      setIsAuthenticating(true);
-      
       // Check if app lock is enabled
       const appLockValue = await AsyncStorage.getItem('app_lock_enabled');
       const isAppLockEnabled = appLockValue === 'true';
@@ -62,79 +79,123 @@ export default function WelcomeScreen() {
       console.log('WelcomeScreen: App lock enabled:', isAppLockEnabled);
       
       if (isAppLockEnabled) {
-        // App lock is enabled, require biometric authentication
+        // App lock is enabled
+        setIsLockActive(true);
+        
+        // Check if biometric is available
         const isBiometricAvailable = await BiometricHelper.isBiometricAvailable();
         
         if (!isBiometricAvailable) {
           // Biometric not available but app lock is enabled - this is an edge case
-          // Could happen if biometrics were disabled in device settings after enabling app lock
           Alert.alert(
             'Authentication Required',
             'Biometric authentication is required but not available on this device. Please disable App Lock in Security settings.',
             [{ text: 'OK' }]
           );
           setIsLoading(false);
-          setIsAuthenticating(false);
           return;
         }
         
-        // Authenticate with biometrics
-        const authenticated = await BiometricHelper.authenticate(
-          'Verify your identity to access Task Connect'
-        );
-        
-        if (authenticated) {
-          // Authentication successful, navigate to home
-          router.replace('/home');
-        } else {
-          // Authentication failed, stay on welcome screen
-          setIsLoading(false);
-          setIsAuthenticating(false);
-        }
+        // Start authentication process
+        authenticateWithBiometrics();
       } else {
         // App lock not enabled, directly navigate to home
         router.replace('/home');
       }
     } catch (error) {
       console.error('Error checking app lock status:', error);
-      // In case of error, allow access (failsafe approach)
-      router.replace('/home');
+      // In case of error, we still want to keep the app locked if user is logged in
+      setIsLoading(false);
     }
   };
 
-  const handleLogin = () => { 
-    router.push('/auth/Login');
+  const authenticateWithBiometrics = async () => {
+    try {
+      setIsAuthenticating(true);
+      
+      // Authenticate with biometrics
+      const authenticated = await BiometricHelper.authenticate(
+        'Verify your identity to access Task Connect'
+      );
+      
+      if (authenticated) {
+        // Authentication successful, navigate to home
+        setIsLockActive(false);
+        router.replace('/home');
+      } else {
+        // Authentication failed, maintain lock and show retry
+        setIsAuthenticating(false);
+        setAuthAttempts(prev => prev + 1);
+        
+        // Optional: You could add max attempt logic here
+        if (authAttempts >= 3) {
+          Alert.alert(
+            'Authentication Failed',
+            'Too many unsuccessful attempts. Please try again later.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Biometric authentication error:', error);
+      setIsAuthenticating(false);
+    }
   };
 
-  const handleGetStarted = () => {
-    router.push('/auth/signUp');
+  const retryAuthentication = () => {
+    authenticateWithBiometrics();
   };
 
-  // Show appropriate loading indicator
-  if (isLoading || isAuthenticating) {
+  // When user is logged in and lock is active, show only the auth screen
+  if (isUserLoggedIn && isLockActive) {
     return (
-      <View style={styles.loadingContainer}>
-        {isAuthenticating ? (
-          <View style={styles.authContainer}>
-            <View style={styles.biometricIconContainer}>
-              <Ionicons 
-                name={biometricType.toLowerCase().includes('face') ? 'scan-outline' : 'finger-print-outline'} 
-                size={48} 
-                color="#5CBD6A" 
-              />
-            </View>
-            <Text style={styles.authText}>
-              Authenticating with {biometricType}
-            </Text>
-            <ActivityIndicator size="small" color="#5CBD6A" style={styles.authSpinner} />
+      <View style={styles.lockContainer}>
+        <View style={styles.authContainer}>
+          <View style={styles.biometricIconContainer}>
+            <Ionicons 
+              name={biometricType.toLowerCase().includes('face') ? 'scan-outline' : 'finger-print-outline'} 
+              size={48} 
+              color="#5CBD6A" 
+            />
           </View>
-        ) : (
-          <ActivityIndicator size="large" color="#5CBD6A" />
-        )}
+          <Text style={styles.authText}>
+            {isAuthenticating 
+              ? `Authenticating with ${biometricType}...` 
+              : `Authentication required to access the app`}
+          </Text>
+          
+          {isAuthenticating ? (
+            <ActivityIndicator size="small" color="#5CBD6A" style={styles.authSpinner} />
+          ) : (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={retryAuthentication}
+            >
+              <LinearGradient
+                colors={['#5CBD6A', '#3C9D4E']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.retryText}>Try Again</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   }
 
+  // Show loading indicator while checking auth state
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#5CBD6A" />
+      </View>
+    );
+  }
+
+  // Regular welcome screen for non-logged in users
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -201,7 +262,7 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.getStartedButton}
-            onPress={handleGetStarted}
+            onPress={() => router.push('/auth/signUp')}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -217,7 +278,7 @@ export default function WelcomeScreen() {
           
           <TouchableOpacity
             style={styles.loginButton}
-            onPress={handleLogin}
+            onPress={() => router.push('/auth/Login')}
             activeOpacity={0.8}
           >
             <Text style={styles.loginText}>I already have an account</Text>
@@ -235,9 +296,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#000',
   },
+  lockContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
   authContainer: {
     alignItems: 'center',
     padding: 24,
+    width: '80%',
   },
   biometricIconContainer: {
     width: 80,
@@ -246,17 +314,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(92, 189, 106, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   authText: {
     fontSize: 18,
     color: '#fff',
     fontWeight: '500',
-    marginBottom: 24,
+    marginBottom: 32,
     textAlign: 'center',
+    lineHeight: 24,
   },
   authSpinner: {
     marginTop: 8,
+  },
+  retryButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   container: {
     flex: 1,
