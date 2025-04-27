@@ -11,17 +11,19 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
-  TextInput
+  TextInput,
+  AppState
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { auth } from '@/firebase-config';
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
-import BiometricHelper from '../utils/BiometricHelper'; // Using the full path to your BiometricHelper
-
+import BiometricHelper from '../utils/BiometricHelper';
+import AppLockHelper from '../utils/AppLockHelper';
 
 const SecurityScreen = () => {
   const { theme, isDarkMode } = useTheme();
@@ -30,20 +32,39 @@ const SecurityScreen = () => {
   // State variables
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showLockDelayDialog, setShowLockDelayDialog] = useState(false);
   const [verificationPassword, setVerificationPassword] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [lockDelay, setLockDelay] = useState('immediately');
   
+  // Add focus effect and event listeners
   useEffect(() => {
-    checkBiometricStatus();
+    checkSecurityStatus();
+    
+    // Use AppState for screen focus
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // When app comes to foreground, refresh security status
+        checkSecurityStatus();
+      }
+    });
+    
+    // Clean up listeners on component unmount
+    return () => {
+      appStateSubscription.remove();
+    };
   }, []);
 
   // Check if biometric authentication is available and its current status
-  const checkBiometricStatus = async () => {
+  const checkSecurityStatus = async () => {
     try {
+      console.log('SecurityScreen: Checking security status...');
+      
       // Check if device supports biometric authentication
       const isAvailable = await BiometricHelper.isBiometricAvailable();
       setIsBiometricAvailable(isAvailable);
@@ -55,66 +76,90 @@ const SecurityScreen = () => {
         
         // Check if user has enabled biometric authentication
         const isEnabled = await BiometricHelper.isBiometricEnabled();
+        console.log('SecurityScreen: Biometric enabled:', isEnabled);
         setIsBiometricEnabled(isEnabled);
+        
+        // Check if app lock is enabled - first try direct async storage access
+        const appLockValue = await AsyncStorage.getItem('app_lock_enabled');
+        console.log('SecurityScreen: Direct AsyncStorage app_lock_enabled value:', appLockValue);
+        
+        // Also check using the helper
+        const appLockEnabled = await AppLockHelper.isAppLockEnabled();
+        console.log('SecurityScreen: App lock enabled via helper:', appLockEnabled);
+        
+        // Use direct value if available, otherwise use helper value
+        const isAppLockActive = appLockValue === 'true' || appLockEnabled;
+        console.log('SecurityScreen: Final app lock enabled state:', isAppLockActive);
+        
+        setIsAppLockEnabled(isAppLockActive);
+        
+        // Get lock delay preference
+        const delayPref = await AsyncStorage.getItem('app_lock_delay') || 'immediately';
+        console.log('SecurityScreen: Lock delay preference:', delayPref);
+        setLockDelay(delayPref);
       }
     } catch (error) {
-      console.log('Error checking biometric status:', error);
+      console.log('Error checking security status:', error);
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Security settings options
-  const securityOptions: Array<{
-    icon: "key-outline" | "finger-print-outline" | "shield-checkmark-outline" | "lock-closed-outline" | "eye-off-outline" | "list-outline";
-    title: string;
-    description: string;
-    action: string | ((value: boolean) => void);
-    toggle?: boolean;
-    state?: boolean;
-    disabled?: boolean;
-  }> = [
-    { 
-      icon: 'key-outline', 
-      title: 'Change Password', 
-      description: 'Update your account password',
-      action: 'changePassword' 
-    },
-    { 
-      icon: 'finger-print-outline', 
-      title: `${biometricType} Authentication`, 
-      description: `Use ${biometricType.toLowerCase()} to log in securely`,
-      toggle: true,
-      state: isBiometricEnabled,
-      action: toggleBiometric,
-      disabled: !isBiometricAvailable
-    },
-    { 
-      icon: 'shield-checkmark-outline', 
-      title: 'Two-Factor Authentication', 
-      description: 'Add an extra layer of security',
-      action: 'enableTwoFactor' 
-    },
-    { 
-      icon: 'lock-closed-outline', 
-      title: 'App Lock', 
-      description: 'Require authentication when opening the app',
-      action: 'appLock' 
-    },
-    { 
-      icon: 'eye-off-outline', 
-      title: 'Privacy Settings', 
-      description: 'Manage your data and privacy options',
-      action: 'privacySettings' 
-    },
-    { 
-      icon: 'list-outline', 
-      title: 'Login History', 
-      description: 'View your recent login activities',
-      action: 'loginHistory' 
-    },
-  ];
-
+  // Show lock delay options dialog
+  const showLockDelayOptions = () => {
+    setShowLockDelayDialog(true);
+  };
+  
+  // Handle lock delay selection
+  const handleLockDelaySelection = async (delay: string) => {
+    try {
+      // Save the delay preference
+      await AsyncStorage.setItem('app_lock_delay', delay);
+      console.log('SecurityScreen: Lock delay set to:', delay);
+      
+      // Also save using helper if the method exists
+      if (typeof AppLockHelper.setLockDelay === 'function') {
+        const success = await AppLockHelper.setLockDelay(delay as any);
+        console.log('SecurityScreen: AppLockHelper.setLockDelay() result:', success);
+      }
+      
+      setLockDelay(delay);
+      setShowLockDelayDialog(false);
+      
+      // Show confirmation
+      const delayText = delay === 'immediately' 
+        ? 'immediately when closed' 
+        : `after ${delay.replace('_', ' ')} when in background`;
+      
+      Alert.alert('Lock Delay Updated', `App will now lock ${delayText}.`);
+    } catch (error) {
+      console.error('Error setting lock delay:', error);
+      Alert.alert('Error', 'Failed to update lock delay. Please try again.');
+    }
+  };
+  
+  // Helper method to disable biometric authentication
+  const disableBiometric = async () => {
+    try {
+      const success = await BiometricHelper.disableBiometric();
+      if (success) {
+        setIsBiometricEnabled(false);
+        Alert.alert(
+          'Biometric Login Disabled', 
+          'Biometric authentication has been disabled.'
+        );
+      } else {
+        Alert.alert(
+          'Error', 
+          'Failed to disable biometric authentication. Please try again.'
+        );
+      }
+    } catch (error) {
+      console.log('Error disabling biometric auth:', error);
+      Alert.alert('Error', 'Failed to disable biometric authentication');
+    }
+  };
+  
   // Function to toggle biometric authentication
   async function toggleBiometric(value: boolean) {
     if (!isBiometricAvailable) {
@@ -136,24 +181,109 @@ const SecurityScreen = () => {
       // For existing users, prompt for their password to verify identity
       promptForPasswordVerification(user.email);
     } else {
-      // Disable biometric authentication
+      // If app lock is enabled, disable it first
+      if (isAppLockEnabled) {
+        Alert.alert(
+          'App Lock Enabled',
+          'You need to disable App Lock before disabling biometric authentication.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Disable App Lock', 
+              onPress: async () => {
+                // Verify with biometric before disabling
+                const authenticated = await BiometricHelper.authenticate(
+                  'Authenticate to disable App Lock'
+                );
+                
+                if (authenticated) {
+                  await AppLockHelper.disableAppLock();
+                  setIsAppLockEnabled(false);
+                  
+                  // Now proceed with disabling biometric
+                  disableBiometric();
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      // If app lock is not enabled, directly disable biometric
+      disableBiometric();
+    }
+  }
+  
+  // Function to toggle app lock
+  async function toggleAppLock(value: boolean) {
+    if (!isBiometricEnabled) {
+      Alert.alert(
+        'Biometric Required',
+        'You need to enable biometric authentication before using App Lock.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Enable Biometric', 
+            onPress: () => toggleBiometric(true)
+          }
+        ]
+      );
+      return;
+    }
+    
+    if (value) {
       try {
-        const success = await BiometricHelper.disableBiometric();
-        if (success) {
-          setIsBiometricEnabled(false);
+        // Try to directly save to AsyncStorage first
+        await AsyncStorage.setItem('app_lock_enabled', 'true');
+        console.log('SecurityScreen: Direct save - app_lock_enabled set to true');
+        
+        // Also use helper
+        const success = await AppLockHelper.enableAppLock();
+        console.log('SecurityScreen: AppLockHelper.enableAppLock() result:', success);
+        
+        // Verify the save
+        const savedValue = await AsyncStorage.getItem('app_lock_enabled');
+        console.log('SecurityScreen: Verification - app_lock_enabled value:', savedValue);
+        
+        if (savedValue === 'true' || success) {
+          setIsAppLockEnabled(true);
           Alert.alert(
-            'Biometric Login Disabled', 
-            'Biometric authentication has been disabled.'
+            'App Lock Enabled', 
+            `Your app will now require ${biometricType} authentication when opened.`
           );
+          
+          // Show lock delay options dialog
+          showLockDelayOptions();
         } else {
-          Alert.alert(
-            'Error', 
-            'Failed to disable biometric authentication. Please try again.'
-          );
+          Alert.alert('Error', 'Failed to enable App Lock. Please try again.');
         }
       } catch (error) {
-        console.log('Error disabling biometric auth:', error);
-        Alert.alert('Error', 'Failed to disable biometric authentication');
+        console.error('Error enabling app lock:', error);
+        Alert.alert('Error', 'Failed to enable App Lock. Please try again.');
+      }
+    } else {
+      // Verify with biometric before disabling
+      const authenticated = await BiometricHelper.authenticate(
+        'Authenticate to disable App Lock'
+      );
+      
+      if (authenticated) {
+        try {
+          // Directly remove from AsyncStorage
+          await AsyncStorage.setItem('app_lock_enabled', 'false');
+          console.log('SecurityScreen: Direct save - app_lock_enabled set to false');
+          
+          // Also use helper
+          const success = await AppLockHelper.disableAppLock();
+          console.log('SecurityScreen: AppLockHelper.disableAppLock() result:', success);
+          
+          setIsAppLockEnabled(false);
+          Alert.alert('App Lock Disabled', 'App Lock has been turned off.');
+        } catch (error) {
+          console.error('Error disabling app lock:', error);
+          Alert.alert('Error', 'Failed to disable App Lock. Please try again.');
+        }
       }
     }
   }
@@ -228,23 +358,75 @@ const SecurityScreen = () => {
         router.push('/home/screens/TwoFactorAuthScreen');
         break;
       case 'appLock':
-        Alert.alert('Coming Soon', 'App Lock will be available in a future update.');
+        if (isAppLockEnabled) {
+          // If already enabled, show lock delay options
+          showLockDelayOptions();
+        } else {
+          // Otherwise toggle it on
+          toggleAppLock(true);
+        }
         break;
       case 'privacySettings':
-        Alert.alert('Coming Soon', 'Privacy Settings will be available in a future update.');
+        // For testing - navigate to AsyncStorageTest screen
+        router.push('/home/screens/AsyncStorageTest');
         break;
       case 'loginHistory':
-        Alert.alert('Coming Soon', 'Login History will be available in a future update.');
+        router.push('/home/screens/LoginHistoryScreen');
         break;
       default:
         break;
     }
   };
   
+  // Security settings options
+  const securityOptions = [
+    { 
+      icon: 'key-outline' as const, 
+      title: 'Change Password', 
+      description: 'Update your account password',
+      action: 'changePassword' 
+    },
+    { 
+      icon: 'finger-print-outline' as const, 
+      title: `${biometricType} Authentication`, 
+      description: `Use ${biometricType.toLowerCase()} to log in securely`,
+      toggle: true,
+      state: isBiometricEnabled,
+      action: toggleBiometric,
+      disabled: !isBiometricAvailable
+    },
+    { 
+      icon: 'shield-outline' as const, // Changed from shield-checkmark-outline to a valid icon
+      title: 'Two-Factor Authentication', 
+      description: 'Add an extra layer of security',
+      action: 'enableTwoFactor' 
+    },
+    { 
+      icon: 'lock-closed-outline' as const, 
+      title: 'App Lock', 
+      description: 'Require authentication when opening the app',
+      subtitle: isAppLockEnabled ? `Lock delay: ${lockDelay.replace('_', ' ')}` : undefined,
+      toggle: true,
+      state: isAppLockEnabled,
+      action: toggleAppLock,
+      disabled: !isBiometricEnabled
+    },
+    { 
+      icon: 'eye-off-outline' as const, 
+      title: 'Privacy Settings', 
+      description: 'Manage your data and privacy options',
+      action: 'privacySettings' 
+    },
+    { 
+      icon: 'list-outline' as const, 
+      title: 'Login History', 
+      description: 'View your recent login activities',
+      action: 'loginHistory' 
+    },
+  ];
+  
   return (
     <View style={styles.container}>
-
-      
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionDescription}>
           Manage your account security settings and protect your personal information
@@ -271,6 +453,9 @@ const SecurityScreen = () => {
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>{option.title}</Text>
               <Text style={styles.optionDescription}>{option.description}</Text>
+              {option.subtitle && (
+                <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+              )}
             </View>
             
             {option.toggle ? (
@@ -385,6 +570,108 @@ const SecurityScreen = () => {
           </View>
         </View>
       </Modal>
+      
+      {/* Lock Delay Options Modal */}
+      <Modal
+        visible={showLockDelayDialog}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLockDelayDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Lock Delay Options</Text>
+              <Text style={styles.modalSubtitle}>
+                Choose how quickly App Lock should activate when the app goes to the background
+              </Text>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={[
+                  styles.delayOption,
+                  lockDelay === 'immediately' && styles.selectedDelayOption
+                ]}
+                onPress={() => handleLockDelaySelection('immediately')}
+              >
+                <Text style={[
+                  styles.delayOptionText,
+                  lockDelay === 'immediately' && styles.selectedDelayOptionText
+                ]}>
+                  Immediately
+                </Text>
+                {lockDelay === 'immediately' && (
+                  <Ionicons name="checkmark" size={22} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.delayOption,
+                  lockDelay === '30_seconds' && styles.selectedDelayOption
+                ]}
+                onPress={() => handleLockDelaySelection('30_seconds')}
+              >
+                <Text style={[
+                  styles.delayOptionText,
+                  lockDelay === '30_seconds' && styles.selectedDelayOptionText
+                ]}>
+                  After 30 seconds
+                </Text>
+                {lockDelay === '30_seconds' && (
+                  <Ionicons name="checkmark" size={22} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.delayOption,
+                  lockDelay === '1_minute' && styles.selectedDelayOption
+                ]}
+                onPress={() => handleLockDelaySelection('1_minute')}
+              >
+                <Text style={[
+                  styles.delayOptionText,
+                  lockDelay === '1_minute' && styles.selectedDelayOptionText
+                ]}>
+                  After 1 minute
+                </Text>
+                {lockDelay === '1_minute' && (
+                  <Ionicons name="checkmark" size={22} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.delayOption,
+                  lockDelay === '5_minutes' && styles.selectedDelayOption
+                ]}
+                onPress={() => handleLockDelaySelection('5_minutes')}
+              >
+                <Text style={[
+                  styles.delayOptionText,
+                  lockDelay === '5_minutes' && styles.selectedDelayOptionText
+                ]}>
+                  After 5 minutes
+                </Text>
+                {lockDelay === '5_minutes' && (
+                  <Ionicons name="checkmark" size={22} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowLockDelayDialog(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -447,6 +734,12 @@ const createSecurityStyles = createThemedStyles(theme => ({
   optionDescription: {
     fontSize: 13,
     color: theme.colors.textSecondary,
+  },
+  optionSubtitle: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    marginTop: 4,
+    fontWeight: '500',
   },
   securityTipsContainer: {
     marginTop: 24,
@@ -588,6 +881,27 @@ const createSecurityStyles = createThemedStyles(theme => ({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Lock delay modal styles
+  delayOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+  },
+  selectedDelayOption: {
+    backgroundColor: `${theme.colors.primary}10`,
+  },
+  delayOptionText: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  selectedDelayOptionText: {
+    fontWeight: '500',
+    color: theme.colors.primary,
   },
 }));
 

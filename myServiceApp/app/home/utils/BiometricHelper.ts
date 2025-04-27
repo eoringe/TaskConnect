@@ -1,8 +1,9 @@
 // app/utils/BiometricHelper.ts
 
 import * as LocalAuthentication from 'expo-local-authentication';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Using AsyncStorage for now
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
+import AppLockHelper from './AppLockHelper';
 
 // Storage key for biometric preference
 const BIOMETRIC_ENABLED_KEY = 'biometric_auth_enabled';
@@ -122,6 +123,16 @@ class BiometricHelper {
    */
   static async disableBiometric() {
     try {
+      // Check if app lock is enabled before disabling biometrics
+      const isAppLockEnabled = await AppLockHelper.isAppLockEnabled();
+      if (isAppLockEnabled) {
+        // Need to disable app lock first
+        const success = await AppLockHelper.disableAppLock();
+        if (!success) {
+          return false;
+        }
+      }
+      
       await AsyncStorage.removeItem(BIOMETRIC_ENABLED_KEY);
       await AsyncStorage.removeItem(BIOMETRIC_EMAIL_KEY);
       await AsyncStorage.removeItem(BIOMETRIC_PASSWORD_KEY);
