@@ -1,11 +1,8 @@
-// app/(tabs)/home/screens/LoginHistoryScreen.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Platform,
@@ -16,18 +13,8 @@ import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { auth } from '@/firebase-config';
-import { IconProps } from '@expo/vector-icons/build/createIconSet';
-
-// Define the type for login records
-interface LoginRecord {
-  id: string;
-  timestamp: number;  // timestamp in milliseconds
-  device: string;
-  ipAddress: string;
-  location: string;  // e.g., "New York, USA"
-  successful: boolean;
-  method: 'password' | 'biometric' | 'google' | 'facebook' | 'apple';
-}
+import { LoginRecord } from '../../types/firebase';
+import { getUserLoginHistory } from '../../services/loginHistoryService';
 
 const LoginHistoryScreen = () => {
   const { theme } = useTheme();
@@ -42,13 +29,10 @@ const LoginHistoryScreen = () => {
     fetchLoginHistory();
   }, []);
   
-  // Function to fetch login history
+  // Function to fetch login history from Firestore
   const fetchLoginHistory = async () => {
     try {
       setIsLoading(true);
-      
-      // In a real implementation, you would fetch this data from your backend
-      // For this example, we'll create mock data
       
       const currentUser = auth.currentUser;
       if (!currentUser) {
@@ -57,15 +41,15 @@ const LoginHistoryScreen = () => {
         return;
       }
       
-      // Mock data - in a real app, this would come from a server API call
-      const mockHistory = generateMockLoginHistory();
-      setLoginHistory(mockHistory);
+      // Fetch the actual login history records
+      const history = await getUserLoginHistory(currentUser.uid);
+      setLoginHistory(history);
     } catch (error) {
       console.log('Error fetching login history:', error);
       Alert.alert('Error', 'Failed to load login history. Please try again.');
     } finally {
       setIsLoading(false);
-      setRefreshing(false);
+      setRefreshing(false);303020
     }
   };
   
@@ -73,78 +57,6 @@ const LoginHistoryScreen = () => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchLoginHistory();
-  };
-  
-  // Function to generate fake login history for demonstration
-  const generateMockLoginHistory = (): LoginRecord[] => {
-    const now = new Date();
-    const dayInMs = 24 * 60 * 60 * 1000;
-    
-    return [
-      {
-        id: '1',
-        timestamp: now.getTime(),
-        device: 'iPhone 14 Pro',
-        ipAddress: '192.168.1.1',
-        location: 'New York, USA',
-        successful: true,
-        method: 'biometric'
-      },
-      {
-        id: '2',
-        timestamp: now.getTime() - (2 * 60 * 60 * 1000), // 2 hours ago
-        device: 'iPhone 14 Pro',
-        ipAddress: '192.168.1.1',
-        location: 'New York, USA',
-        successful: true,
-        method: 'password'
-      },
-      {
-        id: '3',
-        timestamp: now.getTime() - dayInMs, // 1 day ago
-        device: 'MacBook Pro',
-        ipAddress: '192.168.1.5',
-        location: 'New York, USA',
-        successful: true,
-        method: 'password'
-      },
-      {
-        id: '4',
-        timestamp: now.getTime() - (2 * dayInMs), // 2 days ago
-        device: 'Unknown Device',
-        ipAddress: '82.45.128.91',
-        location: 'London, UK',
-        successful: false,
-        method: 'password'
-      },
-      {
-        id: '5',
-        timestamp: now.getTime() - (5 * dayInMs), // 5 days ago
-        device: 'iPad Air',
-        ipAddress: '192.168.1.7',
-        location: 'New York, USA',
-        successful: true,
-        method: 'biometric'
-      },
-      {
-        id: '6',
-        timestamp: now.getTime() - (10 * dayInMs), // 10 days ago
-        device: 'iPhone 14 Pro',
-        ipAddress: '192.168.2.5',
-        location: 'Boston, USA',
-        successful: true,
-        method: 'password'
-      },
-      {
-        id: '7',
-        timestamp: now.getTime() - (15 * dayInMs), // 15 days ago
-        device: 'Android Device',
-        ipAddress: '94.62.157.82',
-        location: 'Madrid, Spain',
-        successful: false,
-        method: 'password'
-      }
-    ];
   };
   
   // Function to format date relative to now
@@ -160,7 +72,6 @@ const LoginHistoryScreen = () => {
       return format(date, 'MMM d, yyyy, h:mm a'); // e.g., "Apr 15, 2023, 2:30 PM"
     }
   };
-  
   
   const getMethodIcon = (method: string): "key-outline" | "finger-print-outline" | "logo-google" | "logo-facebook" | "logo-apple" | "log-in-outline" => {
     switch (method) {
