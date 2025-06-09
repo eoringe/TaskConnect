@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-// import * as ImagePicker from 'expo-image-picker'; // No longer needed
-import * as DocumentPicker from 'expo-document-picker'; // New import for document handling
-import * as FileSystem from 'expo-file-system'; // To read file as base64 if DocumentPicker doesn't provide it directly (though it often does)
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -96,7 +95,6 @@ export default function SupportingDocumentsScreen() {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ['image/*', 'application/pdf'], // Allow all image types and PDF
                 copyToCacheDirectory: true, // Crucial for getting a stable URI and reading Base64
-                // base64: true, // Request base64 directly, but we'll manually convert as fallback/robustness
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -118,12 +116,6 @@ export default function SupportingDocumentsScreen() {
                         uri: selectedAsset.uri,
                         mimeType: selectedAsset.mimeType || 'application/octet-stream', // Default if mimeType is null
                     }));
-                    // Store the base64 string temporarily with currentDocument for `handleAddDocument`
-                    // This is a temporary way to pass it; in a real app, manage this carefully.
-                    // For now, let's keep it in a separate state or pass directly.
-                    // Let's modify handleAddDocument to read from currentDocument.uri and convert
-                    // Or, simplify and ensure `DocumentPicker` gives base64.
-                    // Reverted to manual read for robustness as DocumentPicker's direct base64 can be flaky.
                     setShowDocumentForm(true); // Show the form to add details
                     setErrors({}); // Clear previous errors
                 } else {
@@ -211,19 +203,17 @@ export default function SupportingDocumentsScreen() {
 
         // --- START: The ONLY LOG remaining ---
         console.log("--------------------------------------------------");
-        console.log("FINAL COLLECTED ONBOARDING DATA (Ready for Save):");
+        console.log("FINAL COLLECTED ONBOARDING DATA (Passing to Profile screen):");
         console.log(JSON.stringify(finalOnboardingData, null, 2));
         console.log("--------------------------------------------------");
         // --- END: The ONLY LOG remaining ---
 
-        // In a real application, this is where you would send `finalOnboardingData` to Firestore.
-        // For now, we'll just log it and then navigate to a "submission complete" screen.
+        // *** MODIFIED NAVIGATION PATH ***
         router.push({
-            pathname: '/tasker-onboarding/submission-complete', // Create this screen next
+            pathname: '/tasker-onboarding/profile', // Changed from submission-complete
             params: {
-                message: 'Your profile has been submitted for review!',
-                status: 'pending'
-            }
+                onboardingData: JSON.stringify(finalOnboardingData), // Pass the entire object
+            },
         });
     };
 
