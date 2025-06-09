@@ -3,15 +3,15 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image,
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { FirebaseError } from '@firebase/util';
+// Removed Firestore imports: getFirestore, doc, setDoc
+// Removed Firebase auth imports: getAuth
+// Removed FirebaseError import as we're not directly handling Firestore errors here
 
 // Define the type for PersonalDetails that we expect from params
 type PersonalDetails = {
     firstName: string;
     lastName: string;
-    email: string;
+    email: string; // Ensure this is from the auth user or passed from previous screen
     phone: string;
 };
 
@@ -23,11 +23,17 @@ type IDVerificationFormData = {
     idBackImage: string | null;  // URI of the local image
 };
 
+// New type to combine data from previous steps for passing
+type CombinedOnboardingData = PersonalDetails & IDVerificationFormData & {
+    idFrontImageBase64: string; // Base64 strings for final save
+    idBackImageBase64: string;
+};
+
 export default function IDVerificationScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    // Parse the personalDetails from the params
+    // Parse the combined data from the params (assuming it comes from the previous step)
     const personalDetails: PersonalDetails | null = params.personalDetails
         ? JSON.parse(params.personalDetails as string)
         : null;
@@ -40,12 +46,12 @@ export default function IDVerificationScreen() {
     });
 
     const [errors, setErrors] = useState<Partial<IDVerificationFormData>>({});
-    const [isSaving, setIsSaving] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false); // Renamed from isSaving
 
     // If personalDetails are missing, log an error or redirect
     if (!personalDetails) {
-        console.error("Personal details not found in params. Redirecting back.");
-        // Consider a more robust error handling or redirect, e.g., router.replace('/tasker-onboarding/personal-details');
+        // In a real app, you might want router.replace('/tasker-onboarding/personal-details');
+        // For this example, we'll let it proceed for now, but a warning is appropriate.
     }
 
     const pickImage = async (side: 'front' | 'back') => {
@@ -103,12 +109,9 @@ export default function IDVerificationScreen() {
     };
 
     const convertImageToBase64 = async (uri: string, side: 'front' | 'back'): Promise<string> => {
-        console.log(`[BASE64 CONVERSION] Attempting to convert image URI to Base64 for ${side} side.`);
         try {
             const response = await fetch(uri);
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`[BASE64 CONVERSION ERROR] Failed to fetch image (HTTP Status: ${response.status}, Text: ${errorText})`);
                 throw new Error(`Failed to fetch image from local URI: ${response.status} ${response.statusText}`);
             }
             const blob = await response.blob();
@@ -126,12 +129,9 @@ export default function IDVerificationScreen() {
                 reader.readAsDataURL(blob);
             });
 
-            console.log(`[BASE64 CONVERSION] Image converted to Base64 successfully for ${side} side. Length: ${base64.length} characters.`);
-            // console.log(`[BASE64 CONVERSION] Snippet: ${base64.substring(0, 50)}...`); // Log snippet if needed
             return base64;
 
         } catch (error: any) {
-            console.error(`[BASE64 CONVERSION ERROR] Error during Base64 conversion for ${side} side:`, error);
             throw error;
         }
     };
@@ -147,19 +147,8 @@ export default function IDVerificationScreen() {
             return;
         }
 
-        setIsSaving(true);
+        setIsProcessing(true); // Start processing
         try {
-            const auth = getAuth();
-            const user = auth.currentUser;
-
-            if (!user) {
-                Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
-                router.replace('/login');
-                return;
-            }
-
-            console.log(`[FIRESTORE SAVE] Current User UID: ${user.uid}`);
-
             if (!formData.idFrontImage) {
                 throw new Error("Front ID image is missing.");
             }
@@ -171,66 +160,53 @@ export default function IDVerificationScreen() {
             const frontImageBase64 = await convertImageToBase64(formData.idFrontImage!, 'front');
             const backImageBase64 = await convertImageToBase64(formData.idBackImage!, 'back');
 
-            const db = getFirestore();
-            const taskerDocRef = doc(db, 'taskers', user.uid);
-
-            // Combine all collected data into a single object for Firestore
-            const combinedTaskerData = {
+            // Combine all collected data into a single object for passing
+            const combinedTaskerData: CombinedOnboardingData = {
                 // Personal Details (from previous screen)
                 firstName: personalDetails.firstName,
                 lastName: personalDetails.lastName,
-                email: personalDetails.email, // Email from Firebase Auth/Users collection
-                phone: personalDetails.phone, // Phone from Firebase Auth/Users collection
+                email: personalDetails.email,
+                phone: personalDetails.phone,
 
                 // ID Verification Details (from current screen)
                 kraPin: formData.kraPin.trim(),
                 idNumber: formData.idNumber.trim(),
-                idFrontImageBase64: frontImageBase64,
-                idBackImageBase64: backImageBase64,
-                verificationStatus: false, // Initial status
-                submissionDate: new Date(),
-                onboardingStep: 'idVerificationCompleted', // Mark this step as completed
+                idFrontImage: formData.idFrontImage, // Keep URI for potential display if needed later
+                idBackImage: formData.idBackImage, // Keep URI for potential display if needed later
+                idFrontImageBase64: frontImageBase64, // Pass Base64 for eventual saving
+                idBackImageBase64: backImageBase64, // Pass Base64 for eventual saving
             };
 
-            console.log("[FIRESTORE SAVE] Data being prepared for saving to 'taskers' collection:");
-            console.log(JSON.stringify(combinedTaskerData, null, 2)); // Log the entire object for inspection
+            // --- START: The ONLY LOG remaining ---
+            console.log("--------------------------------------------------");
+            console.log("ALL COLLECTED ONBOARDING DATA (Awaiting Save):");
+            console.log(JSON.stringify(combinedTaskerData, null, 2));
+            console.log("--------------------------------------------------");
+            // --- END: The ONLY LOG remaining ---
 
-            // Save all details to Firestore in a single operation
-            await setDoc(taskerDocRef, combinedTaskerData, { merge: true });
-            console.log('[FIRESTORE SAVE] All tasker onboarding data (personal + ID) saved to Firestore successfully.');
-
-            Alert.alert('Success', 'Your details have been saved successfully!');
-
-            // Proceed to the next screen, passing relevant data if needed for subsequent steps
+            // Pass the combined data as a JSON string to the next route
             router.push({
                 pathname: '/tasker-onboarding/areas-served',
                 params: {
-                    // You might want to pass minimal info or a status,
-                    // as the full data is now in Firestore
-                    onboardingCompletedStep: 'idVerification'
+                    onboardingData: JSON.stringify(combinedTaskerData)
                 },
             });
 
         } catch (error: any) {
-            console.error("Error saving all onboarding details in IDVerificationScreen:", error);
-            let errorMessage = 'An unknown error occurred during saving. Please try again.';
-
-            if (error instanceof FirebaseError) {
-                errorMessage = `Firebase Error: ${error.code} - ${error.message}`;
-            } else if (error instanceof Error) {
+            let errorMessage = 'An error occurred while preparing your data. Please try again.';
+            if (error instanceof Error) {
                 errorMessage = `App Error: ${error.message}`;
             }
-
             Alert.alert('Error', errorMessage);
         } finally {
-            setIsSaving(false);
+            setIsProcessing(false); // Stop processing
         }
     };
 
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isProcessing}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>ID Verification</Text>
@@ -257,7 +233,7 @@ export default function IDVerificationScreen() {
                             placeholder="Enter your KRA PIN (e.g., A123456789Z)"
                             autoCapitalize="characters"
                             maxLength={11}
-                            editable={!isSaving}
+                            editable={!isProcessing}
                         />
                         {errors.kraPin && (
                             <Text style={styles.errorText}>{errors.kraPin}</Text>
@@ -278,7 +254,7 @@ export default function IDVerificationScreen() {
                             placeholder="Enter your ID number (e.g., 12345678)"
                             keyboardType="number-pad"
                             maxLength={8}
-                            editable={!isSaving}
+                            editable={!isProcessing}
                         />
                         {errors.idNumber && (
                             <Text style={styles.errorText}>{errors.idNumber}</Text>
@@ -293,7 +269,7 @@ export default function IDVerificationScreen() {
                             <TouchableOpacity
                                 style={[styles.imageUploadBox, errors.idFrontImage && styles.imageUploadError]}
                                 onPress={() => pickImage('front')}
-                                disabled={isSaving}
+                                disabled={isProcessing}
                             >
                                 {formData.idFrontImage ? (
                                     <Image
@@ -311,7 +287,7 @@ export default function IDVerificationScreen() {
                             <TouchableOpacity
                                 style={[styles.imageUploadBox, errors.idBackImage && styles.imageUploadError]}
                                 onPress={() => pickImage('back')}
-                                disabled={isSaving}
+                                disabled={isProcessing}
                             >
                                 {formData.idBackImage ? (
                                     <Image
@@ -335,9 +311,9 @@ export default function IDVerificationScreen() {
                 <TouchableOpacity
                     style={styles.button}
                     onPress={handleNext}
-                    disabled={isSaving}
+                    disabled={isProcessing}
                 >
-                    {isSaving ? (
+                    {isProcessing ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <>

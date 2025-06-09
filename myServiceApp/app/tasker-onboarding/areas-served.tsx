@@ -2,98 +2,115 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Keyboard, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import debounce from 'lodash.debounce'; // Make sure you have installed lodash.debounce
+import debounce from 'lodash.debounce';
 
-// --- Firebase Imports (Uncomment when ready to integrate Firestore) ---
-// import { getFirestore, doc, setDoc } from 'firebase/firestore';
-// import { getAuth } from 'firebase/auth';
+// --- Firebase Imports ---
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { app } from '../../firebase-config'; // Assuming you have a firebaseConfig.ts or .js file
 
 // --- Mapbox Configuration ---
-// IMPORTANT: Replace 'YOUR_MAPBOX_PUBLIC_ACCESS_TOKEN' with the token you copied from your Mapbox dashboard.
-const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZW1tYW51ZWxvcmluZ2UiLCJhIjoiY21ib3Y0amEzMXRndjJsc2RhdzdvMGRtOSJ9.dmRs4J8gMykWqHuK2kb5jA'; // <<< PASTE YOUR TOKEN HERE!
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZW1tYW51ZWxvcmluZ2UiLCJhIjoiY21ib3Y0amEzMXRndjJsc2RhdzdvMGRtOSJ9.dmRs4J8gMykWqHuK2kb5jA';
 const MAPBOX_API_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+
+// Define the types for data passed between onboarding screens
+type PersonalDetails = {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+};
+
+type IDVerificationFormData = {
+    kraPin: string;
+    idNumber: string;
+    idFrontImage: string | null;
+    idBackImage: string | null;
+    idFrontImageBase64: string;
+    idBackImageBase64: string;
+};
+
+type CombinedOnboardingData = PersonalDetails & IDVerificationFormData;
+
+type AreasServedFormData = {
+    areasServed: string[];
+};
+
+type AllOnboardingData = CombinedOnboardingData & AreasServedFormData;
+
 
 export default function AreasServedScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const receivedOnboardingData: CombinedOnboardingData | null = params.onboardingData
+        ? JSON.parse(params.onboardingData as string)
+        : null;
+
     const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<string[]>([]);
     const [loadingSearch, setLoadingSearch] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isInputFocused, setIsInputFocused] = useState(false); // To control search results visibility
+    const [isInputFocused, setIsInputFocused] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Function to handle fetching search results from Mapbox
+    useEffect(() => {
+        if (!receivedOnboardingData) {
+            Alert.alert('Error', 'Previous onboarding data missing. Please restart the onboarding process.');
+            router.replace('/tasker-onboarding/personal-details');
+        }
+    }, [receivedOnboardingData, router]);
+
     const fetchMapboxResults = useCallback(async (text: string) => {
-        // Corrected check for Mapbox Access Token.
-        // It should only warn if the token is literally the placeholder string
-        // or if it's empty/null.
         if (
             !MAPBOX_ACCESS_TOKEN ||
             (typeof MAPBOX_ACCESS_TOKEN === 'string' && MAPBOX_ACCESS_TOKEN.includes('YOUR_MAPBOX_PUBLIC_ACCESS_TOKEN'))
         ) {
             const configError = 'Mapbox Access Token is not configured. Please replace "YOUR_MAPBOX_PUBLIC_ACCESS_TOKEN" with your actual token in the code.';
-            console.error(configError); // Log to console for developer
-            setError(configError); // Display to user
+            setError(configError);
             setLoadingSearch(false);
             return;
         }
 
-        if (text.trim().length < 3) { // Only search for queries longer than 2 characters
+        if (text.trim().length < 3) {
             setSearchResults([]);
             setLoadingSearch(false);
             return;
         }
 
         setLoadingSearch(true);
-        setError(null); // Clear previous errors
+        setError(null);
         try {
             const encodedQuery = encodeURIComponent(text.trim());
-            // Construct the Mapbox Geocoding API URL
             const url = `${MAPBOX_API_URL}/${encodedQuery}.json?` +
-                        `access_token=${MAPBOX_ACCESS_TOKEN}&` +
-                        `country=ke&` + // Restrict to Kenya
-                        `types=place,locality,neighborhood,poi&` + // Suggest types like cities, suburbs, points of interest
-                        `limit=10&` + // Limit results to 10
-                        `language=en`; // Prefer English results
-
-            // Optionally, bias results to a specific location (e.g., Nairobi's approximate center)
-            // If you have a user's current location, use that for `proximity`
-            // const proximity = '36.8219, -1.2921'; // Longitude, Latitude for Nairobi
-            // url += `&proximity=${proximity}`;
-
-
-            console.log("Fetching Mapbox URL:", url); // Log the URL for debugging
+                `access_token=${MAPBOX_ACCESS_TOKEN}&` +
+                `country=ke&` +
+                `types=place,locality,neighborhood,poi&` +
+                `limit=10&` +
+                `language=en`;
 
             const response = await fetch(url);
 
-            // Check if the HTTP response was successful (status 200-299)
             if (!response.ok) {
-                const errorBody = await response.text(); // Get the raw response body for debugging
-                console.error(`Mapbox API returned HTTP ${response.status}:`, errorBody); // Log full error body
-
+                const errorBody = await response.text();
                 let specificError = `Search failed: ${response.status} ${response.statusText}.`;
                 if (response.status === 401 || response.status === 403) {
                     specificError += " Check your Mapbox Access Token or its permissions.";
-                    console.error("Possible Mapbox Token Issue:", errorBody); // More detailed log
                 } else if (response.status === 429) {
                     specificError += " You've hit Mapbox rate limits. Consider upgrading your plan if this persists.";
-                    console.warn("Mapbox Rate Limit Hit:", errorBody); // Warning for rate limits
                 } else if (response.headers.get('Content-Type')?.includes('text/html')) {
                     specificError += " Server returned HTML instead of JSON. This often indicates an error page from Mapbox.";
-                    console.error("Mapbox HTML Error Page:", errorBody); // Log HTML content
                 }
                 setError(specificError);
                 setSearchResults([]);
-                return; // Stop processing
+                return;
             }
 
-            // Parse the JSON response
             const data = await response.json();
-            console.log("Mapbox API Response Data:", data); // Log the raw JSON data
-
-            // Mapbox returns results in 'features' array
-            // The primary name is usually in 'text' property of each feature
             const uniqueResults = Array.from(new Set<string>(data.features.map((item: any) => {
                 if (typeof item.place_name === 'string') {
                     return item.place_name.trim();
@@ -101,32 +118,28 @@ export default function AreasServedScreen() {
                 return '';
             }))).filter((r: string) => r.length > 0);
 
-            console.log("Processed Search Results:", uniqueResults); // Log processed results
             setSearchResults(uniqueResults);
 
         } catch (err: any) {
-            console.error("Error fetching Mapbox search results (Catch Block):", err); // Log full error object
             setError("A network error occurred during search. Please check your internet connection.");
-            setSearchResults([]); // Clear results on error
+            setSearchResults([]);
         } finally {
             setLoadingSearch(false);
         }
-    }, []); // useCallback ensures this function is stable and doesn't recreate on every render
+    }, []);
 
-    // Debounce the search function
     const debouncedSearch = useRef(debounce(fetchMapboxResults, 500)).current;
 
-    // Trigger search when searchQuery changes
     useEffect(() => {
         if (searchQuery.trim().length > 0 && isInputFocused) {
             debouncedSearch(searchQuery);
         } else {
-            debouncedSearch.cancel(); // Cancel any pending debounce call
-            setSearchResults([]); // Clear results if query is empty or input not focused
-            setLoadingSearch(false); // Ensure loading is off
+            debouncedSearch.cancel();
+            setSearchResults([]);
+            setLoadingSearch(false);
         }
         return () => {
-            debouncedSearch.cancel(); // Cleanup debounce on unmount
+            debouncedSearch.cancel();
         };
     }, [searchQuery, debouncedSearch, isInputFocused]);
 
@@ -137,69 +150,67 @@ export default function AreasServedScreen() {
             }
             return [...prev, area];
         });
-        setError(null); // Clear error when an area is selected/deselected
+        setError(null);
 
-        // After selecting, clear search input and results, and dismiss keyboard
         setSearchQuery('');
         setSearchResults([]);
         Keyboard.dismiss();
     };
 
-    const handleNext = async () => {
+    const handleSaveAndContinue = async () => {
         if (selectedAreas.length === 0) {
             setError('Please select at least one area where you are available to work.');
             return;
         }
 
-        // --- Start: Firebase Firestore Save Integration ---
-        /*
-        try {
-            const auth = getAuth();
-            const user = auth.currentUser;
-
-            if (!user) {
-                Alert.alert('Authentication Required', 'Please log in to save your areas served.');
-                router.replace('/login');
-                return;
-            }
-
-            const db = getFirestore();
-            const taskerDocRef = doc(db, 'taskers', user.uid);
-
-            const areasData = {
-                areasServed: selectedAreas,
-                onboardingStep: 'areasServedCompleted',
-            };
-
-            console.log("Attempting to save 'areasServed' to Firestore:", areasData);
-            await setDoc(taskerDocRef, areasData, { merge: true });
-            console.log('Areas served data saved to Firestore successfully.');
-
-        } catch (firestoreError: any) {
-            console.error("Error saving areas served to Firestore:", firestoreError);
-            Alert.alert(
-                'Save Error',
-                `Failed to save your service areas: ${firestoreError.message || 'Please try again.'}`
-            );
+        if (!receivedOnboardingData) {
+            Alert.alert('Error', 'Onboarding data from previous steps is missing. Please restart.');
+            router.replace('/tasker-onboarding/personal-details');
             return;
         }
-        */
-        // --- End: Firebase Firestore Save Integration ---
 
-        router.push({
-            pathname: '/tasker-onboarding/services',
-            params: {
-                personalDetails: params.personalDetails,
-                idVerification: params.idVerification,
-                areasServed: JSON.stringify(selectedAreas),
-            },
-        });
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('Authentication Error', 'You must be logged in to save your profile.');
+            router.replace('/login');
+            return;
+        }
+
+        setIsSaving(true);
+
+        try {
+            const allCombinedData: AllOnboardingData = {
+                ...receivedOnboardingData,
+                areasServed: selectedAreas,
+                idFrontImage: null,
+                idBackImage: null,
+            };
+
+            console.log("--------------------------------------------------");
+            console.log("ALL COLLECTED ONBOARDING DATA TO BE SAVED TO FIRESTORE:");
+            console.log(JSON.stringify(allCombinedData, null, 2));
+            console.log("--------------------------------------------------");
+
+            // === FIX IS HERE: Changed 'taskerProfiles' to 'taskers' ===
+            const userProfileRef = doc(db, 'taskers', user.uid);
+
+            await setDoc(userProfileRef, allCombinedData, { merge: true });
+
+            Alert.alert('Success', 'Your areas served have been saved and profile updated!');
+            router.push('/tasker-onboarding/services');
+
+        } catch (saveError: any) {
+            console.error("Error saving tasker profile to Firestore:", saveError);
+            Alert.alert('Save Error', `Failed to save your profile: ${saveError.message || 'Unknown error'}. Please try again.`);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Areas Served</Text>
@@ -225,9 +236,10 @@ export default function AreasServedScreen() {
                         returnKeyType="search"
                         onSubmitEditing={() => {
                             if (searchQuery.trim().length >= 3) {
-                                fetchMapboxResults(searchQuery); // Directly call on submit
+                                fetchMapboxResults(searchQuery);
                             }
                         }}
+                        editable={!isSaving}
                     />
                     {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
                     {searchQuery.length > 0 && !loadingSearch && (
@@ -246,6 +258,7 @@ export default function AreasServedScreen() {
                                 key={area + index}
                                 style={styles.searchResultItem}
                                 onPress={() => toggleArea(area)}
+                                disabled={isSaving}
                             >
                                 <Text style={styles.searchResultText}>{area}</Text>
                                 {selectedAreas.includes(area) && (
@@ -264,7 +277,7 @@ export default function AreasServedScreen() {
                             {selectedAreas.map((area) => (
                                 <View key={area} style={styles.selectedAreaTag}>
                                     <Text style={styles.selectedAreaText}>{area}</Text>
-                                    <TouchableOpacity onPress={() => toggleArea(area)}>
+                                    <TouchableOpacity onPress={() => toggleArea(area)} disabled={isSaving}>
                                         <Ionicons name="close-circle" size={20} color="#666" />
                                     </TouchableOpacity>
                                 </View>
@@ -278,10 +291,16 @@ export default function AreasServedScreen() {
                     <Text style={styles.errorText}>{error}</Text>
                 )}
 
-                {/* Next Button */}
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                {/* Save and Continue Button */}
+                <TouchableOpacity style={styles.button} onPress={handleSaveAndContinue} disabled={isSaving}>
+                    {isSaving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.buttonText}>Save & Continue</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
