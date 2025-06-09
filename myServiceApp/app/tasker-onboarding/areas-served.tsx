@@ -4,10 +4,10 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import debounce from 'lodash.debounce';
 
-// --- Firebase Imports ---
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { app } from '../../firebase-config'; // Assuming you have a firebaseConfig.ts or .js file
+// --- Firebase Imports (No longer directly used for saving on this screen) ---
+// import { getFirestore, doc, setDoc } from 'firebase/firestore';
+// import { getAuth } from 'firebase/auth';
+// import { app } from '../../firebase-config'; // No longer directly used for saving on this screen
 
 // --- Mapbox Configuration ---
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZW1tYW51ZWxvcmluZ2UiLCJhIjoiY21ib3Y0amEzMXRndjJsc2RhdzdvMGRtOSJ9.dmRs4J8gMykWqHuK2kb5jA';
@@ -36,6 +36,8 @@ type AreasServedFormData = {
     areasServed: string[];
 };
 
+// This type represents ALL data collected up to the AreasServed screen
+// This is the structure that will be passed to the next screen
 type AllOnboardingData = CombinedOnboardingData & AreasServedFormData;
 
 
@@ -43,8 +45,9 @@ export default function AreasServedScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    // No longer initializing Firestore/Auth here as saving is moved
+    // const db = getFirestore(app);
+    // const auth = getAuth(app);
 
     const receivedOnboardingData: CombinedOnboardingData | null = params.onboardingData
         ? JSON.parse(params.onboardingData as string)
@@ -56,7 +59,8 @@ export default function AreasServedScreen() {
     const [loadingSearch, setLoadingSearch] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    // Removed isSaving state as saving is no longer done on this screen
+    // const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!receivedOnboardingData) {
@@ -157,7 +161,8 @@ export default function AreasServedScreen() {
         Keyboard.dismiss();
     };
 
-    const handleSaveAndContinue = async () => {
+    // Renamed back to handleNext as it no longer saves, but navigates
+    const handleNext = async () => {
         if (selectedAreas.length === 0) {
             setError('Please select at least one area where you are available to work.');
             return;
@@ -169,48 +174,33 @@ export default function AreasServedScreen() {
             return;
         }
 
-        const user = auth.currentUser;
-        if (!user) {
-            Alert.alert('Authentication Error', 'You must be logged in to save your profile.');
-            router.replace('/login');
-            return;
-        }
+        // 2. Combine all collected data into a single object
+        const allCombinedData: AllOnboardingData = {
+            ...receivedOnboardingData, // Includes personalDetails and IDVerificationFormData
+            areasServed: selectedAreas, // Add data from this screen
+        };
 
-        setIsSaving(true);
+        // --- START: ADDED LOGGING HERE ---
+        console.log("--------------------------------------------------");
+        console.log("ALL COLLECTED ONBOARDING DATA (Passing to next screen):");
+        console.log(JSON.stringify(allCombinedData, null, 2));
+        console.log("--------------------------------------------------");
+        // --- END: ADDED LOGGING HERE ---
 
-        try {
-            const allCombinedData: AllOnboardingData = {
-                ...receivedOnboardingData,
-                areasServed: selectedAreas,
-                idFrontImage: null,
-                idBackImage: null,
-            };
-
-            console.log("--------------------------------------------------");
-            console.log("ALL COLLECTED ONBOARDING DATA TO BE SAVED TO FIRESTORE:");
-            console.log(JSON.stringify(allCombinedData, null, 2));
-            console.log("--------------------------------------------------");
-
-            // === FIX IS HERE: Changed 'taskerProfiles' to 'taskers' ===
-            const userProfileRef = doc(db, 'taskers', user.uid);
-
-            await setDoc(userProfileRef, allCombinedData, { merge: true });
-
-            Alert.alert('Success', 'Your areas served have been saved and profile updated!');
-            router.push('/tasker-onboarding/services');
-
-        } catch (saveError: any) {
-            console.error("Error saving tasker profile to Firestore:", saveError);
-            Alert.alert('Save Error', `Failed to save your profile: ${saveError.message || 'Unknown error'}. Please try again.`);
-        } finally {
-            setIsSaving(false);
-        }
+        // 3. Pass the combined data as a JSON string to the next route
+        router.push({
+            pathname: '/tasker-onboarding/services',
+            params: {
+                onboardingData: JSON.stringify(allCombinedData),
+            },
+        });
     };
 
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
+                {/* Removed disabled={isSaving} as isSaving state is gone */}
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Areas Served</Text>
@@ -239,7 +229,7 @@ export default function AreasServedScreen() {
                                 fetchMapboxResults(searchQuery);
                             }
                         }}
-                        editable={!isSaving}
+                        // Removed editable={!isSaving}
                     />
                     {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
                     {searchQuery.length > 0 && !loadingSearch && (
@@ -258,7 +248,7 @@ export default function AreasServedScreen() {
                                 key={area + index}
                                 style={styles.searchResultItem}
                                 onPress={() => toggleArea(area)}
-                                disabled={isSaving}
+                                // Removed disabled={isSaving}
                             >
                                 <Text style={styles.searchResultText}>{area}</Text>
                                 {selectedAreas.includes(area) && (
@@ -277,7 +267,8 @@ export default function AreasServedScreen() {
                             {selectedAreas.map((area) => (
                                 <View key={area} style={styles.selectedAreaTag}>
                                     <Text style={styles.selectedAreaText}>{area}</Text>
-                                    <TouchableOpacity onPress={() => toggleArea(area)} disabled={isSaving}>
+                                    {/* Removed disabled={isSaving} */}
+                                    <TouchableOpacity onPress={() => toggleArea(area)}>
                                         <Ionicons name="close-circle" size={20} color="#666" />
                                     </TouchableOpacity>
                                 </View>
@@ -291,16 +282,11 @@ export default function AreasServedScreen() {
                     <Text style={styles.errorText}>{error}</Text>
                 )}
 
-                {/* Save and Continue Button */}
-                <TouchableOpacity style={styles.button} onPress={handleSaveAndContinue} disabled={isSaving}>
-                    {isSaving ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <>
-                            <Text style={styles.buttonText}>Save & Continue</Text>
-                            <Ionicons name="arrow-forward" size={20} color="#fff" />
-                        </>
-                    )}
+                {/* Next Button (back to original behavior) */}
+                {/* Removed disabled={isSaving} and ActivityIndicator */}
+                <TouchableOpacity style={styles.button} onPress={handleNext}>
+                    <Text style={styles.buttonText}>Next</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
         </ScrollView>
