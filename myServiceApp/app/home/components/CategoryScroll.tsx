@@ -1,21 +1,97 @@
-// app/(tabs)/home/components/CategoryScroll.tsx
-
-import React from 'react';
-import { ScrollView, TouchableOpacity, View, Text } from 'react-native';
+import React, { useState, useEffect } from 'react'; // Import useState and useEffect
+import { ScrollView, TouchableOpacity, View, Text, ActivityIndicator, StyleSheet as RNStyleSheet } from 'react-native'; // Import ActivityIndicator and RNStyleSheet
 import { Ionicons } from '@expo/vector-icons';
 import { Category } from '../types';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
-interface CategoryScrollProps {
-  categories: Category[];
-  selectedCategory: string;
-  onCategorySelect: (category: string) => void;
-}
+// Import Firestore related functions and db instance
+import { collection, query, getDocs } from 'firebase/firestore';
+import { db } from '../../../firebase-config'; // Adjust this path to your firebaseConfig
 
-const CategoryScroll = ({ categories, selectedCategory, onCategorySelect }: CategoryScrollProps) => {
+// We no longer need these props if the component fetches its own data
+// interface CategoryScrollProps {
+//   categories: Category[];
+//   selectedCategory: string;
+//   onCategorySelect: (category: string) => void;
+// }
+
+const CategoryScroll = (
+  {
+    // If it fetches internally, these props would come from its own state
+    // selectedCategory,
+    // onCategorySelect,
+  }:
+    // CategoryScrollProps // No longer needs props from parent for categories
+    {
+      selectedCategory: string; // Keep these for internal state management for the scroll
+      onCategorySelect: (category: string) => void;
+    }
+) => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
+
+  const [categories, setCategories] = useState<Category[]>([]); // Internal state for categories
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All'); // Internal state for selected category
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const categoriesCollectionRef = collection(db, 'serviceCategories');
+        const q = query(categoriesCollectionRef); // Fetch all documents
+
+        const querySnapshot = await getDocs(q);
+        const fetchedCategories: Category[] = querySnapshot.docs.map(doc => ({
+          name: doc.id, // Use the document ID as the category name
+          icon: doc.data().icon as string, // Cast icon to string
+        }));
+
+        setCategories(fetchedCategories);
+        // Automatically select the first category or 'All' if available
+        if (fetchedCategories.length > 0 && selectedCategory === 'All') {
+          // If 'All' is a special case not present in DB, keep it.
+          // Otherwise, if 'All' is meant to be a DB entry, this needs adjustment.
+          // For now, if no category is selected, it defaults to 'All'.
+          // If you want to auto-select the first DB category, change:
+          // setSelectedCategory(fetchedCategories[0].name);
+        }
+      } catch (err) {
+        console.error("Error fetching categories in CategoryScroll:", err);
+        setError("Failed to load categories. Please check your network and Firestore rules.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []); // Empty dependency array means it runs once on mount
+
+  // Handle category selection
+  const handleCategorySelect = (categoryName: string) => {
+    setSelectedCategory(categoryName);
+    // If you need to pass the selected category to a parent, you'd still need a prop like onCategorySelect
+    // onCategorySelect(categoryName); // Uncomment if the parent still needs to know the selected category
+  };
+
+  if (loading) {
+    return (
+      <View style={localStyles.loadingContainer}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+        <Text style={localStyles.loadingText}>Loading categories...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={localStyles.errorContainer}>
+        <Text style={localStyles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -31,7 +107,7 @@ const CategoryScroll = ({ categories, selectedCategory, onCategorySelect }: Cate
             styles.categoryItem,
             selectedCategory === cat.name && styles.selectedCategoryItem
           ]}
-          onPress={() => onCategorySelect(cat.name)}
+          onPress={() => handleCategorySelect(cat.name)} // Use internal handler
         >
           <View style={[
             styles.categoryIconContainer,
@@ -96,5 +172,30 @@ const createStyles = createThemedStyles(theme => ({
     fontWeight: '700',
   },
 }));
+
+// Local styles for loading/error state if fetching internally
+const localStyles = RNStyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 100, // Give it some height so it's visible
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666', // Adjust color as needed
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 100,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    color: 'red', // Adjust color as needed
+    textAlign: 'center',
+  },
+});
 
 export default CategoryScroll;

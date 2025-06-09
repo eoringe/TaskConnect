@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
+import { getAuth } from 'firebase/auth'; // Import Auth functions
 
 type FormData = {
     firstName: string;
@@ -18,8 +20,46 @@ export default function PersonalDetailsScreen() {
         email: '',
         phone: '',
     });
-
     const [errors, setErrors] = useState<Partial<FormData>>({});
+    const [loading, setLoading] = useState(true); // State to manage loading indicator
+
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            setLoading(true);
+            try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+
+                if (user) {
+                    const db = getFirestore();
+                    const userDocRef = doc(db, 'users', user.uid); // Assuming 'users' collection and UID as document ID
+                    const userDocSnap = await getDoc(userDocRef);
+
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        setFormData(prev => ({
+                            ...prev,
+                            email: userData.email || '', // Prefill email
+                            phone: userData.phoneNumber || '', // Prefill phone number
+                        }));
+                    } else {
+                        Alert.alert('Error', 'User data not found in Firestore.');
+                    }
+                } else {
+                    Alert.alert('Error', 'No authenticated user found.');
+                    // Optionally, redirect to login if no user is found
+                    router.replace('/login');
+                }
+            } catch (error) {
+                console.error("Error fetching user details:", error);
+                Alert.alert('Error', 'Failed to fetch user details. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserDetails();
+    }, []); // Empty dependency array means this effect runs once after the initial render
 
     const validateForm = (): boolean => {
         const newErrors: Partial<FormData> = {};
@@ -32,17 +72,18 @@ export default function PersonalDetailsScreen() {
             newErrors.lastName = 'Last name is required';
         }
 
-        if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email';
-        }
+        // Email and phone are prefilled and uneditable, so no validation needed here for them
+        // if (!formData.email.trim()) {
+        //     newErrors.email = 'Email is required';
+        // } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        //     newErrors.email = 'Please enter a valid email';
+        // }
 
-        if (!formData.phone.trim()) {
-            newErrors.phone = 'Phone number is required';
-        } else if (!/^\d{10}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
-            newErrors.phone = 'Please enter a valid 10-digit phone number';
-        }
+        // if (!formData.phone.trim()) {
+        //     newErrors.phone = 'Phone number is required';
+        // } else if (!/^\d{10}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
+        //     newErrors.phone = 'Please enter a valid 10-digit phone number';
+        // }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -57,6 +98,15 @@ export default function PersonalDetailsScreen() {
             });
         }
     };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4A80F0" />
+                <Text style={styles.loadingText}>Loading personal details...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>
@@ -112,40 +162,24 @@ export default function PersonalDetailsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email</Text>
                         <TextInput
-                            style={[styles.input, errors.email && styles.inputError]}
+                            style={[styles.input, styles.uneditableInput]} // Apply uneditable style
                             value={formData.email}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, email: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, email: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your email"
+                            editable={false} // Make it uneditable
+                            placeholder="Email will be prefilled"
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
-                        {errors.email && (
-                            <Text style={styles.errorText}>{errors.email}</Text>
-                        )}
                     </View>
 
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Phone Number</Text>
                         <TextInput
-                            style={[styles.input, errors.phone && styles.inputError]}
+                            style={[styles.input, styles.uneditableInput]} // Apply uneditable style
                             value={formData.phone}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, phone: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, phone: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your phone number"
+                            editable={false} // Make it uneditable
+                            placeholder="Phone number will be prefilled"
                             keyboardType="phone-pad"
                         />
-                        {errors.phone && (
-                            <Text style={styles.errorText}>{errors.phone}</Text>
-                        )}
                     </View>
                 </View>
 
@@ -162,6 +196,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
     },
     header: {
         flexDirection: 'row',
@@ -209,6 +254,10 @@ const styles = StyleSheet.create({
     inputError: {
         borderColor: '#ff4444',
     },
+    uneditableInput: {
+        backgroundColor: '#e9e9e9', // A slightly different background for uneditable fields
+        color: '#888', // Dim the text color
+    },
     errorText: {
         color: '#ff4444',
         fontSize: 12,
@@ -229,4 +278,4 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-}); 
+});

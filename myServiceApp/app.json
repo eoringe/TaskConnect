@@ -2,6 +2,7 @@
   "expo": {
     "name": "myServiceApp",
     "slug": "myServiceApp",
+    "owner": "oringe", 
     "version": "1.0.0",
     "scheme": "myserviceapp",
     "newArchEnabled": true,
