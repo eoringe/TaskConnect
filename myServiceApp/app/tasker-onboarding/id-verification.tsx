@@ -5,10 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-// Removed Firebase Storage imports: getStorage, ref, uploadBytes, getDownloadURL
-import { FirebaseError } from '@firebase/util'; // Import FirebaseError type for better error handling
+import { FirebaseError } from '@firebase/util';
 
-type FormData = {
+// Define the type for PersonalDetails that we expect from params
+type PersonalDetails = {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+};
+
+// Define the type for the ID Verification form data
+type IDVerificationFormData = {
     kraPin: string;
     idNumber: string;
     idFrontImage: string | null; // URI of the local image
@@ -18,17 +26,27 @@ type FormData = {
 export default function IDVerificationScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const personalDetails = params.personalDetails ? JSON.parse(params.personalDetails as string) : null;
 
-    const [formData, setFormData] = useState<FormData>({
+    // Parse the personalDetails from the params
+    const personalDetails: PersonalDetails | null = params.personalDetails
+        ? JSON.parse(params.personalDetails as string)
+        : null;
+
+    const [formData, setFormData] = useState<IDVerificationFormData>({
         kraPin: '',
         idNumber: '',
         idFrontImage: null,
         idBackImage: null,
     });
 
-    const [errors, setErrors] = useState<Partial<FormData>>({});
+    const [errors, setErrors] = useState<Partial<IDVerificationFormData>>({});
     const [isSaving, setIsSaving] = useState(false);
+
+    // If personalDetails are missing, log an error or redirect
+    if (!personalDetails) {
+        console.error("Personal details not found in params. Redirecting back.");
+        // Consider a more robust error handling or redirect, e.g., router.replace('/tasker-onboarding/personal-details');
+    }
 
     const pickImage = async (side: 'front' | 'back') => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -42,7 +60,7 @@ export default function IDVerificationScreen() {
             allowsEditing: true,
             aspect: [3, 2],
             quality: 0.5, // Reduced quality to help keep Base64 size down
-            base64: false, // We'll convert to Base64 manually
+            base64: false, // We'll convert to Base64 manually after getting the URI
         });
 
         if (!result.canceled) {
@@ -58,7 +76,7 @@ export default function IDVerificationScreen() {
     };
 
     const validateForm = (): boolean => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: Partial<IDVerificationFormData> = {};
 
         if (!formData.kraPin.trim()) {
             newErrors.kraPin = 'KRA PIN is required';
@@ -84,7 +102,6 @@ export default function IDVerificationScreen() {
         return Object.keys(newErrors).length === 0;
     };
 
-    // Modified function to convert image URI to Base64 string
     const convertImageToBase64 = async (uri: string, side: 'front' | 'back'): Promise<string> => {
         console.log(`[BASE64 CONVERSION] Attempting to convert image URI to Base64 for ${side} side.`);
         try {
@@ -99,7 +116,6 @@ export default function IDVerificationScreen() {
             const base64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    // Check if the result is valid
                     if (typeof reader.result === 'string') {
                         resolve(reader.result);
                     } else {
@@ -111,8 +127,7 @@ export default function IDVerificationScreen() {
             });
 
             console.log(`[BASE64 CONVERSION] Image converted to Base64 successfully for ${side} side. Length: ${base64.length} characters.`);
-            // You might want to log a snippet of the base64 string, but not the whole thing
-            // console.log(`[BASE64 CONVERSION] Snippet: ${base64.substring(0, 50)}...`);
+            // console.log(`[BASE64 CONVERSION] Snippet: ${base64.substring(0, 50)}...`); // Log snippet if needed
             return base64;
 
         } catch (error: any) {
@@ -123,6 +138,12 @@ export default function IDVerificationScreen() {
 
     const handleNext = async () => {
         if (!validateForm()) {
+            return;
+        }
+
+        if (!personalDetails) {
+            Alert.alert('Error', 'Personal details are missing. Please go back and fill them.');
+            router.replace('/tasker-onboarding/personal-details'); // Redirect back if personal details are missing
             return;
         }
 
@@ -137,51 +158,61 @@ export default function IDVerificationScreen() {
                 return;
             }
 
-            console.log(`[DEBUG] Current User UID: ${user.uid}`);
+            console.log(`[FIRESTORE SAVE] Current User UID: ${user.uid}`);
+
             if (!formData.idFrontImage) {
-                console.error("[DEBUG] idFrontImage is null or undefined before conversion.");
                 throw new Error("Front ID image is missing.");
             }
             if (!formData.idBackImage) {
-                console.error("[DEBUG] idBackImage is null or undefined before conversion.");
                 throw new Error("Back ID image is missing.");
             }
-            console.log(`[DEBUG] idFrontImage URI: ${formData.idFrontImage}`);
-            console.log(`[DEBUG] idBackImage URI: ${formData.idBackImage}`);
+
+            // Convert images to Base64 strings
+            const frontImageBase64 = await convertImageToBase64(formData.idFrontImage!, 'front');
+            const backImageBase64 = await convertImageToBase64(formData.idBackImage!, 'back');
 
             const db = getFirestore();
             const taskerDocRef = doc(db, 'taskers', user.uid);
 
-            // 1. Convert images to Base64 strings
-            const frontImageBase64 = await convertImageToBase64(formData.idFrontImage!, 'front');
-            const backImageBase64 = await convertImageToBase64(formData.idBackImage!, 'back');
+            // Combine all collected data into a single object for Firestore
+            const combinedTaskerData = {
+                // Personal Details (from previous screen)
+                firstName: personalDetails.firstName,
+                lastName: personalDetails.lastName,
+                email: personalDetails.email, // Email from Firebase Auth/Users collection
+                phone: personalDetails.phone, // Phone from Firebase Auth/Users collection
 
-            // 2. Prepare data to save to Firestore
-            const idVerificationData = {
+                // ID Verification Details (from current screen)
                 kraPin: formData.kraPin.trim(),
                 idNumber: formData.idNumber.trim(),
-                idFrontImageBase64: frontImageBase64, // Store Base64 string
-                idBackImageBase64: backImageBase64,   // Store Base64 string
-                verificationStatus: false,
+                idFrontImageBase64: frontImageBase64,
+                idBackImageBase64: backImageBase64,
+                verificationStatus: false, // Initial status
                 submissionDate: new Date(),
+                onboardingStep: 'idVerificationCompleted', // Mark this step as completed
             };
 
-            // 3. Save details to Firestore using setDoc with merge: true
-            await setDoc(taskerDocRef, idVerificationData, { merge: true });
-            console.log('[FIRESTORE] ID Verification data saved to Firestore successfully.');
+            console.log("[FIRESTORE SAVE] Data being prepared for saving to 'taskers' collection:");
+            console.log(JSON.stringify(combinedTaskerData, null, 2)); // Log the entire object for inspection
 
-            Alert.alert('Success', 'ID verification details saved successfully!');
+            // Save all details to Firestore in a single operation
+            await setDoc(taskerDocRef, combinedTaskerData, { merge: true });
+            console.log('[FIRESTORE SAVE] All tasker onboarding data (personal + ID) saved to Firestore successfully.');
 
+            Alert.alert('Success', 'Your details have been saved successfully!');
+
+            // Proceed to the next screen, passing relevant data if needed for subsequent steps
             router.push({
                 pathname: '/tasker-onboarding/areas-served',
                 params: {
-                    personalDetails: params.personalDetails,
-                    idVerification: JSON.stringify(idVerificationData),
+                    // You might want to pass minimal info or a status,
+                    // as the full data is now in Firestore
+                    onboardingCompletedStep: 'idVerification'
                 },
             });
 
         } catch (error: any) {
-            console.error("Error saving ID verification details in handleNext:", error);
+            console.error("Error saving all onboarding details in IDVerificationScreen:", error);
             let errorMessage = 'An unknown error occurred during saving. Please try again.';
 
             if (error instanceof FirebaseError) {
@@ -208,6 +239,7 @@ export default function IDVerificationScreen() {
             <View style={styles.content}>
                 <Text style={styles.description}>
                     To ensure the safety and trust of our community, we need to verify your identity.
+                    Please provide your KRA PIN, ID number, and upload clear images of your ID card.
                 </Text>
 
                 <View style={styles.form}>

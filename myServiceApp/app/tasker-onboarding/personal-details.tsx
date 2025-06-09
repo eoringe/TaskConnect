@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'; // Import setDoc
+import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Removed setDoc import as we won't save here
 import { getAuth } from 'firebase/auth'; // Import Auth functions
 
 type FormData = {
@@ -22,7 +22,7 @@ export default function PersonalDetailsScreen() {
     });
     const [errors, setErrors] = useState<Partial<FormData>>({});
     const [loading, setLoading] = useState(true); // State to manage loading indicator
-    const [isSaving, setIsSaving] = useState(false); // New state for saving data
+    const [isProcessing, setIsProcessing] = useState(false); // Renamed from isSaving, as we're not saving here yet
 
     useEffect(() => {
         const fetchUserDetails = async () => {
@@ -42,13 +42,24 @@ export default function PersonalDetailsScreen() {
                             ...prev,
                             email: userData.email || '', // Prefill email
                             phone: userData.phoneNumber || '', // Prefill phone number
+                            // Do not prefill firstName and lastName from 'users' if they are meant to be entered specifically for 'taskers'
+                            // If they are in 'users' and you want to prefill, add:
+                            // firstName: userData.firstName || '',
+                            // lastName: userData.lastName || '',
                         }));
                     } else {
-                        Alert.alert('Error', 'User data not found in Firestore.');
+                        // This case means a user exists in auth but not in your 'users' Firestore collection.
+                        // For a real app, you might want to handle this as an error or prompt for full user registration.
+                        // For this flow, we'll proceed with empty firstName/lastName and prefill email/phone if available from auth.
+                        console.warn("User data not found in 'users' collection for UID:", user.uid);
+                        setFormData(prev => ({
+                            ...prev,
+                            email: user.email || '', // Fallback to auth email if Firestore user doc missing
+                            phone: user.phoneNumber || '', // Fallback to auth phone if Firestore user doc missing
+                        }));
                     }
                 } else {
-                    Alert.alert('Error', 'No authenticated user found.');
-                    // Optionally, redirect to login if no user is found
+                    Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
                     router.replace('/login');
                 }
             } catch (error) {
@@ -82,42 +93,22 @@ export default function PersonalDetailsScreen() {
             return;
         }
 
-        setIsSaving(true); // Start saving
+        setIsProcessing(true); // Indicate that we're processing (e.g., navigating)
         try {
-            const auth = getAuth();
-            const user = auth.currentUser;
+            // No saving to Firestore here. Just collect data and pass it.
 
-            if (!user) {
-                Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
-                router.replace('/login');
-                return;
-            }
-
-            const db = getFirestore();
-            const taskerDocRef = doc(db, 'taskers', user.uid); // Reference to the tasker document using UID
-
-            // Data to save to the 'taskers' collection
-            const taskerData = {
-                firstName: formData.firstName,
-                lastName: formData.lastName,
-                // Do not save email and phone here, as they are in the 'users' collection
-            };
-
-            await setDoc(taskerDocRef, taskerData, { merge: true }); // Use setDoc with merge: true to avoid overwriting existing fields
-
-            Alert.alert('Success', 'Personal details saved successfully!');
-
-            // Proceed to the next screen, passing the relevant personal details
+            // The formData now contains firstName, lastName, pre-filled email, and phone.
+            // Pass all of this to the next screen.
             router.push({
                 pathname: '/tasker-onboarding/id-verification',
-                params: { personalDetails: JSON.stringify(formData) }
+                params: { personalDetails: JSON.stringify(formData) } // Pass the entire formData object
             });
 
         } catch (error) {
-            console.error("Error saving personal details to taskers collection:", error);
-            Alert.alert('Error', 'Failed to save personal details. Please try again.');
+            console.error("Error during navigation or data preparation for ID verification:", error);
+            Alert.alert('Error', 'Failed to proceed. Please try again.');
         } finally {
-            setIsSaving(false); // End saving
+            setIsProcessing(false); // End processing
         }
     };
 
@@ -133,7 +124,7 @@ export default function PersonalDetailsScreen() {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isProcessing}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Personal Details</Text>
@@ -157,7 +148,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your first name"
-                            editable={!isSaving} // Disable input while saving
+                            editable={!isProcessing} // Disable input while processing
                         />
                         {errors.firstName && (
                             <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -176,7 +167,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your last name"
-                            editable={!isSaving} // Disable input while saving
+                            editable={!isProcessing} // Disable input while processing
                         />
                         {errors.lastName && (
                             <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -210,9 +201,9 @@ export default function PersonalDetailsScreen() {
                 <TouchableOpacity
                     style={styles.button}
                     onPress={handleNext}
-                    disabled={isSaving} // Disable button while saving
+                    disabled={isProcessing} // Disable button while processing
                 >
-                    {isSaving ? (
+                    {isProcessing ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <>
