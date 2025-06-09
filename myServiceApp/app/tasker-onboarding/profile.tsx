@@ -22,7 +22,10 @@ export default function ProfileScreen() {
         if (!result.canceled) {
             setProfileImage(result.assets[0].uri);
             if (errors.image) {
-                setErrors(prev => ({ ...prev, image: undefined }));
+                setErrors(prev => {
+                    const { image, ...rest } = prev;
+                    return rest;
+                });
             }
         }
     };
@@ -104,7 +107,10 @@ export default function ProfileScreen() {
                         onChangeText={(text) => {
                             setBio(text);
                             if (text.trim()) {
-                                setErrors(prev => ({ ...prev, bio: undefined }));
+                                setErrors(prev => {
+                                    const { bio, ...rest } = prev;
+                                    return rest;
+                                });
                             }
                         }}
                         placeholder="Write your bio here..."
