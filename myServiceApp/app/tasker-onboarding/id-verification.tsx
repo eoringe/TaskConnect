@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+// Removed Firebase Storage imports: getStorage, ref, uploadBytes, getDownloadURL
+import { FirebaseError } from '@firebase/util'; // Import FirebaseError type for better error handling
 
 type FormData = {
     kraPin: string;
     idNumber: string;
-    idFrontImage: string | null;
-    idBackImage: string | null;
+    idFrontImage: string | null; // URI of the local image
+    idBackImage: string | null;  // URI of the local image
 };
 
 export default function IDVerificationScreen() {
@@ -24,13 +28,21 @@ export default function IDVerificationScreen() {
     });
 
     const [errors, setErrors] = useState<Partial<FormData>>({});
+    const [isSaving, setIsSaving] = useState(false);
 
     const pickImage = async (side: 'front' | 'back') => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission required', 'Please grant access to your photo library to upload images.');
+            return;
+        }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [3, 2],
-            quality: 0.8,
+            quality: 0.5, // Reduced quality to help keep Base64 size down
+            base64: false, // We'll convert to Base64 manually
         });
 
         if (!result.canceled) {
@@ -50,13 +62,13 @@ export default function IDVerificationScreen() {
 
         if (!formData.kraPin.trim()) {
             newErrors.kraPin = 'KRA PIN is required';
-        } else if (!/^[A-Z]\d{9}[A-Z]$/.test(formData.kraPin)) {
-            newErrors.kraPin = 'Please enter a valid KRA PIN';
+        } else if (!/^[A-Z]\d{9}[A-Z]$/.test(formData.kraPin.trim())) {
+            newErrors.kraPin = 'Please enter a valid KRA PIN (e.g., A123456789Z)';
         }
 
         if (!formData.idNumber.trim()) {
             newErrors.idNumber = 'ID Number is required';
-        } else if (!/^\d{8}$/.test(formData.idNumber)) {
+        } else if (!/^\d{8}$/.test(formData.idNumber.trim())) {
             newErrors.idNumber = 'Please enter a valid 8-digit ID number';
         }
 
@@ -72,22 +84,122 @@ export default function IDVerificationScreen() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleNext = () => {
-        if (validateForm()) {
+    // Modified function to convert image URI to Base64 string
+    const convertImageToBase64 = async (uri: string, side: 'front' | 'back'): Promise<string> => {
+        console.log(`[BASE64 CONVERSION] Attempting to convert image URI to Base64 for ${side} side.`);
+        try {
+            const response = await fetch(uri);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[BASE64 CONVERSION ERROR] Failed to fetch image (HTTP Status: ${response.status}, Text: ${errorText})`);
+                throw new Error(`Failed to fetch image from local URI: ${response.status} ${response.statusText}`);
+            }
+            const blob = await response.blob();
+
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    // Check if the result is valid
+                    if (typeof reader.result === 'string') {
+                        resolve(reader.result);
+                    } else {
+                        reject(new Error("FileReader did not return a valid Base64 string."));
+                    }
+                };
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(blob);
+            });
+
+            console.log(`[BASE64 CONVERSION] Image converted to Base64 successfully for ${side} side. Length: ${base64.length} characters.`);
+            // You might want to log a snippet of the base64 string, but not the whole thing
+            // console.log(`[BASE64 CONVERSION] Snippet: ${base64.substring(0, 50)}...`);
+            return base64;
+
+        } catch (error: any) {
+            console.error(`[BASE64 CONVERSION ERROR] Error during Base64 conversion for ${side} side:`, error);
+            throw error;
+        }
+    };
+
+    const handleNext = async () => {
+        if (!validateForm()) {
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+
+            if (!user) {
+                Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
+                router.replace('/login');
+                return;
+            }
+
+            console.log(`[DEBUG] Current User UID: ${user.uid}`);
+            if (!formData.idFrontImage) {
+                console.error("[DEBUG] idFrontImage is null or undefined before conversion.");
+                throw new Error("Front ID image is missing.");
+            }
+            if (!formData.idBackImage) {
+                console.error("[DEBUG] idBackImage is null or undefined before conversion.");
+                throw new Error("Back ID image is missing.");
+            }
+            console.log(`[DEBUG] idFrontImage URI: ${formData.idFrontImage}`);
+            console.log(`[DEBUG] idBackImage URI: ${formData.idBackImage}`);
+
+            const db = getFirestore();
+            const taskerDocRef = doc(db, 'taskers', user.uid);
+
+            // 1. Convert images to Base64 strings
+            const frontImageBase64 = await convertImageToBase64(formData.idFrontImage!, 'front');
+            const backImageBase64 = await convertImageToBase64(formData.idBackImage!, 'back');
+
+            // 2. Prepare data to save to Firestore
+            const idVerificationData = {
+                kraPin: formData.kraPin.trim(),
+                idNumber: formData.idNumber.trim(),
+                idFrontImageBase64: frontImageBase64, // Store Base64 string
+                idBackImageBase64: backImageBase64,   // Store Base64 string
+                verificationStatus: false,
+                submissionDate: new Date(),
+            };
+
+            // 3. Save details to Firestore using setDoc with merge: true
+            await setDoc(taskerDocRef, idVerificationData, { merge: true });
+            console.log('[FIRESTORE] ID Verification data saved to Firestore successfully.');
+
+            Alert.alert('Success', 'ID verification details saved successfully!');
+
             router.push({
                 pathname: '/tasker-onboarding/areas-served',
                 params: {
                     personalDetails: params.personalDetails,
-                    idVerification: JSON.stringify(formData),
+                    idVerification: JSON.stringify(idVerificationData),
                 },
             });
+
+        } catch (error: any) {
+            console.error("Error saving ID verification details in handleNext:", error);
+            let errorMessage = 'An unknown error occurred during saving. Please try again.';
+
+            if (error instanceof FirebaseError) {
+                errorMessage = `Firebase Error: ${error.code} - ${error.message}`;
+            } else if (error instanceof Error) {
+                errorMessage = `App Error: ${error.message}`;
+            }
+
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setIsSaving(false);
         }
     };
 
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>ID Verification</Text>
@@ -110,9 +222,10 @@ export default function IDVerificationScreen() {
                                     setErrors(prev => ({ ...prev, kraPin: undefined }));
                                 }
                             }}
-                            placeholder="Enter your KRA PIN"
+                            placeholder="Enter your KRA PIN (e.g., A123456789Z)"
                             autoCapitalize="characters"
                             maxLength={11}
+                            editable={!isSaving}
                         />
                         {errors.kraPin && (
                             <Text style={styles.errorText}>{errors.kraPin}</Text>
@@ -130,9 +243,10 @@ export default function IDVerificationScreen() {
                                     setErrors(prev => ({ ...prev, idNumber: undefined }));
                                 }
                             }}
-                            placeholder="Enter your ID number"
+                            placeholder="Enter your ID number (e.g., 12345678)"
                             keyboardType="number-pad"
                             maxLength={8}
+                            editable={!isSaving}
                         />
                         {errors.idNumber && (
                             <Text style={styles.errorText}>{errors.idNumber}</Text>
@@ -147,6 +261,7 @@ export default function IDVerificationScreen() {
                             <TouchableOpacity
                                 style={[styles.imageUploadBox, errors.idFrontImage && styles.imageUploadError]}
                                 onPress={() => pickImage('front')}
+                                disabled={isSaving}
                             >
                                 {formData.idFrontImage ? (
                                     <Image
@@ -164,6 +279,7 @@ export default function IDVerificationScreen() {
                             <TouchableOpacity
                                 style={[styles.imageUploadBox, errors.idBackImage && styles.imageUploadError]}
                                 onPress={() => pickImage('back')}
+                                disabled={isSaving}
                             >
                                 {formData.idBackImage ? (
                                     <Image
@@ -184,9 +300,19 @@ export default function IDVerificationScreen() {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleNext}
+                    disabled={isSaving}
+                >
+                    {isSaving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.buttonText}>Next</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
@@ -299,4 +425,4 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-}); 
+});

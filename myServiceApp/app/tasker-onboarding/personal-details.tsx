@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'; // Import setDoc
 import { getAuth } from 'firebase/auth'; // Import Auth functions
 
 type FormData = {
@@ -22,6 +22,7 @@ export default function PersonalDetailsScreen() {
     });
     const [errors, setErrors] = useState<Partial<FormData>>({});
     const [loading, setLoading] = useState(true); // State to manage loading indicator
+    const [isSaving, setIsSaving] = useState(false); // New state for saving data
 
     useEffect(() => {
         const fetchUserDetails = async () => {
@@ -72,30 +73,51 @@ export default function PersonalDetailsScreen() {
             newErrors.lastName = 'Last name is required';
         }
 
-        // Email and phone are prefilled and uneditable, so no validation needed here for them
-        // if (!formData.email.trim()) {
-        //     newErrors.email = 'Email is required';
-        // } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        //     newErrors.email = 'Please enter a valid email';
-        // }
-
-        // if (!formData.phone.trim()) {
-        //     newErrors.phone = 'Phone number is required';
-        // } else if (!/^\d{10}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
-        //     newErrors.phone = 'Please enter a valid 10-digit phone number';
-        // }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleNext = () => {
-        if (validateForm()) {
-            // Store the data and proceed to next screen
+    const handleNext = async () => {
+        if (!validateForm()) {
+            return;
+        }
+
+        setIsSaving(true); // Start saving
+        try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+
+            if (!user) {
+                Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
+                router.replace('/login');
+                return;
+            }
+
+            const db = getFirestore();
+            const taskerDocRef = doc(db, 'taskers', user.uid); // Reference to the tasker document using UID
+
+            // Data to save to the 'taskers' collection
+            const taskerData = {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                // Do not save email and phone here, as they are in the 'users' collection
+            };
+
+            await setDoc(taskerDocRef, taskerData, { merge: true }); // Use setDoc with merge: true to avoid overwriting existing fields
+
+            Alert.alert('Success', 'Personal details saved successfully!');
+
+            // Proceed to the next screen, passing the relevant personal details
             router.push({
                 pathname: '/tasker-onboarding/id-verification',
                 params: { personalDetails: JSON.stringify(formData) }
             });
+
+        } catch (error) {
+            console.error("Error saving personal details to taskers collection:", error);
+            Alert.alert('Error', 'Failed to save personal details. Please try again.');
+        } finally {
+            setIsSaving(false); // End saving
         }
     };
 
@@ -111,7 +133,7 @@ export default function PersonalDetailsScreen() {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isSaving}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Personal Details</Text>
@@ -135,6 +157,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your first name"
+                            editable={!isSaving} // Disable input while saving
                         />
                         {errors.firstName && (
                             <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -153,6 +176,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your last name"
+                            editable={!isSaving} // Disable input while saving
                         />
                         {errors.lastName && (
                             <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -162,7 +186,7 @@ export default function PersonalDetailsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email</Text>
                         <TextInput
-                            style={[styles.input, styles.uneditableInput]} // Apply uneditable style
+                            style={[styles.input, styles.uneditableInput]}
                             value={formData.email}
                             editable={false} // Make it uneditable
                             placeholder="Email will be prefilled"
@@ -174,7 +198,7 @@ export default function PersonalDetailsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Phone Number</Text>
                         <TextInput
-                            style={[styles.input, styles.uneditableInput]} // Apply uneditable style
+                            style={[styles.input, styles.uneditableInput]}
                             value={formData.phone}
                             editable={false} // Make it uneditable
                             placeholder="Phone number will be prefilled"
@@ -183,9 +207,19 @@ export default function PersonalDetailsScreen() {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleNext}
+                    disabled={isSaving} // Disable button while saving
+                >
+                    {isSaving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.buttonText}>Next</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
@@ -255,8 +289,8 @@ const styles = StyleSheet.create({
         borderColor: '#ff4444',
     },
     uneditableInput: {
-        backgroundColor: '#e9e9e9', // A slightly different background for uneditable fields
-        color: '#888', // Dim the text color
+        backgroundColor: '#e9e9e9',
+        color: '#888',
     },
     errorText: {
         color: '#ff4444',
