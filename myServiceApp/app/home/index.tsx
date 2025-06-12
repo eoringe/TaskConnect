@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Screens
 import HomeScreenContent from './screens/HomeScreenContent';
 import NotificationsScreen from './screens/NotificationsScreen';
@@ -19,13 +19,14 @@ const Tab = createBottomTabNavigator();
 const HomeScreen = () => {
   const { theme, isDarkMode } = useTheme();
   const styles = useThemedStyles(createStyles);
-  
+  const insets = useSafeAreaInsets();
+
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  
+
   // Check authentication state when component mounts
   useEffect(() => {
     console.log("Setting up auth state listener in Tab Navigator");
-    
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log("User is authenticated in Tab Navigator:", user.email);
@@ -35,7 +36,7 @@ const HomeScreen = () => {
         router.replace('/auth/Login');
       }
     });
-    
+
     // Clean up the listener on unmount
     return () => unsubscribe();
   }, []);
@@ -55,7 +56,7 @@ const HomeScreen = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName = 'home-outline';
-          
+
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Notifications') {
@@ -65,13 +66,13 @@ const HomeScreen = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
-          
+
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary, // Use the primary color (green) for active icons
         tabBarInactiveTintColor: theme.colors.tabBarInactiveTint,
         tabBarStyle: {
-          height: 60,
+         height: 56 + insets.bottom,
           paddingBottom: 8,
           paddingTop: 8,
           backgroundColor: theme.colors.card,
