@@ -9,20 +9,13 @@ import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles
 import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase-config'; // Adjust this path to your firebaseConfig
 
-// We no longer need these props if the component fetches its own data
-// interface CategoryScrollProps {
-//   categories: Category[];
-//   selectedCategory: string;
-//   onCategorySelect: (category: string) => void;
-// }
+
 
 const CategoryScroll = (
   {
-    // If it fetches internally, these props would come from its own state
-    // selectedCategory,
-    // onCategorySelect,
+  
   }:
-    // CategoryScrollProps // No longer needs props from parent for categories
+    
     {
       selectedCategory: string; // Keep these for internal state management for the scroll
       onCategorySelect: (category: string) => void;
