@@ -98,7 +98,7 @@ const LoginScreen = () => {
           // Navigate to home screen on success
           router.push('/home');
         } catch (error) {
-          console.log('Firebase authentication error:', error);
+
           setIsLoading(false);
           
           // Handle authentication errors
@@ -139,7 +139,7 @@ const LoginScreen = () => {
         }
       }
     } catch (error) {
-      console.log('Error during biometric authentication:', error);
+
       setIsLoading(false);
       Alert.alert('Authentication Error', 'Failed to authenticate using biometrics');
     }
@@ -237,7 +237,7 @@ const LoginScreen = () => {
     try {
       await handleCodeSubmit();
     } catch (error) {
-      console.error('Code submission error:', error);
+     
       Alert.alert('Error', 'Failed to submit authentication code');
     } finally {
       setIsCodeSubmitting(false);
