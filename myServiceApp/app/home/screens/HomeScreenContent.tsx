@@ -51,7 +51,7 @@ const HomeScreenContent = () => {
     const currentUser = auth.currentUser;
     
     if (currentUser) {
-      console.log("Current user:", currentUser);
+     
       
       if (currentUser.displayName) {
         const firstName = currentUser.displayName.split(' ')[0];
