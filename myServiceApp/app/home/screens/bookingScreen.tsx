@@ -1,39 +1,37 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
   Modal,
   FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
-type RootStackParamList = {
-  Booking: { tasker: any }; // Replace `any` with a defined Tasker type if available
-  BookingSummary: {
-    tasker: any;
-    date: Date;
+type SearchParamTypes = {
+  bookingScreen: {
+    tasker: string;
+  };
+  bookingSummary: {
+    tasker: string;
+    date: string;
     address: string;
     notes: string;
   };
 };
 
-type BookingScreenRouteProp = RouteProp<RootStackParamList, 'Booking'>;
-type BookingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Booking'>;
-
-type Props = {
-  route: BookingScreenRouteProp;
-  navigation: BookingScreenNavigationProp;
-};
-
-const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { tasker } = route.params;
+const BookingScreen = () => {
+  const router = useRouter();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const params = useLocalSearchParams<SearchParamTypes['bookingScreen']>();
+  const tasker = JSON.parse(params.tasker);
 
   const [date, setDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -45,7 +43,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
   const [selectedDay, setSelectedDay] = useState(date.getDate());
   const [selectedMonth, setSelectedMonth] = useState(date.getMonth());
   const [selectedYear, setSelectedYear] = useState(date.getFullYear());
-  
+
   // For time selection
   const [selectedHour, setSelectedHour] = useState(date.getHours());
   const [selectedMinute, setSelectedMinute] = useState(date.getMinutes());
@@ -55,18 +53,18 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
-  
+
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
-  
+
   const getDaysInMonth = (month: number, year: number) => {
     return new Date(year, month + 1, 0).getDate();
   };
-  
+
   const days = Array.from(
-    { length: getDaysInMonth(selectedMonth, selectedYear) }, 
+    { length: getDaysInMonth(selectedMonth, selectedYear) },
     (_, i) => i + 1
   );
-  
+
   const hours = Array.from({ length: 12 }, (_, i) => i === 0 ? 12 : i);
   const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
   const amPm = ['AM', 'PM'];
@@ -83,14 +81,14 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
   const confirmTimeSelection = () => {
     const newDate = new Date(date);
     let hour = selectedHour;
-    
+
     // Convert 12-hour format to 24-hour format
     if (selectedAmPm === 'PM' && selectedHour !== 12) {
       hour = selectedHour + 12;
     } else if (selectedAmPm === 'AM' && selectedHour === 12) {
       hour = 0;
     }
-    
+
     newDate.setHours(hour);
     newDate.setMinutes(selectedMinute);
     setDate(newDate);
@@ -98,20 +96,20 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const formatDate = (date: Date) => {
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     };
     return date.toLocaleDateString(undefined, options);
   };
 
   const formatTime = (date: Date) => {
-    const options: Intl.DateTimeFormatOptions = { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: true 
+    const options: Intl.DateTimeFormatOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     };
     return date.toLocaleTimeString(undefined, options);
   };
@@ -121,12 +119,15 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
       alert('Please enter your address');
       return;
     }
-    
-    navigation.navigate('BookingSummary', {
-      tasker,
-      date,
-      address,
-      notes,
+
+    router.push({
+      pathname: "/bookingSummary",
+      params: {
+        tasker: JSON.stringify(tasker),
+        date: date.toISOString(),
+        address,
+        notes,
+      }
     });
   };
 
@@ -143,7 +144,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
-        <Ionicons name="person-circle-outline" size={50} color="#4A80F0" />
+        <Ionicons name="person-circle-outline" size={50} color={theme.colors.primary} />
         <View style={styles.taskerInfo}>
           <Text style={styles.name}>{tasker.name}</Text>
           <Text style={styles.detail}>{tasker.category}</Text>
@@ -154,29 +155,29 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Date & Time Selection */}
       <View style={styles.dateTimeSection}>
         <Text style={styles.sectionTitle}>Schedule Service</Text>
-        
+
         <TouchableOpacity
           onPress={() => setShowDateModal(true)}
           style={styles.dateTimeBox}
         >
-          <Ionicons name="calendar-outline" size={24} color="#4A80F0" />
+          <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
           <View style={styles.dateTimeTextContainer}>
             <Text style={styles.dateTimeLabel}>Date</Text>
             <Text style={styles.dateTimeValue}>{formatDate(date)}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           onPress={() => setShowTimeModal(true)}
           style={styles.dateTimeBox}
         >
-          <Ionicons name="time-outline" size={24} color="#4A80F0" />
+          <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
           <View style={styles.dateTimeTextContainer}>
             <Text style={styles.dateTimeLabel}>Time</Text>
             <Text style={styles.dateTimeValue}>{formatTime(date)}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
         </TouchableOpacity>
       </View>
 
@@ -190,7 +191,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <Text style={styles.label}>Additional Notes</Text>
       <TextInput
-        style={[styles.input, { height: 100 }]} 
+        style={[styles.input, { height: 100 }]}
         value={notes}
         onChangeText={setNotes}
         placeholder="Add any specific instructions"
@@ -219,7 +220,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.modalHeaderButton}>Done</Text>
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.pickerContainer}>
               {/* Month Picker */}
               <View style={styles.pickerColumn}>
@@ -236,9 +237,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={[styles.pickerItem, index === selectedMonth && styles.selectedPickerItem]}
                       onPress={() => setSelectedMonth(index)}
                     >
-                      <Text 
+                      <Text
                         style={[
-                          styles.pickerItemText, 
+                          styles.pickerItemText,
                           index === selectedMonth && styles.selectedPickerItemText
                         ]}
                       >
@@ -250,7 +251,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                   showsVerticalScrollIndicator={false}
                 />
               </View>
-              
+
               {/* Day Picker */}
               <View style={styles.pickerColumn}>
                 <FlatList
@@ -266,9 +267,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={[styles.pickerItem, item === selectedDay && styles.selectedPickerItem]}
                       onPress={() => setSelectedDay(item)}
                     >
-                      <Text 
+                      <Text
                         style={[
-                          styles.pickerItemText, 
+                          styles.pickerItemText,
                           item === selectedDay && styles.selectedPickerItemText
                         ]}
                       >
@@ -280,7 +281,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                   showsVerticalScrollIndicator={false}
                 />
               </View>
-              
+
               {/* Year Picker */}
               <View style={styles.pickerColumn}>
                 <FlatList
@@ -296,9 +297,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={[styles.pickerItem, item === selectedYear && styles.selectedPickerItem]}
                       onPress={() => setSelectedYear(item)}
                     >
-                      <Text 
+                      <Text
                         style={[
-                          styles.pickerItemText, 
+                          styles.pickerItemText,
                           item === selectedYear && styles.selectedPickerItemText
                         ]}
                       >
@@ -333,7 +334,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.modalHeaderButton}>Done</Text>
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.pickerContainer}>
               {/* Hour Picker */}
               <View style={styles.pickerColumn}>
@@ -348,7 +349,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                   renderItem={({ item }) => {
                     const displayHour = selectedHour === 0 ? 12 : selectedHour > 12 ? selectedHour - 12 : selectedHour;
                     const isSelected = item === displayHour;
-                    
+
                     return (
                       <TouchableOpacity
                         style={[styles.pickerItem, isSelected && styles.selectedPickerItem]}
@@ -362,9 +363,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                           }
                         }}
                       >
-                        <Text 
+                        <Text
                           style={[
-                            styles.pickerItemText, 
+                            styles.pickerItemText,
                             isSelected && styles.selectedPickerItemText
                           ]}
                         >
@@ -377,7 +378,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                   showsVerticalScrollIndicator={false}
                 />
               </View>
-              
+
               {/* Minute Picker */}
               <View style={styles.pickerColumn}>
                 <FlatList
@@ -393,9 +394,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={[styles.pickerItem, item === selectedMinute && styles.selectedPickerItem]}
                       onPress={() => setSelectedMinute(item)}
                     >
-                      <Text 
+                      <Text
                         style={[
-                          styles.pickerItemText, 
+                          styles.pickerItemText,
                           item === selectedMinute && styles.selectedPickerItemText
                         ]}
                       >
@@ -407,7 +408,7 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                   showsVerticalScrollIndicator={false}
                 />
               </View>
-              
+
               {/* AM/PM Picker */}
               <View style={styles.pickerColumn}>
                 <FlatList
@@ -431,9 +432,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
                         }
                       }}
                     >
-                      <Text 
+                      <Text
                         style={[
-                          styles.pickerItemText, 
+                          styles.pickerItemText,
                           item === selectedAmPm && styles.selectedPickerItemText
                         ]}
                       >
@@ -453,9 +454,9 @@ const BookingScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
     padding: 20,
   },
   card: {
@@ -464,7 +465,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 10,
     padding: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
     borderRadius: 10,
   },
   taskerInfo: {
@@ -474,11 +475,11 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   detail: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textLight,
     marginBottom: 2,
   },
   dateTimeSection: {
@@ -487,17 +488,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 15,
   },
   dateTimeBox: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#f8f9fd',
+    backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : '#f8f9fd',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.dark ? 'rgba(255,255,255,0.1)' : '#eee',
     marginBottom: 15,
   },
   dateTimeTextContainer: {
@@ -506,12 +507,12 @@ const styles = StyleSheet.create({
   },
   dateTimeLabel: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textLight,
     marginBottom: 4,
   },
   dateTimeValue: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '500',
   },
   label: {
@@ -519,20 +520,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: theme.dark ? 'rgba(255,255,255,0.1)' : '#ccc',
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
-    backgroundColor: '#fafafa',
+    backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : '#fafafa',
+    color: theme.colors.text,
   },
   button: {
     marginTop: 15,
     marginBottom: 30,
-    backgroundColor: '#4A80F0',
+    backgroundColor: theme.colors.primary,
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -548,7 +550,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 30,
@@ -560,16 +562,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : '#eee',
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
   modalHeaderButton: {
     fontSize: 17,
-    color: '#4A80F0',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   pickerContainer: {
@@ -588,17 +590,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedPickerItem: {
-    backgroundColor: '#f0f5ff',
+    backgroundColor: theme.dark ? 'rgba(74, 128, 240, 0.1)' : '#f0f5ff',
   },
   pickerItemText: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
   },
   selectedPickerItemText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4A80F0',
+    color: theme.colors.primary,
   },
-});
+}));
 
 export default BookingScreen;
