@@ -7,7 +7,7 @@ import { BlurView } from 'expo-blur';
 import Colors from '@/app/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Icon component with consistent styling
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -18,22 +18,38 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         // Disable the static render of the header on web
         headerShown: useClientOnlyValue(false, true),
-        
+
         // Hide the tab bar completely
-        tabBarStyle: { 
-          display: 'none', // This completely hides the tab bar
+        tabBarStyle: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: Platform.OS === 'android' ? 16 : insets.bottom, // Fixed height for Android, safe area for iOS
+          height: Platform.OS === 'android' ? 64 : 56 + insets.bottom, // Slightly taller for Android
+          paddingBottom: Platform.OS === 'android' ? 0 : 8, // No extra padding needed for Android
+          borderTopWidth: 0,
+          backgroundColor: '#fff',
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
         },
-        
+
         // Make the background of the entire tab navigator transparent
-        tabBarBackground: () => <View style={styles.tabBarBackground} />,
+        // tabBarBackground: () => <View style={styles.tabBarBackground} />,
       }}>
-      
+
       {/* Home route with header completely hidden */}
       <Tabs.Screen
         name="home"
@@ -44,7 +60,7 @@ export default function TabLayout() {
           headerTransparent: true,
         }}
       />
-      
+
       <Tabs.Screen
         name="index"
         options={{
@@ -54,10 +70,10 @@ export default function TabLayout() {
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (
-                <BlurView 
-                  intensity={25} 
-                  tint={colorScheme === 'dark' ? 'dark' : 'light'} 
-                  style={StyleSheet.absoluteFill} 
+                <BlurView
+                  intensity={25}
+                  tint={colorScheme === 'dark' ? 'dark' : 'light'}
+                  style={StyleSheet.absoluteFill}
                 />
               )}
             </View>
@@ -78,7 +94,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="two"
         options={{
@@ -88,10 +104,10 @@ export default function TabLayout() {
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (
-                <BlurView 
-                  intensity={25} 
-                  tint={colorScheme === 'dark' ? 'dark' : 'light'} 
-                  style={StyleSheet.absoluteFill} 
+                <BlurView
+                  intensity={25}
+                  tint={colorScheme === 'dark' ? 'dark' : 'light'}
+                  style={StyleSheet.absoluteFill}
                 />
               )}
             </View>
@@ -108,10 +124,10 @@ export default function TabLayout() {
           headerBackground: () => (
             <View style={styles.headerBackground}>
               {Platform.OS === 'ios' && (
-                <BlurView 
-                  intensity={25} 
-                  tint={colorScheme === 'dark' ? 'dark' : 'light'} 
-                  style={StyleSheet.absoluteFill} 
+                <BlurView
+                  intensity={25}
+                  tint={colorScheme === 'dark' ? 'dark' : 'light'}
+                  style={StyleSheet.absoluteFill}
                 />
               )}
             </View>
@@ -123,14 +139,14 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBarBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
+  // tabBarBackground: {
+  //   position: 'absolute',
+  //   top: 0,
+  //   left: 0,
+  //   right: 0,
+  //   bottom: 0,
+  //   overflow: 'hidden',
+  // },
   headerBackground: {
     flex: 1,
     backgroundColor: 'transparent',
