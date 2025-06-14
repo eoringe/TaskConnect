@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,24 @@ import {
   StyleSheet,
   ScrollView,
   Modal,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
+import { auth } from '@/firebase-config';
+import {
+  getUserAddresses,
+  addUserAddress,
+  updateUserAddress,
+  deleteUserAddress,
+  setDefaultAddress,
+  Address
+} from '@/app/services/userDatabaseService';
+import * as Location from 'expo-location';
 
 type SearchParamTypes = {
   bookingScreen: {
@@ -48,6 +60,255 @@ const BookingScreen = () => {
   const [selectedHour, setSelectedHour] = useState(date.getHours());
   const [selectedMinute, setSelectedMinute] = useState(date.getMinutes());
   const [selectedAmPm, setSelectedAmPm] = useState(date.getHours() >= 12 ? 'PM' : 'AM');
+
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const [currentAddress, setCurrentAddress] = useState<Address>({
+    id: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'Kenya',
+    isDefault: false
+  });
+
+  useEffect(() => {
+    loadAddresses();
+    requestLocationPermission();
+  }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+    }
+  };
+
+  const loadAddresses = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to view saved addresses.');
+        return;
+      }
+
+      const userAddresses = await getUserAddresses();
+      setAddresses(userAddresses);
+
+      // Set default address if available
+      const defaultAddress = userAddresses.find(addr => addr.isDefault);
+      if (defaultAddress) {
+        setSelectedAddress(defaultAddress);
+        setAddress(defaultAddress.street);
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+      Alert.alert('Error', 'Failed to load saved addresses.');
+    }
+  };
+
+  const getCurrentLocation = async () => {
+    if (!locationPermission) {
+      Alert.alert(
+        'Location Permission Required',
+        'Please enable location services to use this feature.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Settings', onPress: requestLocationPermission }
+        ]
+      );
+      return;
+    }
+
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      if (geocode && geocode.length > 0) {
+        const addressDetails = geocode[0];
+        setCurrentAddress({
+          ...currentAddress,
+          street: addressDetails.street || addressDetails.name || '',
+          city: addressDetails.city || addressDetails.region || '',
+          state: addressDetails.region || '',
+          postalCode: addressDetails.postalCode || '',
+          country: 'Kenya'
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Failed to get your current location. Please enter address manually.');
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    if (!currentAddress.street || !currentAddress.city) {
+      Alert.alert('Missing Information', 'Please fill in at least street and city.');
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to save addresses.');
+        return;
+      }
+
+      if (isEditMode) {
+        await updateUserAddress(currentAddress);
+      } else {
+        await addUserAddress(currentAddress);
+      }
+
+      await loadAddresses();
+      setShowAddressModal(false);
+      Alert.alert('Success', `Address ${isEditMode ? 'updated' : 'added'} successfully`);
+    } catch (error) {
+      console.error('Error saving address:', error);
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} address.`);
+    }
+  };
+
+  const renderAddressItem = (address: Address) => (
+    <TouchableOpacity
+      key={address.id}
+      style={[
+        styles.addressItem,
+        selectedAddress?.id === address.id && styles.selectedAddressItem
+      ]}
+      onPress={() => {
+        setSelectedAddress(address);
+        setAddress(address.street);
+      }}
+    >
+      <View style={styles.addressHeader}>
+        {address.isDefault && (
+          <View style={styles.defaultBadge}>
+            <Text style={styles.defaultBadgeText}>Default</Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={styles.addressLine}>{address.street}</Text>
+      <Text style={styles.addressLine}>
+        {address.city}{address.state ? `, ${address.state}` : ''} {address.postalCode}
+      </Text>
+      <Text style={styles.addressLine}>{address.country}</Text>
+    </TouchableOpacity>
+  );
+
+  const renderAddressModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showAddressModal}
+      onRequestClose={() => setShowAddressModal(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {isEditMode ? 'Edit Address' : 'Add New Address'}
+            </Text>
+            <TouchableOpacity onPress={() => setShowAddressModal(false)}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {!isEditMode && (
+            <TouchableOpacity
+              style={styles.locationButton}
+              onPress={getCurrentLocation}
+            >
+              <Ionicons name="locate" size={20} color="#fff" />
+              <Text style={styles.locationButtonText}>Use Current Location</Text>
+            </TouchableOpacity>
+          )}
+
+          <ScrollView style={styles.modalForm}>
+            <Text style={styles.inputLabel}>Street Address*</Text>
+            <TextInput
+              style={styles.input}
+              value={currentAddress.street}
+              onChangeText={(text) => setCurrentAddress({ ...currentAddress, street: text })}
+              placeholder="Enter your street address"
+              placeholderTextColor={theme.colors.textLight}
+            />
+
+            <Text style={styles.inputLabel}>City*</Text>
+            <TextInput
+              style={styles.input}
+              value={currentAddress.city}
+              onChangeText={(text) => setCurrentAddress({ ...currentAddress, city: text })}
+              placeholder="Enter your city"
+              placeholderTextColor={theme.colors.textLight}
+            />
+
+            <Text style={styles.inputLabel}>State/Province</Text>
+            <TextInput
+              style={styles.input}
+              value={currentAddress.state}
+              onChangeText={(text) => setCurrentAddress({ ...currentAddress, state: text })}
+              placeholder="Enter your state or province"
+              placeholderTextColor={theme.colors.textLight}
+            />
+
+            <Text style={styles.inputLabel}>Postal Code</Text>
+            <TextInput
+              style={styles.input}
+              value={currentAddress.postalCode}
+              onChangeText={(text) => setCurrentAddress({ ...currentAddress, postalCode: text })}
+              placeholder="Enter your postal code"
+              placeholderTextColor={theme.colors.textLight}
+              keyboardType="number-pad"
+            />
+
+            <Text style={styles.inputLabel}>Country</Text>
+            <View style={styles.disabledInput}>
+              <Text style={styles.disabledInputText}>Kenya</Text>
+            </View>
+
+            <View style={styles.defaultCheckbox}>
+              <TouchableOpacity
+                style={[
+                  styles.checkbox,
+                  currentAddress.isDefault && styles.checkboxChecked
+                ]}
+                onPress={() => setCurrentAddress({
+                  ...currentAddress,
+                  isDefault: !currentAddress.isDefault
+                })}
+              >
+                {currentAddress.isDefault && (
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                )}
+              </TouchableOpacity>
+              <Text style={styles.checkboxLabel}>Set as default address</Text>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSaveAddress}
+          >
+            <Text style={styles.saveButtonText}>Save Address</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -131,16 +392,6 @@ const BookingScreen = () => {
     });
   };
 
-  const renderPickerItem = (item: number | string, isSelected: boolean) => (
-    <TouchableOpacity
-      style={[styles.pickerItem, isSelected && styles.selectedPickerItem]}
-    >
-      <Text style={[styles.pickerItemText, isSelected && styles.selectedPickerItemText]}>
-        {item}
-      </Text>
-    </TouchableOpacity>
-  );
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
@@ -181,13 +432,65 @@ const BookingScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>Address</Text>
-      <TextInput
-        style={styles.input}
-        value={address}
-        onChangeText={setAddress}
-        placeholder="Enter your address"
-      />
+      <View style={styles.addressSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your Address</Text>
+          <TouchableOpacity
+            style={styles.addAddressButton}
+            onPress={() => {
+              setCurrentAddress({
+                id: Date.now().toString(),
+                street: '',
+                city: '',
+                state: '',
+                postalCode: '',
+                country: 'Kenya',
+                isDefault: addresses.length === 0
+              });
+              setIsEditMode(false);
+              setShowAddressModal(true);
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
+            <Text style={styles.addAddressText}>Add New</Text>
+          </TouchableOpacity>
+        </View>
+
+        {addresses.length > 0 ? (
+          <View style={styles.addressesList}>
+            {addresses.map(address => renderAddressItem(address))}
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.emptyAddressButton}
+            onPress={() => {
+              setCurrentAddress({
+                id: Date.now().toString(),
+                street: '',
+                city: '',
+                state: '',
+                postalCode: '',
+                country: 'Kenya',
+                isDefault: true
+              });
+              setIsEditMode(false);
+              setShowAddressModal(true);
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary} />
+            <Text style={styles.emptyAddressText}>Add your first address</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.label}>Or enter address manually</Text>
+        <TextInput
+          style={styles.input}
+          value={address}
+          onChangeText={setAddress}
+          placeholder="Enter your address"
+          placeholderTextColor={theme.colors.textLight}
+        />
+      </View>
 
       <Text style={styles.label}>Additional Notes</Text>
       <TextInput
@@ -450,6 +753,8 @@ const BookingScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {renderAddressModal()}
     </ScrollView>
   );
 };
@@ -600,6 +905,159 @@ const createStyles = createThemedStyles(theme => ({
     fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.primary,
+  },
+  addressSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  addAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addAddressText: {
+    color: theme.colors.primary,
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  addressesList: {
+    marginBottom: 15,
+  },
+  addressItem: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  selectedAddressItem: {
+    borderColor: theme.colors.primary,
+    borderWidth: 2,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  defaultBadge: {
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  defaultBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addressLine: {
+    fontSize: 14,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  emptyAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderStyle: 'dashed',
+  },
+  emptyAddressText: {
+    color: theme.colors.primary,
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalForm: {
+    maxHeight: '80%',
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 5,
+  },
+  disabledInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginBottom: 15,
+    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
+  },
+  disabledInputText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+  },
+  defaultCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.primary,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  saveButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }));
 
