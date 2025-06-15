@@ -9,7 +9,9 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Alert
+  Alert,
+  Animated,
+  PanResponder
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,6 +39,8 @@ type SearchParamTypes = {
     notes: string;
   };
 };
+
+type PaymentMethod = 'mpesa' | 'card' | 'cash';
 
 const BookingScreen = () => {
   const router = useRouter();
@@ -74,6 +78,33 @@ const BookingScreen = () => {
     postalCode: '',
     country: 'Kenya',
     isDefault: false
+  });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('mpesa');
+  const [mpesaNumber, setMpesaNumber] = useState('');
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [bottomSheetHeight] = useState(new Animated.Value(0));
+  const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dy) > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        bottomSheetHeight.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeBottomSheet();
+      } else {
+        Animated.spring(bottomSheetHeight, {
+          toValue: 0,
+          useNativeDriver: false,
+        }).start();
+      }
+    },
   });
 
   useEffect(() => {
@@ -113,6 +144,24 @@ const BookingScreen = () => {
     }
   };
 
+  const showBottomSheet = () => {
+    setIsBottomSheetVisible(true);
+    Animated.spring(bottomSheetHeight, {
+      toValue: 400,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const closeBottomSheet = () => {
+    Animated.timing(bottomSheetHeight, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start(() => {
+      setIsBottomSheetVisible(false);
+    });
+  };
+
   const getCurrentLocation = async () => {
     if (!locationPermission) {
       Alert.alert(
@@ -127,6 +176,7 @@ const BookingScreen = () => {
     }
 
     try {
+      setIsLoadingLocation(true);
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced
       });
@@ -138,18 +188,14 @@ const BookingScreen = () => {
 
       if (geocode && geocode.length > 0) {
         const addressDetails = geocode[0];
-        setCurrentAddress({
-          ...currentAddress,
-          street: addressDetails.street || addressDetails.name || '',
-          city: addressDetails.city || addressDetails.region || '',
-          state: addressDetails.region || '',
-          postalCode: addressDetails.postalCode || '',
-          country: 'Kenya'
-        });
+        const formattedAddress = `${addressDetails.street || addressDetails.name || ''}, ${addressDetails.city || addressDetails.region || ''}, ${addressDetails.region || ''}, ${addressDetails.postalCode || ''}, Kenya`;
+        setAddress(formattedAddress);
       }
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert('Error', 'Failed to get your current location. Please enter address manually.');
+    } finally {
+      setIsLoadingLocation(false);
     }
   };
 
@@ -181,133 +227,178 @@ const BookingScreen = () => {
     }
   };
 
+  const handleLongPressAddress = (address: Address) => {
+    setCurrentAddress(address);
+    setIsEditMode(true);
+    showBottomSheet();
+  };
+
+  const handleSwipeDelete = async (address: Address) => {
+    Alert.alert(
+      'Delete Address',
+      'Are you sure you want to delete this address?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUserAddress(address.id);
+              await loadAddresses();
+            } catch (error) {
+              console.error('Error deleting address:', error);
+              Alert.alert('Error', 'Failed to delete address.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderAddressItem = (address: Address) => (
-    <TouchableOpacity
+    <Animated.View
       key={address.id}
       style={[
         styles.addressItem,
         selectedAddress?.id === address.id && styles.selectedAddressItem
       ]}
-      onPress={() => {
-        setSelectedAddress(address);
-        setAddress(address.street);
-      }}
     >
-      <View style={styles.addressHeader}>
-        {address.isDefault && (
-          <View style={styles.defaultBadge}>
-            <Text style={styles.defaultBadgeText}>Default</Text>
-          </View>
-        )}
-      </View>
-
-      <Text style={styles.addressLine}>{address.street}</Text>
-      <Text style={styles.addressLine}>
-        {address.city}{address.state ? `, ${address.state}` : ''} {address.postalCode}
-      </Text>
-      <Text style={styles.addressLine}>{address.country}</Text>
-    </TouchableOpacity>
-  );
-
-  const renderAddressModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={showAddressModal}
-      onRequestClose={() => setShowAddressModal(false)}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {isEditMode ? 'Edit Address' : 'Add New Address'}
-            </Text>
-            <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-              <Ionicons name="close" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {!isEditMode && (
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={getCurrentLocation}
-            >
-              <Ionicons name="locate" size={20} color="#fff" />
-              <Text style={styles.locationButtonText}>Use Current Location</Text>
-            </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.addressItemContent}
+        onPress={() => {
+          setSelectedAddress(address);
+          setAddress(address.street);
+        }}
+        onLongPress={() => handleLongPressAddress(address)}
+      >
+        <View style={styles.addressHeader}>
+          {address.isDefault && (
+            <View style={styles.defaultBadge}>
+              <Text style={styles.defaultBadgeText}>Default</Text>
+            </View>
           )}
-
-          <ScrollView style={styles.modalForm}>
-            <Text style={styles.inputLabel}>Street Address*</Text>
-            <TextInput
-              style={styles.input}
-              value={currentAddress.street}
-              onChangeText={(text) => setCurrentAddress({ ...currentAddress, street: text })}
-              placeholder="Enter your street address"
-              placeholderTextColor={theme.colors.textLight}
-            />
-
-            <Text style={styles.inputLabel}>City*</Text>
-            <TextInput
-              style={styles.input}
-              value={currentAddress.city}
-              onChangeText={(text) => setCurrentAddress({ ...currentAddress, city: text })}
-              placeholder="Enter your city"
-              placeholderTextColor={theme.colors.textLight}
-            />
-
-            <Text style={styles.inputLabel}>State/Province</Text>
-            <TextInput
-              style={styles.input}
-              value={currentAddress.state}
-              onChangeText={(text) => setCurrentAddress({ ...currentAddress, state: text })}
-              placeholder="Enter your state or province"
-              placeholderTextColor={theme.colors.textLight}
-            />
-
-            <Text style={styles.inputLabel}>Postal Code</Text>
-            <TextInput
-              style={styles.input}
-              value={currentAddress.postalCode}
-              onChangeText={(text) => setCurrentAddress({ ...currentAddress, postalCode: text })}
-              placeholder="Enter your postal code"
-              placeholderTextColor={theme.colors.textLight}
-              keyboardType="number-pad"
-            />
-
-            <Text style={styles.inputLabel}>Country</Text>
-            <View style={styles.disabledInput}>
-              <Text style={styles.disabledInputText}>Kenya</Text>
-            </View>
-
-            <View style={styles.defaultCheckbox}>
-              <TouchableOpacity
-                style={[
-                  styles.checkbox,
-                  currentAddress.isDefault && styles.checkboxChecked
-                ]}
-                onPress={() => setCurrentAddress({
-                  ...currentAddress,
-                  isDefault: !currentAddress.isDefault
-                })}
-              >
-                {currentAddress.isDefault && (
-                  <Ionicons name="checkmark" size={16} color="#fff" />
-                )}
-              </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>Set as default address</Text>
-            </View>
-          </ScrollView>
-
           <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSaveAddress}
+            style={styles.deleteButton}
+            onPress={() => handleSwipeDelete(address)}
           >
-            <Text style={styles.saveButtonText}>Save Address</Text>
+            <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.addressLine}>{address.street}</Text>
+        <Text style={styles.addressLine}>
+          {address.city}{address.state ? `, ${address.state}` : ''} {address.postalCode}
+        </Text>
+        <Text style={styles.addressLine}>{address.country}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  const renderBottomSheet = () => (
+    <Animated.View
+      style={[
+        styles.bottomSheet,
+        {
+          height: bottomSheetHeight,
+          transform: [{ translateY: bottomSheetHeight }]
+        }
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <View style={styles.bottomSheetHeader}>
+        <View style={styles.bottomSheetHandle} />
+        <Text style={styles.bottomSheetTitle}>
+          {isEditMode ? 'Edit Address' : 'Add New Address'}
+        </Text>
       </View>
-    </Modal>
+
+      <ScrollView style={styles.bottomSheetContent}>
+        {!isEditMode && (
+          <TouchableOpacity
+            style={styles.locationButton}
+            onPress={getCurrentLocation}
+            disabled={isLoadingLocation}
+          >
+            {isLoadingLocation ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="locate" size={20} color="#fff" />
+                <Text style={styles.locationButtonText}>Use Current Location</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.inputLabel}>Street Address*</Text>
+        <TextInput
+          style={styles.input}
+          value={currentAddress.street}
+          onChangeText={(text) => setCurrentAddress({ ...currentAddress, street: text })}
+          placeholder="Enter your street address"
+          placeholderTextColor={theme.colors.textLight}
+        />
+
+        <Text style={styles.inputLabel}>City*</Text>
+        <TextInput
+          style={styles.input}
+          value={currentAddress.city}
+          onChangeText={(text) => setCurrentAddress({ ...currentAddress, city: text })}
+          placeholder="Enter your city"
+          placeholderTextColor={theme.colors.textLight}
+        />
+
+        <Text style={styles.inputLabel}>State/Province</Text>
+        <TextInput
+          style={styles.input}
+          value={currentAddress.state}
+          onChangeText={(text) => setCurrentAddress({ ...currentAddress, state: text })}
+          placeholder="Enter your state or province"
+          placeholderTextColor={theme.colors.textLight}
+        />
+
+        <Text style={styles.inputLabel}>Postal Code</Text>
+        <TextInput
+          style={styles.input}
+          value={currentAddress.postalCode}
+          onChangeText={(text) => setCurrentAddress({ ...currentAddress, postalCode: text })}
+          placeholder="Enter your postal code"
+          placeholderTextColor={theme.colors.textLight}
+          keyboardType="number-pad"
+        />
+
+        <Text style={styles.inputLabel}>Country</Text>
+        <View style={styles.disabledInput}>
+          <Text style={styles.disabledInputText}>Kenya</Text>
+        </View>
+
+        <View style={styles.defaultCheckbox}>
+          <TouchableOpacity
+            style={[
+              styles.checkbox,
+              currentAddress.isDefault && styles.checkboxChecked
+            ]}
+            onPress={() => setCurrentAddress({
+              ...currentAddress,
+              isDefault: !currentAddress.isDefault
+            })}
+          >
+            {currentAddress.isDefault && (
+              <Ionicons name="checkmark" size={16} color="#fff" />
+            )}
+          </TouchableOpacity>
+          <Text style={styles.checkboxLabel}>Set as default address</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleSaveAddress}
+        >
+          <Text style={styles.saveButtonText}>Save Address</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </Animated.View>
   );
 
   const months = [
@@ -381,6 +472,18 @@ const BookingScreen = () => {
       return;
     }
 
+    if (!mpesaNumber.trim()) {
+      alert('Please enter your M-PESA phone number');
+      return;
+    }
+
+    // Validate M-PESA number format (Kenya format)
+    const mpesaRegex = /^(?:254|\+254|0)?([71](?:(?:0[0-8])|(?:[12][0-9])|(?:9[0-9])|(?:4[0-3]))[0-9]{6})$/;
+    if (!mpesaRegex.test(mpesaNumber)) {
+      alert('Please enter a valid M-PESA phone number');
+      return;
+    }
+
     router.push({
       pathname: "/bookingSummary",
       params: {
@@ -388,6 +491,7 @@ const BookingScreen = () => {
         date: date.toISOString(),
         address,
         notes,
+        mpesaNumber
       }
     });
   };
@@ -448,7 +552,7 @@ const BookingScreen = () => {
                 isDefault: addresses.length === 0
               });
               setIsEditMode(false);
-              setShowAddressModal(true);
+              showBottomSheet();
             }}
           >
             <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
@@ -474,7 +578,7 @@ const BookingScreen = () => {
                 isDefault: true
               });
               setIsEditMode(false);
-              setShowAddressModal(true);
+              showBottomSheet();
             }}
           >
             <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary} />
@@ -490,6 +594,30 @@ const BookingScreen = () => {
           placeholder="Enter your address"
           placeholderTextColor={theme.colors.textLight}
         />
+      </View>
+
+      <View style={styles.paymentSection}>
+        <Text style={styles.sectionTitle}>Payment Method</Text>
+        <View style={styles.paymentMethodContainer}>
+          <View style={styles.paymentMethodContent}>
+            <Ionicons name="phone-portrait-outline" size={24} color={theme.colors.primary} />
+            <Text style={styles.paymentMethodText}>M-PESA</Text>
+          </View>
+        </View>
+
+        <Text style={styles.label}>M-PESA Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          value={mpesaNumber}
+          onChangeText={setMpesaNumber}
+          placeholder="Enter your M-PESA phone number"
+          placeholderTextColor={theme.colors.textLight}
+          keyboardType="phone-pad"
+          maxLength={13}
+        />
+        <Text style={styles.helperText}>
+          Enter the phone number registered with your M-PESA account
+        </Text>
       </View>
 
       <Text style={styles.label}>Additional Notes</Text>
@@ -754,7 +882,7 @@ const BookingScreen = () => {
         </View>
       </Modal>
 
-      {renderAddressModal()}
+      {isBottomSheetVisible && renderBottomSheet()}
     </ScrollView>
   );
 };
@@ -1058,6 +1186,77 @@ const createStyles = createThemedStyles(theme => ({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  paymentSection: {
+    marginBottom: 20,
+  },
+  paymentMethodContainer: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 15,
+  },
+  paymentMethodContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  paymentMethodText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  helperText: {
+    fontSize: 12,
+    color: theme.colors.textLight,
+    marginTop: 5,
+    marginBottom: 15,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  bottomSheetHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : '#eee',
+    alignItems: 'center',
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.dark ? 'rgba(255,255,255,0.3)' : '#ccc',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  bottomSheetContent: {
+    padding: 16,
+  },
+  addressItemContent: {
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 8,
   },
 }));
 
