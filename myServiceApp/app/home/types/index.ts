@@ -1,9 +1,23 @@
 // app/(tabs)/home/types/index.ts
 
-import { StackNavigationProp } from '@react-navigation/stack';
+import type { StackNavigationProp } from '@react-navigation/stack';
+
+export type Tasker = {
+  id: string;
+  name: string;
+  category: string;
+  price: string;
+  rating?: number;
+  reviews?: number;
+  location?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+};
 
 export type Service = {
-  id: number;
+  id: string;
   name: string;
   category: string;
   location: string;
@@ -38,9 +52,9 @@ export type FilterOptions = {
 };
 
 export type RootStackParamList = {
-  Booking: { tasker: any };
+  Booking: { tasker: Tasker };
   BookingSummary: {
-    tasker: any;
+    tasker: Tasker;
     date: Date;
     address: string;
     notes: string;

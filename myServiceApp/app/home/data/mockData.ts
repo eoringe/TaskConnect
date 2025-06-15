@@ -1,6 +1,6 @@
 // app/(tabs)/home/data/mockData.ts
 
-import { Service, Category, City } from '../types';
+// import { Service, Category, City } from '../types';
 
 export const allServices: Service[] = [
   { id: 1, name: 'Yvonne Karanja', category: 'Best Administrator', location: '2 km away', rating: 4.9, reviews: 42, price: 'Ksh 3500', coordinates: { latitude: -1.286389, longitude: 36.817223 } },
