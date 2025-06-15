@@ -71,7 +71,7 @@ const PersonalInfoScreen = () => {
         });
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+    
       Alert.alert('Error', 'Failed to load user data. Please try again.');
     } finally {
       setIsLoading(false);

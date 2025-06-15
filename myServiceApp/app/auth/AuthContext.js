@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
       await signOut(auth);
       router.replace('../auth/index'); // Redirect to login using Expo Router
     } catch (error) {
-      console.error('Error signing out:', error);
+
     }
   };
 

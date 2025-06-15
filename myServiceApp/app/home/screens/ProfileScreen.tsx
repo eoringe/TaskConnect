@@ -90,7 +90,7 @@ const ProfileScreen = () => {
         updateLocalProfileImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+     
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
@@ -116,7 +116,7 @@ const ProfileScreen = () => {
       
       Alert.alert('Success', 'Profile picture updated successfully.');
     } catch (error) {
-      console.error('Error updating profile:', error);
+     
       Alert.alert('Error', 'Failed to update profile picture. Please try again.');
     } finally {
       setUploadingImage(false);
@@ -133,7 +133,7 @@ const ProfileScreen = () => {
       await auth.signOut();
       router.replace('/auth/Login');
     } catch (error) {
-      console.error('Error signing out:', error);
+    
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     } finally {
       setIsLoading(false);

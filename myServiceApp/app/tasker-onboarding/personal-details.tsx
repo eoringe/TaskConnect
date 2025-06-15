@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Removed setDoc import as we won't save here
+import { getAuth } from 'firebase/auth'; // Import Auth functions
 
 type FormData = {
     firstName: string;
@@ -18,8 +20,58 @@ export default function PersonalDetailsScreen() {
         email: '',
         phone: '',
     });
-
     const [errors, setErrors] = useState<Partial<FormData>>({});
+    const [loading, setLoading] = useState(true); // State to manage loading indicator
+    const [isProcessing, setIsProcessing] = useState(false); // Renamed from isSaving, as we're not saving here yet
+
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            setLoading(true);
+            try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+
+                if (user) {
+                    const db = getFirestore();
+                    const userDocRef = doc(db, 'users', user.uid); // Assuming 'users' collection and UID as document ID
+                    const userDocSnap = await getDoc(userDocRef);
+
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        setFormData(prev => ({
+                            ...prev,
+                            email: userData.email || '', // Prefill email
+                            phone: userData.phoneNumber || '', // Prefill phone number
+                            // Do not prefill firstName and lastName from 'users' if they are meant to be entered specifically for 'taskers'
+                            // If they are in 'users' and you want to prefill, add:
+                            // firstName: userData.firstName || '',
+                            // lastName: userData.lastName || '',
+                        }));
+                    } else {
+                        // This case means a user exists in auth but not in your 'users' Firestore collection.
+                        // For a real app, you might want to handle this as an error or prompt for full user registration.
+                        // For this flow, we'll proceed with empty firstName/lastName and prefill email/phone if available from auth.
+                        console.warn("User data not found in 'users' collection for UID:", user.uid);
+                        setFormData(prev => ({
+                            ...prev,
+                            email: user.email || '', // Fallback to auth email if Firestore user doc missing
+                            phone: user.phoneNumber || '', // Fallback to auth phone if Firestore user doc missing
+                        }));
+                    }
+                } else {
+                    Alert.alert('Authentication Error', 'No authenticated user found. Please log in again.');
+                    router.replace('/login');
+                }
+            } catch (error) {
+                console.error("Error fetching user details:", error);
+                Alert.alert('Error', 'Failed to fetch user details. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserDetails();
+    }, []); // Empty dependency array means this effect runs once after the initial render
 
     const validateForm = (): boolean => {
         const newErrors: Partial<FormData> = {};
@@ -32,36 +84,47 @@ export default function PersonalDetailsScreen() {
             newErrors.lastName = 'Last name is required';
         }
 
-        if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email';
-        }
-
-        if (!formData.phone.trim()) {
-            newErrors.phone = 'Phone number is required';
-        } else if (!/^\d{10}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
-            newErrors.phone = 'Please enter a valid 10-digit phone number';
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleNext = () => {
-        if (validateForm()) {
-            // Store the data and proceed to next screen
+    const handleNext = async () => {
+        if (!validateForm()) {
+            return;
+        }
+
+        setIsProcessing(true); // Indicate that we're processing (e.g., navigating)
+        try {
+            // No saving to Firestore here. Just collect data and pass it.
+
+            // The formData now contains firstName, lastName, pre-filled email, and phone.
+            // Pass all of this to the next screen.
             router.push({
                 pathname: '/tasker-onboarding/id-verification',
-                params: { personalDetails: JSON.stringify(formData) }
+                params: { personalDetails: JSON.stringify(formData) } // Pass the entire formData object
             });
+
+        } catch (error) {
+            console.error("Error during navigation or data preparation for ID verification:", error);
+            Alert.alert('Error', 'Failed to proceed. Please try again.');
+        } finally {
+            setIsProcessing(false); // End processing
         }
     };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4A80F0" />
+                <Text style={styles.loadingText}>Loading personal details...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isProcessing}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Personal Details</Text>
@@ -85,6 +148,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your first name"
+                            editable={!isProcessing} // Disable input while processing
                         />
                         {errors.firstName && (
                             <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -103,6 +167,7 @@ export default function PersonalDetailsScreen() {
                                 }
                             }}
                             placeholder="Enter your last name"
+                            editable={!isProcessing} // Disable input while processing
                         />
                         {errors.lastName && (
                             <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -112,46 +177,40 @@ export default function PersonalDetailsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email</Text>
                         <TextInput
-                            style={[styles.input, errors.email && styles.inputError]}
+                            style={[styles.input, styles.uneditableInput]}
                             value={formData.email}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, email: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, email: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your email"
+                            editable={false} // Make it uneditable
+                            placeholder="Email will be prefilled"
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
-                        {errors.email && (
-                            <Text style={styles.errorText}>{errors.email}</Text>
-                        )}
                     </View>
 
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Phone Number</Text>
                         <TextInput
-                            style={[styles.input, errors.phone && styles.inputError]}
+                            style={[styles.input, styles.uneditableInput]}
                             value={formData.phone}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, phone: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, phone: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your phone number"
+                            editable={false} // Make it uneditable
+                            placeholder="Phone number will be prefilled"
                             keyboardType="phone-pad"
                         />
-                        {errors.phone && (
-                            <Text style={styles.errorText}>{errors.phone}</Text>
-                        )}
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleNext}
+                    disabled={isProcessing} // Disable button while processing
+                >
+                    {isProcessing ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.buttonText}>Next</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
@@ -162,6 +221,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
     },
     header: {
         flexDirection: 'row',
@@ -209,6 +279,10 @@ const styles = StyleSheet.create({
     inputError: {
         borderColor: '#ff4444',
     },
+    uneditableInput: {
+        backgroundColor: '#e9e9e9',
+        color: '#888',
+    },
     errorText: {
         color: '#ff4444',
         fontSize: 12,
@@ -229,4 +303,4 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-}); 
+});

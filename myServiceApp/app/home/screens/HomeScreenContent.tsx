@@ -51,7 +51,7 @@ const HomeScreenContent = () => {
     const currentUser = auth.currentUser;
     
     if (currentUser) {
-      console.log("Current user:", currentUser);
+     
       
       if (currentUser.displayName) {
         const firstName = currentUser.displayName.split(' ')[0];
@@ -163,7 +163,6 @@ const HomeScreenContent = () => {
 
         <Text style={styles.sectionTitle}>Categories</Text>
         <CategoryScroll 
-          categories={categories}
           selectedCategory={selectedCategory}
           onCategorySelect={filterByCategory}
         />
@@ -178,8 +177,10 @@ const HomeScreenContent = () => {
         </View>
 
         {services.length > 0 ? (
-          services.map((service, i) => (
-            <ServiceCard key={i} service={service} />
+          services.map((service: Service, i: number) => (
+            <React.Fragment key={i}>
+              <ServiceCard service={service} />
+            </React.Fragment>
           ))
         ) : (
           <View style={styles.noResultsContainer}>

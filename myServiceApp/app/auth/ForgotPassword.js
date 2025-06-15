@@ -45,7 +45,6 @@ const ForgotPasswordScreen = () => {
     try {
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
-      console.log('Password reset email sent!');
     } catch (error) {
       // Handle specific Firebase auth errors
       let errorMessage = 'Failed to send reset email. Please try again.';

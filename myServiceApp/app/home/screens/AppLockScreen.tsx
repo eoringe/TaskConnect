@@ -55,7 +55,7 @@ const AppLockScreen = () => {
       const delay = await getLockDelayPreference();
       setLockDelay(delay);
     } catch (error) {
-      console.log('Error checking app lock status:', error);
+      
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +67,7 @@ const AppLockScreen = () => {
       // Use the AppLockHelper to check if app lock is enabled
       return await AppLockHelper.isAppLockEnabled();
     } catch (error) {
-      console.log('Error getting app lock status:', error);
+      
       return false;
     }
   };
@@ -78,7 +78,7 @@ const AppLockScreen = () => {
       // Use the AppLockHelper to get the lock delay preference
       return await AppLockHelper.getLockDelayPreference();
     } catch (error) {
-      console.log('Error getting lock delay preference:', error);
+     
       return 'immediately';
     }
   };
@@ -139,7 +139,7 @@ const AppLockScreen = () => {
         Alert.alert('App Lock Disabled', 'App Lock has been turned off.');
       }
     } catch (error) {
-      console.log('Error toggling app lock:', error);
+     
       Alert.alert('Error', 'Failed to update App Lock settings. Please try again.');
     } finally {
       setIsLoading(false);
@@ -159,7 +159,7 @@ const AppLockScreen = () => {
         Alert.alert('Error', 'Failed to update lock delay. Please try again.');
       }
     } catch (error) {
-      console.log('Error setting lock delay:', error);
+     
       Alert.alert('Error', 'Failed to update lock delay. Please try again.');
     }
   };

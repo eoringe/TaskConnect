@@ -36,6 +36,7 @@ const db = getFirestore(app);
 export {
   auth,
   db,
+  app,
   GoogleAuthProvider,
   signInWithCredential
 };

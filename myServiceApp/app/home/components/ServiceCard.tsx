@@ -42,10 +42,17 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
       </View>
       <TouchableOpacity
         style={styles.bookBtn}
-        onPress={() => router.push({
-          pathname: "/home/screens/bookingScreen",
-          params: { tasker: JSON.stringify(service) }
-        })}
+        onPress={() => {
+          try {
+            router.push({
+              pathname: "/home/screens/bookingScreen",
+              params: { tasker: JSON.stringify(service) }
+            });
+          } catch (error) {
+            console.error('Error navigating to booking screen:', error);
+            alert('Unable to proceed with booking. Please try again.');
+          }
+        }}
       >
         <Text style={styles.bookBtnText}>Book</Text>
         <Ionicons name="arrow-forward" size={16} color="#fff" style={styles.bookBtnIcon} />

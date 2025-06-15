@@ -93,12 +93,12 @@ const SignUpScreen = () => {
         displayName: name
       });
       
-      console.log('User account created successfully!');
+      
       
       // Set up a listener to ensure auth state is properly updated before navigation
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         if (user) {
-          console.log('User is authenticated, redirecting to home');
+        
           router.replace('/home');
           unsubscribe(); // Remove the listener once we've navigated
         }
@@ -108,11 +108,11 @@ const SignUpScreen = () => {
       setTimeout(() => {
         const currentUser = auth.currentUser;
         if (currentUser) {
-          console.log('Fallback: User is authenticated, redirecting to home');
+       
           unsubscribe(); // Remove the listener
           router.replace('/home');
         } else {
-          console.log('Fallback: User not authenticated after signup, trying login');
+         
           unsubscribe(); // Remove the listener
           Alert.alert(
             'Account Created',
