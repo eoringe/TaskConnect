@@ -46,27 +46,27 @@ export default function useGoogleSignIn() {
   // AppState listener for detecting app focus
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      console.log('[APP STATE] Changed from', AppState.currentState, 'to', nextAppState);
+     
       
       // When app becomes active again and browser was open
       if (nextAppState === 'active' && browserOpenRef.current) {
-        console.log('[APP STATE] App is active again after browser was open');
+       
         
         // Ensure code input is shown if we were signing in
         if (isSigningIn) {
-          console.log('[APP STATE] Ensuring code input is shown');
+       
           setWaitingForManualReturn(true);
           setShowCodeInput(true);
           
           // Force a re-render after a short delay
           setTimeout(() => {
-            console.log('[APP STATE] Forcing re-render');
+           
             forceRerender();
             
             // Double-check state after a short delay and show alert if needed
             setTimeout(() => {
               if (isSigningIn) {
-                console.log('[APP STATE] Double-checking if code input is visible');
+                
                 Alert.alert(
                   "Enter Authentication Code",
                   "Please enter the code shown in the browser to complete sign-in.",
@@ -109,53 +109,33 @@ export default function useGoogleSignIn() {
   
   // Function to log current auth status
   const logAuthStatus = useCallback(() => {
-    console.log(`[AUTH STATUS] ============ ${new Date().toISOString()} ============`);
-    console.log(`[AUTH STATUS] Current user: ${auth.currentUser ? 'SIGNED IN' : 'NOT SIGNED IN'}`);
-    
-    if (auth.currentUser) {
-      console.log(`[AUTH STATUS] Email: ${auth.currentUser.email || 'no email'}`);
-      console.log(`[AUTH STATUS] UID: ${auth.currentUser.uid}`);
-      console.log(`[AUTH STATUS] Display name: ${auth.currentUser.displayName || 'no display name'}`);
-      console.log(`[AUTH STATUS] Photo URL: ${auth.currentUser.photoURL || 'no photo'}`);
-      console.log(`[AUTH STATUS] Email verified: ${auth.currentUser.emailVerified}`);
-    }
-    
-    console.log(`[AUTH STATUS] Current route: ${router.pathname || 'unknown'}`);
-    console.log(`[AUTH STATUS] ========================================`);
-    
+  
     return auth.currentUser;
   }, []);
 
   // Log environment info once
   useEffect(() => {
-    console.log('[INIT] ======== INITIALIZATION ========');
-    console.log('[INIT] Platform:', Platform.OS);
-    console.log('[INIT] App ownership:', Constants.appOwnership);
-    console.log('[INIT] Client ID:', getClientId());
-    console.log('[INIT] Using ngrok redirect URI:', ngrokRedirectUri);
+ 
     
     // Log initial auth state
     logAuthStatus();
     
     // Check if user is already authenticated on startup
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      console.log('[AUTH CHANGE] ======== AUTH STATE CHANGED ========');
-      console.log('[AUTH CHANGE] User state:', firebaseUser ? 'SIGNED IN' : 'NOT SIGNED IN');
+   
       
       if (firebaseUser) {
-        console.log('[AUTH CHANGE] User email:', firebaseUser.email);
-        console.log('[AUTH CHANGE] User UID:', firebaseUser.uid);
         setAuthUser(firebaseUser);
         setWaitingForManualReturn(false);
         setShowCodeInput(false);
         
         // If already signed in and not on home route, redirect to home
         if (router.pathname !== '/home') {
-          console.log('[ROUTE] Redirecting to home route due to existing session');
+         
           router.replace('/home');
         }
       } else {
-        console.log('[AUTH CHANGE] No user is signed in');
+       
         setAuthUser(null);
       }
       
@@ -170,14 +150,14 @@ export default function useGoogleSignIn() {
     return () => {
       unsubscribe();
       clearInterval(intervalId);
-      console.log('[CLEANUP] Auth state listeners removed');
+     
     };
   }, [logAuthStatus]);
 
   // Function to initialize the PKCE flow by getting a state and code challenge
   const initializePKCEFlow = useCallback(async () => {
     try {
-      console.log('[PKCE] Initializing PKCE flow');
+      
       
       const response = await fetch(`${serverBaseUrl}/init-auth`, {
         method: 'POST',
@@ -191,12 +171,12 @@ export default function useGoogleSignIn() {
       }
       
       const data = await response.json();
-      console.log('[PKCE] Received auth parameters:', data);
+     
       
       setAuthParams(data);
       return data;
     } catch (error) {
-      console.error('[ERROR] Failed to initialize PKCE flow:', error.message);
+     
       setError(`Failed to initialize authentication: ${error.message}`);
       throw error;
     }
@@ -205,27 +185,20 @@ export default function useGoogleSignIn() {
   // Function to handle Firebase sign-in
   const handleFirebaseSignIn = useCallback(async (idToken) => {
     try {
-      console.log('[FIREBASE] ======== CREATING CREDENTIAL ========');
-      console.log('[FIREBASE] ID token length:', idToken.length);
-      console.log('[FIREBASE] ID token prefix:', idToken.substring(0, 10) + '...');
+  
       
       const credential = GoogleAuthProvider.credential(idToken);
       
-      console.log('[FIREBASE] ======== SIGNING IN WITH CREDENTIAL ========');
+ 
       
       const userCredential = await signInWithCredential(auth, credential);
       const { user } = userCredential;
       
-      console.log('[FIREBASE] ======== SIGN-IN SUCCESSFUL ========');
-      console.log('[FIREBASE] User email:', user.email);
-      console.log('[FIREBASE] User UID:', user.uid);
+
       setAuthUser(user);
       setWaitingForManualReturn(false);
       setShowCodeInput(false);
       
-      // Navigate to home screen
-      console.log('[ROUTE] ======== REDIRECTING AFTER LOGIN ========');
-      console.log('[ROUTE] Redirecting to home route after successful login');
       
       // Log auth state after short delay to ensure it's updated
       setTimeout(logAuthStatus, 500);
@@ -233,9 +206,6 @@ export default function useGoogleSignIn() {
       router.replace('/home');
       return true;
     } catch (error) {
-      console.error('[ERROR] ======== FIREBASE SIGN-IN FAILED ========');
-      console.error('[ERROR] Code:', error.code);
-      console.error('[ERROR] Message:', error.message);
       setError(`Firebase sign-in failed: ${error.message}`);
       setWaitingForManualReturn(false);
       return false;
@@ -247,7 +217,7 @@ export default function useGoogleSignIn() {
   // Function to retrieve tokens using the state code
   const retrieveTokensWithCode = useCallback(async (code) => {
     try {
-      console.log('[TOKEN] Retrieving tokens with code:', code);
+     
       
       const response = await fetch(`${serverBaseUrl}/get-tokens`, {
         method: 'POST',
@@ -264,14 +234,13 @@ export default function useGoogleSignIn() {
       const data = await response.json();
       
       if (data.success && data.id_token) {
-        console.log('[TOKEN] Successfully retrieved tokens from server');
+       
         await handleFirebaseSignIn(data.id_token);
         return true;
       } else {
         throw new Error(data.error || 'Failed to retrieve tokens');
       }
     } catch (error) {
-      console.error('[ERROR] Failed to retrieve tokens:', error.message);
       setError(`Failed to retrieve tokens: ${error.message}`);
       return false;
     }
@@ -281,11 +250,10 @@ export default function useGoogleSignIn() {
   const triggerSignIn = useCallback(async () => {
     try {
       if (isSigningIn) {
-        console.log('[TRIGGER] Sign-in already in progress');
         return;
       }
       
-      console.log('[TRIGGER] ======== STARTING GOOGLE SIGN-IN FLOW WITH PKCE ========');
+     
       setIsSigningIn(true);
       setError(null);
       
@@ -296,15 +264,13 @@ export default function useGoogleSignIn() {
       
       // First, initialize the PKCE flow to get state and code challenge
       const authParams = await initializePKCEFlow();
-      console.log('[TRIGGER] Received auth params from server:', 
-        authParams ? 'success' : 'failed');
-      
+ 
       // Construct the authorization URL manually with PKCE parameters
       const clientId = getClientId();
       const scopes = encodeURIComponent('email profile openid');
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(ngrokRedirectUri)}&response_type=code&scope=${scopes}&state=${authParams.state}&code_challenge=${authParams.codeChallenge}&code_challenge_method=${authParams.codeChallengeMethod}&prompt=consent`;
       
-      console.log('[TRIGGER] Opening auth URL in browser');
+     
       
       // Show information alert before opening browser
       Alert.alert(
@@ -315,7 +281,7 @@ export default function useGoogleSignIn() {
           browserOpenRef.current = true;
           
           // Open the URL in the browser AFTER alert is dismissed
-          console.log('[TRIGGER] User confirmed, opening browser');
+         
           
           try {
             const result = await WebBrowser.openAuthSessionAsync(
@@ -328,10 +294,10 @@ export default function useGoogleSignIn() {
               }
             );
             
-            console.log('[BROWSER] Browser session completed with result type:', result.type);
+           
             
             // Show code input UI right after browser closes, regardless of result
-            console.log('[BROWSER] Browser closed, showing code input');
+         
             setWaitingForManualReturn(true);
             setShowCodeInput(true);
             forceRerender(); // Force re-render after state changes
@@ -344,21 +310,21 @@ export default function useGoogleSignIn() {
               "Authentication Code Required",
               "Please enter the code shown in the browser to complete sign-in.",
               [{ text: "OK", onPress: () => {
-                console.log("[BROWSER] Confirming code input visibility");
+               
                 setWaitingForManualReturn(true);
                 setShowCodeInput(true);
                 forceRerender(); // Force re-render again
               }}]
             );
           } catch (err) {
-            console.error('[BROWSER] Error opening browser:', err);
+          
             browserOpenRef.current = false;
             setIsSigningIn(false);
           }
         }}]
       );
     } catch (err) {
-      console.error('[ERROR] Failed to start sign-in:', err.message);
+     
       setError(`Failed to start sign-in: ${err.message}`);
       setIsSigningIn(false);
       setWaitingForManualReturn(false);
@@ -383,7 +349,7 @@ export default function useGoogleSignIn() {
         setError('Failed to validate authentication code. Please try again.');
       }
     } catch (err) {
-      console.error('[ERROR] Code submission failed:', err.message);
+     
       setError(`Code submission failed: ${err.message}`);
     } finally {
       setIsSigningIn(false);
@@ -393,16 +359,15 @@ export default function useGoogleSignIn() {
   // Sign out function
   const signOut = useCallback(async () => {
     try {
-      console.log('[SIGNOUT] ======== SIGNING OUT USER ========');
+     
       await auth.signOut();
-      console.log('[SIGNOUT] ======== USER SIGNED OUT ========');
+      
       setAuthUser(null);
       
       // Navigate to login page
       router.replace('/');
       return true;
     } catch (err) {
-      console.error('[ERROR] Failed to sign out:', err.message);
       return false;
     }
   }, []);
@@ -454,7 +419,7 @@ export default function useGoogleSignIn() {
   
   // Force code input display - can be called externally if needed
   const forceShowCodeInput = useCallback(() => {
-    console.log('[FORCE] Forcing code input to display');
+   
     setWaitingForManualReturn(true);
     setShowCodeInput(true);
     forceRerender(); // Force re-render to ensure UI updates
@@ -469,18 +434,7 @@ export default function useGoogleSignIn() {
   
   // Debug function to check current state
   const debugState = useCallback(() => {
-    console.log('[DEBUG] Current state:', {
-      isSigningIn,
-      waitingForManualReturn,
-      showCodeInput,
-      browserOpen: browserOpenRef.current,
-      hasError: !!error,
-      authParams: !!authParams,
-      hasAuthCode: !!authCode,
-      isAuthenticated: !!authUser,
-      renderCount: renderCounter
-    });
-    
+   
     // Show debug alert with key state
     if (__DEV__) {
       Alert.alert(

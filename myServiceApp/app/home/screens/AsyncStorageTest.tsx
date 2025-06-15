@@ -24,13 +24,13 @@ const AsyncStorageTest = () => {
   // Test saving a value
   const saveValue = async () => {
     try {
-      console.log(`Attempting to save key: ${testKey}, value: ${testValue}`);
+     
       await AsyncStorage.setItem(testKey, testValue);
-      console.log('Save successful');
+      
       Alert.alert('Success', `Saved "${testValue}" to key "${testKey}"`);
       getAllKeys(); // Refresh keys list
     } catch (error) {
-      console.error('Error saving to AsyncStorage:', error);
+     
       Alert.alert('Error', 'Failed to save to AsyncStorage');
     }
   };
@@ -38,15 +38,15 @@ const AsyncStorageTest = () => {
   // Test retrieving a value
   const retrieveValue = async () => {
     try {
-      console.log(`Attempting to retrieve key: ${testKey}`);
+     
       const value = await AsyncStorage.getItem(testKey);
-      console.log(`Retrieved value: ${value}`);
+      
       setRetrievedValue(value);
       if (value === null) {
         Alert.alert('Not Found', `No value found for key "${testKey}"`);
       }
     } catch (error) {
-      console.error('Error retrieving from AsyncStorage:', error);
+     
       Alert.alert('Error', 'Failed to retrieve from AsyncStorage');
     }
   };
@@ -55,7 +55,7 @@ const AsyncStorageTest = () => {
   const getAllKeys = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      console.log('All AsyncStorage keys:', keys);
+      
       setAllKeys([...keys]);
       
       // Also get all values
@@ -72,7 +72,7 @@ const AsyncStorageTest = () => {
       
       setAllValues(valueMap);
     } catch (error) {
-      console.error('Error getting all keys:', error);
+     
       Alert.alert('Error', 'Failed to get all keys from AsyncStorage');
     }
   };
@@ -81,12 +81,12 @@ const AsyncStorageTest = () => {
   const clearAll = async () => {
     try {
       await AsyncStorage.clear();
-      console.log('AsyncStorage cleared');
+    
       Alert.alert('Success', 'AsyncStorage has been cleared');
       getAllKeys(); // Refresh keys list
       setRetrievedValue(null);
     } catch (error) {
-      console.error('Error clearing AsyncStorage:', error);
+     
       Alert.alert('Error', 'Failed to clear AsyncStorage');
     }
   };
@@ -95,11 +95,11 @@ const AsyncStorageTest = () => {
   const enableAppLock = async () => {
     try {
       await AsyncStorage.setItem('app_lock_enabled', 'true');
-      console.log('Set app_lock_enabled to true');
+    
       Alert.alert('Success', 'Set app_lock_enabled to true');
       getAllKeys(); // Refresh keys list
     } catch (error) {
-      console.error('Error enabling app lock:', error);
+      
       Alert.alert('Error', 'Failed to enable app lock');
     }
   };

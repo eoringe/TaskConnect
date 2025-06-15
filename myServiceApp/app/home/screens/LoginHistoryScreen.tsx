@@ -45,7 +45,7 @@ const LoginHistoryScreen = () => {
       const history = await getUserLoginHistory(currentUser.uid);
       setLoginHistory(history);
     } catch (error) {
-      console.log('Error fetching login history:', error);
+     
       Alert.alert('Error', 'Failed to load login history. Please try again.');
     } finally {
       setIsLoading(false);
