@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
-import { auth } from '@/firebase-config';
+import { auth, db } from '@/firebase-config'; // Import db from firebase-config
+import { doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
@@ -21,13 +22,28 @@ import CategoryListModal from '../components/CategoryListModal';
 import ProfileModal from '../components/ProfileModal';
 
 // Data & Types
-import { allServices, categories, cities } from '../data/mockData';
-import { Service, Category, City, FilterOptions } from '../types';
+import { allServices, cities } from '../data/mockData';
+import { Service } from '../types';
+
+// Define City type locally since it's not exported from '../types'
+type City = {
+  name: string;
+  latitude: number;
+  longitude: number;
+};
+
+// Define FilterOptions type here if not exported from '../types'
+type FilterOptions = {
+  minRating: number;
+  maxPrice: number;
+  maxDistance: number;
+  sortBy: 'rating' | 'price' | 'distance';
+};
 
 const HomeScreenContent = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
-  
+
   const isWeb = Platform.OS === 'web';
   const [services, setServices] = useState<Service[]>(allServices.slice(0, 5));
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -43,25 +59,42 @@ const HomeScreenContent = () => {
     sortBy: 'rating'
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Set to true initially to fetch user data
   const [userName, setUserName] = useState('User');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
-  
+  const [isTasker, setIsTasker] = useState<boolean | null>(null); // State to hold tasker status
+
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    
-    if (currentUser) {
-     
-      
-      if (currentUser.displayName) {
-        const firstName = currentUser.displayName.split(' ')[0];
-        setUserName(firstName);
+    const fetchUserDataAndTaskerStatus = async () => {
+      setIsLoading(true);
+      const currentUser = auth.currentUser;
+
+      if (currentUser) {
+        if (currentUser.displayName) {
+          const firstName = currentUser.displayName.split(' ')[0];
+          setUserName(firstName);
+        }
+
+        if (currentUser.photoURL) {
+          setUserPhoto(currentUser.photoURL);
+        }
+
+        // Check if the user has a tasker profile
+        try {
+          const taskerDocRef = doc(db, 'taskers', currentUser.uid);
+          const docSnap = await getDoc(taskerDocRef);
+          setIsTasker(docSnap.exists());
+        } catch (error) {
+          console.error("Error checking tasker profile:", error);
+          setIsTasker(false); // Assume not a tasker on error
+        }
+      } else {
+        setIsTasker(false); // Not logged in, so not a tasker
       }
-      
-      if (currentUser.photoURL) {
-        setUserPhoto(currentUser.photoURL);
-      }
-    }
+      setIsLoading(false); // Set loading to false after fetching initial data
+    };
+
+    fetchUserDataAndTaskerStatus();
   }, []);
 
   const filterByCategory = (category: string) => {
@@ -137,9 +170,9 @@ const HomeScreenContent = () => {
   return (
     <View style={styles.container}>
       <StatusBarSpace />
-      <Header 
-        userName={userName} 
-        onProfilePress={() => setShowProfileModal(true)} 
+      <Header
+        userName={userName}
+        onProfilePress={() => setShowProfileModal(true)}
       />
 
       {isLoading && (
@@ -148,21 +181,23 @@ const HomeScreenContent = () => {
         </View>
       )}
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <SearchBar 
+        <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           onFilterPress={() => setShowFilterModal(true)}
         />
 
         <Banner />
-        <BecomeTaskerCard />
+
+        {/* Conditionally render BecomeTaskerCard */}
+        {isTasker === false && <BecomeTaskerCard />}
 
         <Text style={styles.sectionTitle}>Categories</Text>
-        <CategoryScroll 
+        <CategoryScroll
           selectedCategory={selectedCategory}
           onCategorySelect={filterByCategory}
         />
@@ -191,13 +226,13 @@ const HomeScreenContent = () => {
         )}
       </ScrollView>
 
-      <ProfileModal 
+      <ProfileModal
         visible={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         userName={userName}
       />
 
-      <FilterModal 
+      <FilterModal
         visible={showFilterModal}
         onClose={() => setShowFilterModal(false)}
         filterOptions={filterOptions}
@@ -205,16 +240,16 @@ const HomeScreenContent = () => {
         onApply={applyFilters}
       />
 
-      <CategoryListModal 
+      <CategoryListModal
         visible={showCategoryListModal}
         onClose={() => setShowCategoryListModal(false)}
         selectedCategory={selectedCategory}
-        services={selectedCategory === 'All' 
-          ? allServices 
+        services={selectedCategory === 'All'
+          ? allServices
           : allServices.filter(service => service.category === selectedCategory)}
       />
 
-      <LocationModal 
+      <LocationModal
         visible={showLocationModal}
         onClose={() => setShowLocationModal(false)}
         currentLocation={currentLocation}
@@ -236,8 +271,8 @@ const createStyles = createThemedStyles(theme => ({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.dark 
-      ? 'rgba(0, 0, 0, 0.7)' 
+    backgroundColor: theme.dark
+      ? 'rgba(0, 0, 0, 0.7)'
       : 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',

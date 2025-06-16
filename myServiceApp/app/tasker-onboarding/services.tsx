@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { collection, getDocs, getFirestore } from 'firebase/firestore'; // Import Firestore functions
+import { app } from '../../firebase-config'; // Assuming you have your firebase app config here
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -38,68 +40,87 @@ type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedF
     services: Service[];
 };
 
-
-const PREDEFINED_SERVICES = [
-    { id: 'cleaning', category: 'Cleaning', icon: 'brush-outline' },
-    { id: 'handyman', category: 'Handyman', icon: 'construct-outline' },
-    { id: 'moving', category: 'Moving Help', icon: 'car-outline' },
-    { id: 'gardening', category: 'Gardening', icon: 'leaf-outline' },
-    { id: 'painting', category: 'Painting', icon: 'color-palette-outline' },
-    { id: 'electrical', category: 'Electrical', icon: 'flash-outline' },
-    { id: 'plumbing', category: 'Plumbing', icon: 'water-outline' },
-    { id: 'carpentry', category: 'Carpentry', icon: 'hammer-outline' },
-];
+// Define a type for the fetched service category from Firestore
+type ServiceCategory = {
+    id: string;
+    name: string;
+    icon: string;
+};
 
 export default function ServicesScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const db = getFirestore(app); // Initialize Firestore
 
-    // Reconstruct the full onboardingData object
     const receivedOnboardingData: Partial<AllOnboardingData> = params.onboardingData
         ? JSON.parse(params.onboardingData as string)
         : {};
 
     const [selectedServices, setSelectedServices] = useState<Service[]>([]);
     const [customService, setCustomService] = useState({
-        title: '', // For custom service, 'name' maps to 'title'
+        title: '',
         rate: '',
         description: '',
     });
     const [showCustomForm, setShowCustomForm] = useState(false);
     const [editingService, setEditingService] = useState<Service | null>(null);
     const [errors, setErrors] = useState<{[key: string]: string}>({});
+    const [availableCategories, setAvailableCategories] = useState<ServiceCategory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [fetchingError, setFetchingError] = useState<string | null>(null);
+
+    // Effect to fetch service categories from Firestore
+    useEffect(() => {
+        const fetchServiceCategories = async () => {
+            try {
+                setLoading(true);
+                const querySnapshot = await getDocs(collection(db, 'serviceCategories'));
+                const categories: ServiceCategory[] = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Exclude the category named "All"
+                    if (data.name !== 'All') {
+                        categories.push({
+                            id: doc.id,
+                            name: data.name,
+                            icon: data.icon,
+                        });
+                    }
+                });
+                setAvailableCategories(categories);
+            } catch (error) {
+                console.error('Error fetching service categories:', error);
+                setFetchingError('Failed to load service categories. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchServiceCategories();
+    }, [db]); // Depend on db instance
 
     // Effect to handle initial population or re-routing if data is missing
     useEffect(() => {
-        // You might want to add more robust checks here
-        // For example, if personalDetails or idVerification are crucial
-        if (!receivedOnboardingData.firstName) { // Check for a key from an earlier step
+        if (!receivedOnboardingData.firstName) {
             Alert.alert('Error', 'Previous onboarding data missing. Please restart the onboarding process.');
             router.replace('/tasker-onboarding/personal-details');
         }
     }, [receivedOnboardingData, router]);
 
-
-    // Updated validateRate function to allow for ranges
     const validateRate = (rate: string): boolean => {
         const trimmedRate = rate.trim();
-        // Regex for single number or a range like "1000", "1000-2000", "1000 - 2000"
         const rateRegex = /^\d+(\s*-\s*\d+)?$/;
         return rateRegex.test(trimmedRate);
     };
 
-    const handleServiceSelect = (serviceId: string, serviceCategory: string) => {
-        // Check if this category is already selected
+    const handleServiceSelect = (serviceId: string, serviceCategoryName: string) => {
         const existingService = selectedServices.find(s => s.id === serviceId);
 
         if (existingService) {
-            // If already selected, remove it
             setSelectedServices(prev => prev.filter(s => s.id !== serviceId));
-            // Also, if it was being edited, clear the editor
             if (editingService?.id === serviceId) {
                 setEditingService(null);
             }
-            // Clear any specific errors related to this service if it was being edited
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[serviceId + '_title'];
@@ -107,15 +128,13 @@ export default function ServicesScreen() {
                 return newErrors;
             });
         } else {
-            // If not selected, open editor for this predefined service
             setEditingService({
                 id: serviceId,
-                category: serviceCategory, // Store the predefined category
-                title: serviceCategory,   // Default title to category name, user can change
+                category: serviceCategoryName,
+                title: serviceCategoryName,
                 rate: '',
                 description: '',
             });
-            // Clear any specific errors for this service
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[serviceId + '_title'];
@@ -146,14 +165,12 @@ export default function ServicesScreen() {
             const existingIndex = prev.findIndex(s => s.id === service.id);
             if (existingIndex !== -1) {
                 const updated = [...prev];
-                updated[existingIndex] = service; // Update existing service
+                updated[existingIndex] = service;
                 return updated;
             }
-            // This case should ideally not happen for predefined services,
-            // as they are added to selectedServices only after saving from editor.
-            return [...prev, service]; // Fallback, though a predefined service is added when its button is pressed
+            return [...prev, service];
         });
-        setErrors({}); // Clear all errors after successful save
+        setErrors({});
         setEditingService(null);
     };
 
@@ -176,7 +193,7 @@ export default function ServicesScreen() {
 
         const newService: Service = {
             id: `custom-${Date.now()}`,
-            category: 'Custom', // For custom services, the category is "Custom"
+            category: 'Custom',
             title: customService.title.trim(),
             rate: customService.rate,
             description: customService.description.trim(),
@@ -184,18 +201,17 @@ export default function ServicesScreen() {
         };
 
         setSelectedServices(prev => [...prev, newService]);
-        setCustomService({ title: '', rate: '', description: '' }); // Clear custom form
+        setCustomService({ title: '', rate: '', description: '' });
         setShowCustomForm(false);
-        setErrors({}); // Clear custom errors
+        setErrors({});
     };
 
- const handleNext = () => {
+    const handleNext = () => {
         if (selectedServices.length === 0) {
             Alert.alert('Error', 'Please select at least one service and set its details.');
             return;
         }
 
-        // Check if any selected service has missing title/rate or invalid rate format
         const incompleteServices = selectedServices.filter(s =>
             !s.title.trim() || !s.rate.trim() || !validateRate(s.rate)
         );
@@ -205,15 +221,13 @@ export default function ServicesScreen() {
                 'Incomplete Services',
                 'Please ensure all selected services have a valid title and rate saved. Rate must be a number or a range (e.g., 5000 or 5000-6000).'
             );
-            // Optionally, set editingService to the first incomplete one to guide the user
             setEditingService(incompleteServices[0]);
             return;
         }
 
-        // Combine all data from previous steps and this step
         const dataToPass: AllOnboardingData = {
-            ...receivedOnboardingData as AllOnboardingData, // Cast to full type as we assume it's complete
-            services: selectedServices, // Add services from this screen
+            ...receivedOnboardingData as AllOnboardingData,
+            services: selectedServices,
         };
 
         console.log("--------------------------------------------------");
@@ -221,11 +235,10 @@ export default function ServicesScreen() {
         console.log(JSON.stringify(dataToPass, null, 2));
         console.log("--------------------------------------------------");
 
-        // *** MODIFIED NAVIGATION PATH ***
         router.push({
-            pathname: '/tasker-onboarding/supporting-documents', // Changed from payment-methods
+            pathname: '/tasker-onboarding/supporting-documents',
             params: {
-                onboardingData: JSON.stringify(dataToPass), // Pass the entire object
+                onboardingData: JSON.stringify(dataToPass),
             },
         });
     };
@@ -262,7 +275,7 @@ export default function ServicesScreen() {
                         }
                     }}
                     placeholder="e.g., 5000 or 5000-6000"
-                    keyboardType="default" // Changed from number-pad to allow hyphen
+                    keyboardType="default"
                 />
                 <Text style={styles.rateUnit}>/task</Text>
             </View>
@@ -288,8 +301,7 @@ export default function ServicesScreen() {
                 style={styles.cancelButton}
                 onPress={() => {
                     setEditingService(null);
-                    setErrors({}); // Clear errors when cancelling
-                    // If the service was newly selected and not yet saved, remove it from selectedServices
+                    setErrors({});
                     if (!selectedServices.some(s => s.id === service.id)) {
                         setSelectedServices(prev => prev.filter(s => s.id !== service.id));
                     }
@@ -315,33 +327,39 @@ export default function ServicesScreen() {
                 </Text>
 
                 <Text style={styles.sectionTitle}>Available Service Categories</Text>
-                <View style={styles.servicesGrid}>
-                    {PREDEFINED_SERVICES.map((service) => {
-                        const isSelected = selectedServices.some(s => s.id === service.id);
-                        return (
-                            <TouchableOpacity
-                                key={service.id}
-                                style={[
-                                    styles.serviceButton,
-                                    isSelected && styles.serviceButtonSelected,
-                                ]}
-                                onPress={() => handleServiceSelect(service.id, service.category)}
-                            >
-                                <Ionicons
-                                    name={service.icon as any}
-                                    size={24}
-                                    color={isSelected ? '#fff' : '#666'}
-                                />
-                                <Text style={[
-                                    styles.serviceButtonText,
-                                    isSelected && styles.serviceButtonTextSelected,
-                                ]}>
-                                    {service.category}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                {loading ? (
+                    <ActivityIndicator size="large" color="#4A80F0" />
+                ) : fetchingError ? (
+                    <Text style={styles.errorText}>{fetchingError}</Text>
+                ) : (
+                    <View style={styles.servicesGrid}>
+                        {availableCategories.map((service) => {
+                            const isSelected = selectedServices.some(s => s.id === service.id);
+                            return (
+                                <TouchableOpacity
+                                    key={service.id}
+                                    style={[
+                                        styles.serviceButton,
+                                        isSelected && styles.serviceButtonSelected,
+                                    ]}
+                                    onPress={() => handleServiceSelect(service.id, service.name)}
+                                >
+                                    <Ionicons
+                                        name={service.icon as any} // Cast to any because Ionicons expects a specific string literal type
+                                        size={24}
+                                        color={isSelected ? '#fff' : '#666'}
+                                    />
+                                    <Text style={[
+                                        styles.serviceButtonText,
+                                        isSelected && styles.serviceButtonTextSelected,
+                                    ]}>
+                                        {service.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
 
                 {editingService && renderServiceEditor(editingService)}
 
@@ -351,8 +369,8 @@ export default function ServicesScreen() {
                             style={styles.addCustomButton}
                             onPress={() => {
                                 setShowCustomForm(true);
-                                setErrors({}); // Clear errors when opening custom form
-                                setCustomService({ title: '', rate: '', description: '' }); // Clear previous data
+                                setErrors({});
+                                setCustomService({ title: '', rate: '', description: '' });
                             }}
                         >
                             <Ionicons name="add-circle-outline" size={24} color="#4A80F0" />
@@ -390,7 +408,7 @@ export default function ServicesScreen() {
                                             }
                                         }}
                                         placeholder="e.g., 5000 or 5000-6000"
-                                        keyboardType="default" // Changed from number-pad to allow hyphen
+                                        keyboardType="default"
                                     />
                                     <Text style={styles.rateUnit}>/task</Text>
                                 </View>
@@ -415,11 +433,10 @@ export default function ServicesScreen() {
                                     style={styles.cancelButton}
                                     onPress={() => {
                                         setShowCustomForm(false);
-                                        setErrors({}); // Clear errors when cancelling custom form
+                                        setErrors({});
                                         setCustomService({ title: '', rate: '', description: '' });
                                     }}
                                 >
-                                
                                     <Text style={styles.cancelButtonText}>Cancel</Text>
                                 </TouchableOpacity>
                             </View>
@@ -578,7 +595,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         minHeight: 80,
         textAlignVertical: 'top',
-        marginBottom: 5, // Adjusted for label spacing
+        marginBottom: 5,
     },
     addCustomButton: {
         flexDirection: 'row',
@@ -599,14 +616,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#eee',
     },
-    input: { // Reused for custom service title and service editor title
+    input: {
         borderWidth: 1,
         borderColor: '#eee',
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
         backgroundColor: '#fff',
-        marginBottom: 15, // Adjusted for label spacing
+        marginBottom: 15,
     },
     saveButton: {
         backgroundColor: '#4A80F0',
@@ -621,11 +638,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     cancelButton: {
-        backgroundColor: '#cccccc', // A neutral color for cancel
+        backgroundColor: '#cccccc',
         padding: 12,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 10, // Small gap from save button
+        marginTop: 10,
     },
     cancelButtonText: {
         color: '#333',
@@ -676,12 +693,12 @@ const styles = StyleSheet.create({
     errorText: {
         color: '#ff4444',
         fontSize: 12,
-        marginTop: -10, // Pull it closer to the input it validates
+        marginTop: -10,
         marginBottom: 10,
-        textAlign: 'left', // Ensure error text aligns with input
+        textAlign: 'left',
     },
     inputError: {
-        borderColor: '#ff4444', // Highlight input with error
+        borderColor: '#ff4444',
     },
     button: {
         flexDirection: 'row',

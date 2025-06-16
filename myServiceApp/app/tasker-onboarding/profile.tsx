@@ -7,7 +7,7 @@ import * as FileSystem from 'expo-file-system';
 
 // Import Firebase (adjust path as needed for your project structure)
 import { getAuth } from 'firebase/auth'; // For getting the current user
-import { getFirestore, doc, setDoc } from 'firebase/firestore'; // For Firestore database operations
+import { getFirestore, doc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore'; // For Firestore database operations
 import { app } from '../../firebase-config'; // Assuming you have your Firebase app initialized in firebaseConfig.ts/js
 
 // Initialize Firebase services
@@ -42,6 +42,7 @@ type Service = {
     rate: string;
     description: string;
     isCustom?: boolean;
+    taskerId?: string; // Added to include UID in serviceCategory
 };
 
 type ServicesData = {
@@ -177,9 +178,28 @@ export default function ProfileScreen() {
             };
 
             try {
-                // Save all collected data to Firestore
+                // 1. Save all collected data to Firestore in the 'taskers' collection
                 // The document ID will be the user's UID
                 await setDoc(doc(db, 'taskers', currentUser.uid), finalOnboardingData);
+
+                // 2. Save services to the 'serviceCategories' collection
+                if (finalOnboardingData.services && finalOnboardingData.services.length > 0) {
+                    for (const service of finalOnboardingData.services) {
+                        const serviceWithTaskerId = {
+                            ...service,
+                            taskerId: currentUser.uid // Include the UID of the authenticated user
+                        };
+
+                        // Use the category name as the document ID in 'serviceCategories'
+                        // If the document doesn't exist, it will be created.
+                        // If it exists, 'arrayUnion' will add the service to the 'services' array
+                        // without duplicating existing identical service objects.
+                        const categoryDocRef = doc(db, 'serviceCategories', service.category);
+                        await updateDoc(categoryDocRef, {
+                            services: arrayUnion(serviceWithTaskerId)
+                        });
+                    }
+                }
 
                 console.log("--------------------------------------------------");
                 console.log("TASKER PROFILE SAVED TO FIRESTORE (truncated Base64 for log):");
@@ -200,7 +220,8 @@ export default function ProfileScreen() {
                     }));
                 }
                 console.log(JSON.stringify(dataToLog, null, 2));
-                console.log("Document ID:", currentUser.uid);
+                console.log("Document ID (taskers):", currentUser.uid);
+                console.log("Services also saved to respective serviceCategories documents.");
                 console.log("--------------------------------------------------");
 
 
@@ -210,7 +231,7 @@ export default function ProfileScreen() {
                     [
                         {
                             text: 'OK',
-                            onPress: () => router.push('/tasker-dashboard'),
+                            onPress: () => router.push('/home/screens/TaskerProfileScreen'),
                         },
                     ]
                 );

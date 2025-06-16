@@ -1,12 +1,12 @@
 // app/(tabs)/home/screens/ProfileScreen.tsx
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ScrollView,
   Alert,
   ActivityIndicator,
   Platform,
@@ -15,24 +15,24 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { auth } from '@/firebase-config';
+import { auth } from '@/firebase-config'; // Ensure this path is correct for your Firebase config
 import { updateProfile } from 'firebase/auth';
 import { router } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
-import BiometricHelper from '../utils/BiometricHelper';
+import BiometricHelper from '../utils/BiometricHelper'; // Ensure this path is correct
 
 const ProfileScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const styles = useThemedStyles(createProfileStyles);
-  
+
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+
   // Mock data for profile sections
   const accountInfo = [
     { icon: 'person-outline', title: 'Personal Information', destination: 'personalInfo' },
@@ -40,13 +40,19 @@ const ProfileScreen = () => {
     { icon: 'location-outline', title: 'Saved Addresses', destination: 'SavedAddressesScreen' },
     { icon: 'shield-outline', title: 'Security', destination: 'SecurityScreen' },
   ];
-  
+
+  // NEW: Tasker Information Section
+  const taskerInfo = [
+    { icon: 'briefcase-outline', title: 'Tasker Profile', destination: 'TaskerProfileScreen' },
+    // Add more tasker-specific items here if needed in the future
+  ];
+
   const appSettings = [
     { icon: 'notifications-outline', title: 'Notifications', destination: 'notifications' },
     { icon: 'globe-outline', title: 'Language', destination: 'language', value: 'English' },
     { icon: 'moon-outline', title: 'Dark Mode', destination: 'darkMode', toggle: true },
   ];
-  
+
   const supportSection = [
     { icon: 'help-circle-outline', title: 'Help & Support', destination: 'helpSupport' },
     { icon: 'document-text-outline', title: 'Terms & Policies', destination: 'termsAndPolicies' },
@@ -69,14 +75,13 @@ const ProfileScreen = () => {
   const pickImage = async () => {
     // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (status !== 'granted') {
       Alert.alert('Permission Denied', 'We need permission to access your photos to set a profile picture.');
       return;
     }
 
     try {
-      // Fixed the deprecated MediaTypeOptions
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -90,7 +95,7 @@ const ProfileScreen = () => {
         updateLocalProfileImage(result.assets[0].uri);
       }
     } catch (error) {
-     
+      console.error("Error picking image:", error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
@@ -110,13 +115,13 @@ const ProfileScreen = () => {
       await updateProfile(auth.currentUser, {
         photoURL: uri
       });
-      
+
       // Update local state
       setProfileImage(uri);
-      
+
       Alert.alert('Success', 'Profile picture updated successfully.');
     } catch (error) {
-     
+      console.error("Error updating profile image:", error);
       Alert.alert('Error', 'Failed to update profile picture. Please try again.');
     } finally {
       setUploadingImage(false);
@@ -128,12 +133,12 @@ const ProfileScreen = () => {
     try {
       // Clear biometric credentials when signing out for security
       await BiometricHelper.clearCredentials();
-      
+
       // Sign out from Firebase
       await auth.signOut();
       router.replace('/auth/Login');
     } catch (error) {
-    
+      console.error("Error signing out:", error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     } finally {
       setIsLoading(false);
@@ -150,6 +155,9 @@ const ProfileScreen = () => {
         break;
       case 'SecurityScreen':
         router.push('/home/screens/SecurityScreen');
+        break;
+      case 'TaskerProfileScreen':
+        router.push('/home/screens/TaskerProfileScreen'); // Navigate to the new Tasker Profile screen
         break;
       case 'editProfile':
         router.push('/home/screens/PersonalInfoScreen');
@@ -183,8 +191,8 @@ const ProfileScreen = () => {
                 </Text>
               </View>
             )}
-            <TouchableOpacity 
-              style={styles.editImageButton} 
+            <TouchableOpacity
+              style={styles.editImageButton}
               onPress={pickImage}
             >
               <Ionicons name="camera" size={18} color="#fff" />
@@ -192,11 +200,11 @@ const ProfileScreen = () => {
           </>
         )}
       </View>
-      
+
       <Text style={styles.userName}>{userName}</Text>
       <Text style={styles.userEmail}>{userEmail}</Text>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.editProfileButton}
         onPress={() => navigateTo('editProfile')}
       >
@@ -210,21 +218,21 @@ const ProfileScreen = () => {
   );
 
   const renderItem = (item: any) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       key={item.title}
       style={styles.menuItem}
       onPress={() => navigateTo(item.destination)}
     >
       <View style={styles.menuItemLeft}>
-        <Ionicons 
-          name={item.icon} 
-          size={24} 
-          color={theme.colors.textSecondary} 
-          style={styles.menuItemIcon} 
+        <Ionicons
+          name={item.icon}
+          size={24}
+          color={theme.colors.textSecondary}
+          style={styles.menuItemIcon}
         />
         <Text style={styles.menuItemTitle}>{item.title}</Text>
       </View>
-      
+
       <View style={styles.menuItemRight}>
         {item.value && <Text style={styles.menuItemValue}>{item.value}</Text>}
         {item.toggle ? (
@@ -232,8 +240,8 @@ const ProfileScreen = () => {
             value={isDarkMode}
             onValueChange={toggleTheme}
             thumbColor={isDarkMode ? theme.colors.primary : '#f4f3f4'}
-            trackColor={{ 
-              false: '#767577', 
+            trackColor={{
+              false: '#767577',
               true: `${theme.colors.primary}80`
             }}
             ios_backgroundColor="#3e3e3e"
@@ -249,27 +257,31 @@ const ProfileScreen = () => {
     <View style={styles.container}>
       <StatusBarSpace />
       <LinearGradient
-        colors={isDarkMode 
+        colors={isDarkMode
           ? ['rgba(92, 189, 106, 0.2)', 'rgba(18, 18, 18, 0)']
           : ['rgba(92, 189, 106, 0.2)', 'rgba(255, 255, 255, 0)']}
         style={styles.headerGradient}
       />
-      
+
       <ScrollView showsVerticalScrollIndicator={false}>
         {renderProfileHeader()}
-        
+
         <View style={styles.contentContainer}>
           {renderSectionHeader('Account')}
           {accountInfo.map(item => renderItem(item))}
-          
+
+          {/* NEW: Tasker Information Section */}
+          {renderSectionHeader('Tasker Information')}
+          {taskerInfo.map(item => renderItem(item))}
+
           {renderSectionHeader('App Settings')}
           {appSettings.map(item => renderItem(item))}
-          
+
           {renderSectionHeader('Support')}
           {supportSection.map(item => renderItem(item))}
-          
-          <TouchableOpacity 
-            style={styles.signOutButton} 
+
+          <TouchableOpacity
+            style={styles.signOutButton}
             onPress={handleSignOut}
             disabled={isLoading}
           >
@@ -282,7 +294,7 @@ const ProfileScreen = () => {
               </>
             )}
           </TouchableOpacity>
-          
+
           <Text style={styles.versionText}>Version 1.0.0</Text>
         </View>
       </ScrollView>
