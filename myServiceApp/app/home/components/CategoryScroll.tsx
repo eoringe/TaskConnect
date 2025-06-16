@@ -13,13 +13,13 @@ import { db } from '../../../firebase-config'; // Adjust this path to your fireb
 
 const CategoryScroll = (
   {
-  
+
   }:
-    
-    {
-      selectedCategory: string; // Keep these for internal state management for the scroll
-      onCategorySelect: (category: string) => void;
-    }
+
+  {
+    selectedCategory: string; // Keep these for internal state management for the scroll
+    onCategorySelect: (category: string) => void;
+  }
 ) => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -125,9 +125,10 @@ const CategoryScroll = (
 const createStyles = createThemedStyles(theme => ({
   horizontalScroll: {
     marginBottom: 25,
+    marginHorizontal: 1, // Added margin to the scroll view itself
   },
   categoryContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10, // Added padding to the content within the scroll view
   },
   categoryItem: {
     alignItems: 'center',
