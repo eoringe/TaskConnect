@@ -12,7 +12,7 @@ import StatusBarSpace from '@/app/components/StatusBarSpace';
 // Components
 import Header from '../components/Header';
 import SearchBar from '../components/SearchBar';
-import Banner from '../components/Banner';
+import BannerCarousel from '../components/BannerCarousel'; // Import the new BannerCarousel
 import BecomeTaskerCard from '../components/BecomeTaskerCard';
 import CategoryScroll from '../components/CategoryScroll';
 import ServiceCard from '../components/ServiceCard';
@@ -191,19 +191,25 @@ const HomeScreenContent = () => {
           onFilterPress={() => setShowFilterModal(true)}
         />
 
-        <Banner />
+        {/* Use the new BannerCarousel here */}
+        <BannerCarousel />
 
         {/* Conditionally render BecomeTaskerCard */}
         {isTasker === false && <BecomeTaskerCard />}
 
-        <Text style={styles.sectionTitle}>Categories</Text>
+        {/* Wrapped Categories title in a View to apply marginHorizontal */}
+        <View style={styles.categorySectionWrapper}>
+          <Text style={styles.sectionTitleText}>Categories</Text>
+        </View>
+
         <CategoryScroll
           selectedCategory={selectedCategory}
           onCategorySelect={filterByCategory}
         />
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
+          {/* Using sectionTitleText for horizontal alignment with Categories */}
+          <Text style={styles.sectionTitleText}>
             {selectedCategory === 'All' ? 'Top Rated Services' : selectedCategory + ' Services'}
           </Text>
           <TouchableOpacity onPress={handleSeeAll}>
@@ -281,18 +287,24 @@ const createStyles = createThemedStyles(theme => ({
   scrollContent: {
     paddingBottom: 30,
   },
-  sectionTitle: {
+  // New style for the actual text properties of section titles
+  sectionTitleText: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 15,
-    marginHorizontal: 20,
     color: theme.colors.text,
+  },
+  // Wrapper for "Categories" title to apply horizontal margin and vertical spacing
+  categorySectionWrapper: {
+    marginHorizontal: 20,
+    marginTop: -35, // Adjusted to reduce space above the title
+    marginBottom: 30, // Keep this as per previous instruction
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 20, // This correctly applies margin to the whole header row
+    marginTop: 20, // Increased margin above "Top Rated Services" from 0 (default) to 20
     marginBottom: 15,
   },
   seeAllText: {
