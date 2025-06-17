@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 import { ScrollView, TouchableOpacity, View, Text, ActivityIndicator, StyleSheet as RNStyleSheet } from 'react-native'; // Import ActivityIndicator and RNStyleSheet
 import { Ionicons } from '@expo/vector-icons';
-import { Category } from '../types';
+
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // Import Firestore related functions and db instance
 import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase-config'; // Adjust this path to your firebaseConfig
+import { Category } from '../types';
 
 
 

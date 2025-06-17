@@ -11,8 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Screens
 import HomeScreenContent from './screens/HomeScreenContent';
 import NotificationsScreen from './screens/NotificationsScreen';
-import MessagesScreen from './screens/MessagesScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import ChatListScreen from './screens/ChatListScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -53,8 +53,8 @@ const HomeScreen = () => {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+      screenOptions={({ route }: { route: { name: string } }) => ({
+        tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
           let iconName = 'home-outline';
 
           if (route.name === 'Home') {
@@ -89,7 +89,7 @@ const HomeScreen = () => {
     >
       <Tab.Screen name="Home" component={HomeScreenContent} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen name="Messages" component={ChatListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
