@@ -501,7 +501,7 @@ const BookingScreen = () => {
       <View style={styles.card}>
         <Ionicons name="person-circle-outline" size={50} color={theme.colors.primary} />
         <View style={styles.taskerInfo}>
-          <Text style={styles.name}>{tasker.name}</Text>
+          <Text style={styles.name}>{tasker.taskerName}</Text>
           <Text style={styles.detail}>{tasker.category}</Text>
           <Text style={styles.detail}>{tasker.price}</Text>
         </View>

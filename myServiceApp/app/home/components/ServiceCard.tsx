@@ -1,7 +1,7 @@
 // app/(tabs)/home/components/ServiceCard.tsx
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Service } from '../types';
@@ -21,10 +21,19 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
     <View style={styles.serviceCard}>
       <View style={styles.serviceCardTop}>
         <View style={styles.serviceImageContainer}>
-          <Ionicons name="person" size={36} color={theme.colors.primary} />
+          {service.taskerProfileImage ? (
+            <Image
+              source={{ uri: service.taskerProfileImage }}
+              style={{ width: 50, height: 50, borderRadius: 25 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="person" size={36} color={theme.colors.primary} />
+          )}
         </View>
         <View style={styles.serviceInfo}>
-          <Text style={styles.serviceName}>{service.name}</Text>
+          <Text style={styles.serviceName}>{service.title}</Text>
+          <Text style={styles.taskerName}>{service.taskerName}</Text>
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={16} color="#FFD700" />
             <Text style={styles.ratingText}>{service.rating}</Text>
@@ -95,6 +104,12 @@ const createStyles = createThemedStyles(theme => ({
     fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 5,
+  },
+  taskerName: {
+    fontSize: 14,
+    color: theme.colors.textLight,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   ratingContainer: {
     flexDirection: 'row',

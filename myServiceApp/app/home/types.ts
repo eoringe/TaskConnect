@@ -26,4 +26,7 @@ export interface Service {
     latitude: number;
     longitude: number;
   };
+  title: string; // Service title
+  taskerName: string; // Tasker's full name
+  taskerProfileImage: string; // base64 or URL
 }

@@ -1,87 +1,61 @@
-import React, { useState, useEffect } from 'react'; // Import useState and useEffect
-import { ScrollView, TouchableOpacity, View, Text, ActivityIndicator, StyleSheet as RNStyleSheet } from 'react-native'; // Import ActivityIndicator and RNStyleSheet
+// app/(tabs)/home/components/CategoryScroll.tsx
+
+import React, { useState, useEffect } from 'react';
+import { ScrollView, TouchableOpacity, View, Text, ActivityIndicator, StyleSheet as RNStyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Category } from '../types';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase-config';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
-// Import Firestore related functions and db instance
-import { collection, query, getDocs } from 'firebase/firestore';
-import { db } from '../../../firebase-config'; // Adjust this path to your firebaseConfig
+// Define Category type locally
+type Category = {
+  name: string;
+  icon: string;
+};
 
+interface CategoryScrollProps {
+  selectedCategory: string;
+  onCategorySelect: (category: string) => void;
+}
 
-
-const CategoryScroll = (
-  {
-
-  }:
-
-  {
-    selectedCategory: string; // Keep these for internal state management for the scroll
-    onCategorySelect: (category: string) => void;
-  }
-) => {
+const CategoryScroll: React.FC<CategoryScrollProps> = ({ selectedCategory, onCategorySelect }) => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const [categories, setCategories] = useState<Category[]>([]); // Internal state for categories
-  const [loading, setLoading] = useState<boolean>(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All'); // Internal state for selected category
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    (async () => {
       try {
-        setLoading(true);
-        const categoriesCollectionRef = collection(db, 'serviceCategories');
-        const q = query(categoriesCollectionRef); // Fetch all documents
-
-        const querySnapshot = await getDocs(q);
-        const fetchedCategories: Category[] = querySnapshot.docs.map(doc => ({
-          name: doc.id, // Use the document ID as the category name
-          icon: doc.data().icon as string, // Cast icon to string
+        const snap = await getDocs(collection(db, 'serviceCategories'));
+        const cats = snap.docs.map(d => ({
+          name: d.id,
+          icon: d.data().icon as string,
         }));
-
-        setCategories(fetchedCategories);
-        // Automatically select the first category or 'All' if available
-        if (fetchedCategories.length > 0 && selectedCategory === 'All') {
-          // If 'All' is a special case not present in DB, keep it.
-          // Otherwise, if 'All' is meant to be a DB entry, this needs adjustment.
-          // For now, if no category is selected, it defaults to 'All'.
-          // If you want to auto-select the first DB category, change:
-          // setSelectedCategory(fetchedCategories[0].name);
-        }
-      } catch (err) {
-        console.error("Error fetching categories in CategoryScroll:", err);
-        setError("Failed to load categories. Please check your network and Firestore rules.");
+        setCategories(cats);
+      } catch (e) {
+        console.error(e);
+        setError('Unable to load categories.');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchCategories();
-  }, []); // Empty dependency array means it runs once on mount
-
-  // Handle category selection
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategory(categoryName);
-    // If you need to pass the selected category to a parent, you'd still need a prop like onCategorySelect
-    // onCategorySelect(categoryName); // Uncomment if the parent still needs to know the selected category
-  };
+    })();
+  }, []);
 
   if (loading) {
     return (
       <View style={localStyles.loadingContainer}>
-        <ActivityIndicator size="small" color={theme.colors.primary} />
-        <Text style={localStyles.loadingText}>Loading categories...</Text>
+        <ActivityIndicator color={theme.colors.primary} />
       </View>
     );
   }
-
   if (error) {
     return (
-      <View style={localStyles.errorContainer}>
-        <Text style={localStyles.errorText}>{error}</Text>
+      <View style={localStyles.loadingContainer}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
       </View>
     );
   }
@@ -93,29 +67,35 @@ const CategoryScroll = (
       style={styles.horizontalScroll}
       contentContainerStyle={styles.categoryContainer}
     >
-      {categories.map((cat, idx) => (
+      {categories.map(cat => (
         <TouchableOpacity
-          key={idx}
+          key={cat.name}
+          onPress={() => onCategorySelect(cat.name)}
           style={[
             styles.categoryItem,
-            selectedCategory === cat.name && styles.selectedCategoryItem
+            selectedCategory === cat.name && styles.selectedCategoryItem,
           ]}
-          onPress={() => handleCategorySelect(cat.name)} // Use internal handler
         >
-          <View style={[
-            styles.categoryIconContainer,
-            selectedCategory === cat.name && styles.selectedCategoryIconContainer
-          ]}>
+          <View
+            style={[
+              styles.categoryIconContainer,
+              selectedCategory === cat.name && styles.selectedCategoryIconContainer,
+            ]}
+          >
             <Ionicons
               name={cat.icon as any}
               size={22}
-              color={selectedCategory === cat.name ? "#fff" : "#666666"}
+              color={selectedCategory === cat.name ? '#fff' : '#666'}
             />
           </View>
-          <Text style={[
-            styles.categoryText,
-            selectedCategory === cat.name && styles.selectedCategoryText
-          ]}>{cat.name}</Text>
+          <Text
+            style={[
+              styles.categoryText,
+              selectedCategory === cat.name && styles.selectedCategoryText,
+            ]}
+          >
+            {cat.name}
+          </Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -124,41 +104,34 @@ const CategoryScroll = (
 
 const createStyles = createThemedStyles(theme => ({
   horizontalScroll: {
-    marginBottom: 25,
-    marginHorizontal: 1, // Added margin to the scroll view itself
+    marginBottom: 20,
   },
   categoryContainer: {
-    paddingHorizontal: 10, // Added padding to the content within the scroll view
+    paddingHorizontal: 10,
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: 18,
-    width: 75,
+    marginRight: 16,
+    width: 70,
   },
   selectedCategoryItem: {
-    transform: [{ scale: 1.05 }],
+    transform: [{ scale: 1.1 }],
   },
   categoryIconContainer: {
-    height: 60,
-    width: 60,
-    borderRadius: 20,
-    backgroundColor: theme.dark ? 'rgba(60, 60, 60, 0.5)' : '#F0F0F0',
+    height: 56,
+    width: 56,
+    borderRadius: 16,
+    backgroundColor: theme.dark ? 'rgba(60,60,60,0.5)' : '#EEE',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    marginBottom: 6,
   },
   selectedCategoryIconContainer: {
     backgroundColor: theme.colors.primary,
   },
   categoryText: {
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
     fontSize: 12,
+    color: theme.colors.textLight,
     textAlign: 'center',
   },
   selectedCategoryText: {
@@ -167,28 +140,11 @@ const createStyles = createThemedStyles(theme => ({
   },
 }));
 
-// Local styles for loading/error state if fetching internally
 const localStyles = RNStyleSheet.create({
   loadingContainer: {
-    flex: 1,
+    minHeight: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 100, // Give it some height so it's visible
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666', // Adjust color as needed
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 100,
-    paddingHorizontal: 20,
-  },
-  errorText: {
-    color: 'red', // Adjust color as needed
-    textAlign: 'center',
   },
 });
 
