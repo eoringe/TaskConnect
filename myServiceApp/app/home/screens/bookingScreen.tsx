@@ -27,6 +27,8 @@ import {
   Address
 } from '@/app/services/userDatabaseService';
 import * as Location from 'expo-location';
+import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/firebase-config';
 
 type SearchParamTypes = {
   bookingScreen: {
@@ -466,7 +468,7 @@ const BookingScreen = () => {
     return date.toLocaleTimeString(undefined, options);
   };
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!address.trim()) {
       alert('Please enter your address');
       return;
@@ -484,16 +486,43 @@ const BookingScreen = () => {
       return;
     }
 
-    router.push({
-      pathname: "/bookingSummary",
-      params: {
-        tasker: JSON.stringify(tasker),
+    try {
+      // 1. Create job in Firestore
+      const jobRef = await addDoc(collection(db, 'jobs'), {
+        clientId: auth.currentUser?.uid,
+        taskerId: tasker.id || tasker.taskerId,
+        amount: parseFloat(tasker.price?.replace(/[^\d.]/g, '')),
         date: date.toISOString(),
         address,
         notes,
-        mpesaNumber
-      }
-    });
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Call backend to initiate STK Push
+      const res = await fetch('https://7633-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(tasker.price?.replace(/[^\d.]/g, '')),
+          phoneNumber: mpesaNumber,
+          accountReference: jobRef.id,
+          transactionDesc: 'Service Booking'
+        })
+      });
+      const { checkoutRequestId } = await res.json();
+      // 3. Save checkoutRequestId to job
+      await updateDoc(doc(db, 'jobs', jobRef.id), { checkoutRequestId });
+
+      // 4. Navigate to job status page (implement JobStatusScreen)
+      router.push({
+        pathname: '/jobStatus',
+        params: { jobId: jobRef.id }
+      });
+    } catch (error) {
+      console.error('Booking or payment initiation failed:', error);
+      alert('Booking or payment initiation failed. Please try again.');
+    }
   };
 
   return (
