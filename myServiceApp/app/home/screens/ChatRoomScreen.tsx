@@ -1,6 +1,6 @@
 // app/home/screens/ChatRoomScreen.tsx
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -19,10 +19,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '@/firebase-config';
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, updateDoc, getDocs, writeBatch, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/auth/AuthContext';
 
 // Get screen dimensions for responsive design
@@ -36,40 +36,13 @@ interface StaticMessage {
   timestamp: string;
 }
 
-// --- Dummy Data for Static Chat Rooms ---
-const STATIC_MESSAGES_CHAT_1: StaticMessage[] = [
-  { id: 'msg_1_1', senderId: 'my_uid', text: 'Hi Alice!', timestamp: '10:00 AM' },
-  { id: 'msg_1_2', senderId: 'alice_uid', text: 'Hey there! How can I help you?', timestamp: '10:01 AM' },
-  { id: 'msg_1_3', senderId: 'my_uid', text: 'I need some help with my task.', timestamp: '10:02 AM' },
-  { id: 'msg_1_4', senderId: 'alice_uid', text: 'Sure, tell me more about it.', timestamp: '10:03 AM' },
-  { id: 'msg_1_5', senderId: 'my_uid', text: 'It involves plumbing work at my house.', timestamp: '10:04 AM' },
-  { id: 'msg_1_6', senderId: 'alice_uid', text: 'Okay, I understand. Can you describe the issue in more detail?', timestamp: '10:05 AM' },
-  { id: 'msg_1_7', senderId: 'my_uid', text: 'The sink is leaking pretty bad, and the water pressure is low.', timestamp: '10:06 AM' },
-  { id: 'msg_1_8', senderId: 'alice_uid', text: 'Got it. I can come by tomorrow morning to take a look if that works for you?', timestamp: '10:07 AM' },
-  { id: 'msg_1_9', senderId: 'my_uid', text: 'Tomorrow morning works perfectly. What time roughly?', timestamp: '10:08 AM' },
-  { id: 'msg_1_10', senderId: 'alice_uid', text: 'How about 9 AM?', timestamp: '10:09 AM' },
-  { id: 'msg_1_11', senderId: 'my_uid', text: 'Sounds good! See you then.', timestamp: '10:10 AM' },
-];
-
-const STATIC_MESSAGES_CHAT_2: StaticMessage[] = [
-  { id: 'msg_2_1', senderId: 'my_uid', text: 'Good morning Bob!', timestamp: '09:00 AM' },
-  { id: 'msg_2_2', senderId: 'bob_uid', text: 'Morning! What\'s up?', timestamp: '09:01 AM' },
-  { id: 'msg_2_3', senderId: 'my_uid', text: 'Just checking in about the project.', timestamp: '09:02 AM' },
-  { id: 'msg_2_4', senderId: 'bob_uid', text: 'All good on my end. Will send updates soon.', timestamp: '09:03 AM' },
-];
-
-const ALL_STATIC_MESSAGES: { [key: string]: StaticMessage[] } = {
-  'chat_1': STATIC_MESSAGES_CHAT_1,
-  'chat_2': STATIC_MESSAGES_CHAT_2,
-  'chat_3': [],
-  'chat_4': [],
-};
 
 const ChatRoomScreen: React.FC = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuth();
+  const navigation = useNavigation();
 
   const { chatId, otherParticipantName, otherParticipantId, otherParticipantPhoto } = useLocalSearchParams<{
     chatId: string;
@@ -84,6 +57,8 @@ const ChatRoomScreen: React.FC = () => {
   const flatListRef = useRef<FlatList<StaticMessage>>(null);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [messages, setMessages] = useState<any[]>([]);
+  const [participantName, setParticipantName] = useState('');
+  const [participantPhoto, setParticipantPhoto] = useState('');
 
   // Real-time Firestore listener for messages in this conversation
   useEffect(() => {
@@ -165,6 +140,45 @@ const ChatRoomScreen: React.FC = () => {
     markAsRead();
   }, [chatId, currentUser]);
 
+  // Fetch participant details on mount or when otherParticipantId changes
+  useEffect(() => {
+    const fetchParticipantDetails = async () => {
+      if (!otherParticipantId) return;
+      // Try 'taskers' first
+      const taskerDocRef = doc(db, 'taskers', otherParticipantId);
+      try {
+        const taskerDocSnap = await getDoc(taskerDocRef);
+        if (taskerDocSnap.exists()) {
+          const taskerData = taskerDocSnap.data();
+          let name = `${taskerData.firstName || ''} ${taskerData.lastName || ''}`.trim();
+          if (!name) name = 'Tasker';
+          setParticipantName(name);
+          if (taskerData.profileImageBase64) {
+            setParticipantPhoto(`data:image/jpeg;base64,${taskerData.profileImageBase64}`);
+          }
+          return;
+        }
+      } catch {}
+      // If not found, try 'users'
+      const userDocRef = doc(db, 'users', otherParticipantId);
+      try {
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setParticipantName(userData.name || userData.displayName || 'User');
+          if (userData.photoURL) {
+            setParticipantPhoto(userData.photoURL);
+          }
+          return;
+        }
+      } catch {}
+      // Fallback
+      setParticipantName('Unknown User');
+      setParticipantPhoto('');
+    };
+    fetchParticipantDetails();
+  }, [otherParticipantId]);
+
   // Send message to Firestore
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser) return;
@@ -228,124 +242,117 @@ const ChatRoomScreen: React.FC = () => {
     router.back();
   };
 
-  // Calculate dynamic bottom padding for input container
-  const inputContainerBottomPadding = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [insets.bottom, 0],
-  });
+  const inputPaddingBottom = isKeyboardVisible ? 0 : insets.bottom;
+  const inputMarginBottom = 0;
+  console.log('Keyboard:', isKeyboardVisible, 'paddingBottom:', inputPaddingBottom, 'marginBottom:', inputMarginBottom);
 
   return (
-    <View style={styles.container}>
-      <StatusBar 
-        barStyle={theme.dark ? 'light-content' : 'dark-content'} 
-        backgroundColor={theme.colors.card}
-      />
-      
-      {/* Enhanced Header */}
-      <View >
-        <View style={styles.headerContent}>
-      
-          
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle={theme.dark ? 'light-content' : 'dark-content'} 
+          backgroundColor={theme.colors.card}
+          translucent={false}
+        />
+        {/* Custom Header */}
+        <View style={[
+          styles.header,
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            height: 56,
+            backgroundColor: theme.colors.card,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+            elevation: 2,
+            marginTop: insets.top, // Add safe area margin
+          },
+        ]}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBackPress}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
           <View style={styles.headerProfile}>
             <View style={styles.avatarContainer}>
-              {otherParticipantPhoto ? (
-                <Image source={{ uri: otherParticipantPhoto }} style={styles.headerAvatar} />
+              {participantPhoto ? (
+                <Image source={{ uri: participantPhoto }} style={styles.headerAvatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Ionicons name="person" size={20} color={theme.colors.textLight} />
                 </View>
               )}
-              <View style={styles.onlineIndicator} />
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {otherParticipantName}
-              </Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>{participantName}</Text>
               <Text style={styles.headerSubtitle}>Online</Text>
             </View>
           </View>
         </View>
-      </View>
-
-      {/* Messages Container */}
-      <KeyboardAvoidingView
-        style={styles.messagesContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.messagesWrapper}>
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={(item) => item.id}
-              renderItem={renderMessage}
-              contentContainerStyle={styles.messagesListContainer}
-              showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => {
-                if (messages.length > 0) {
-                  flatListRef.current?.scrollToEnd({ animated: true });
-                }
-              }}
-              onLayout={() => {
-                if (messages.length > 0) {
-                  flatListRef.current?.scrollToEnd({ animated: true });
-                }
-              }}
+        {/* Messages Container */}
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesListContainer}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          onLayout={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          style={{ flex: 1 }}
+        />
+        {/* Enhanced Input Container */}
+        <View
+          style={[
+            styles.inputContainer,
+            { paddingBottom: inputPaddingBottom, marginBottom: inputMarginBottom }
+          ]}
+        >
+          <View style={styles.inputWrapper}>
+            <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
+              <Ionicons name="add" size={24} color={theme.colors.textLight} />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.textInput}
+              value={messageText}
+              onChangeText={setMessageText}
+              placeholder="Type a message..."
+              placeholderTextColor={theme.colors.textLight}
+              multiline
+              maxLength={1000}
+              returnKeyType="send"
+              onSubmitEditing={handleSendMessage}
+              blurOnSubmit={false}
             />
+            {messageText.trim() ? (
+              <TouchableOpacity
+                style={styles.sendButton}
+                onPress={handleSendMessage}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="send" size={20} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
+                <Ionicons name="mic" size={22} color={theme.colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-
-      {/* Enhanced Input Container */}
-      <Animated.View 
-        style={[
-          styles.inputContainer,
-          {
-            paddingBottom: inputContainerBottomPadding,
-            transform: [{
-              translateY: animatedValue.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, -keyboardHeight + insets.bottom],
-              })
-            }]
-          }
-        ]}
-      >
-        <View style={styles.inputWrapper}>
-          <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-            <Ionicons name="add" size={24} color={theme.colors.textLight} />
-          </TouchableOpacity>
-          
-          <TextInput
-            style={styles.textInput}
-            value={messageText}
-            onChangeText={setMessageText}
-            placeholder="Type a message..."
-            placeholderTextColor={theme.colors.textLight}
-            multiline
-            maxLength={1000}
-            returnKeyType="send"
-            onSubmitEditing={handleSendMessage}
-            blurOnSubmit={false}
-          />
-          
-          {messageText.trim() ? (
-            <TouchableOpacity
-              style={styles.sendButton}
-              onPress={handleSendMessage}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="send" size={20} color="#fff" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
-              <Ionicons name="mic" size={22} color={theme.colors.primary} />
-            </TouchableOpacity>
-          )}
         </View>
-      </Animated.View>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -554,5 +561,23 @@ const createStyles = createThemedStyles(theme => ({
     backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
   },
 }));
+
+export const getHeaderTitle = ({ route }: { route: any }) => {
+  const { otherParticipantName, otherParticipantPhoto } = route.params || {};
+  return {
+    headerTitle: () => (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {otherParticipantPhoto ? (
+          <Image source={{ uri: otherParticipantPhoto }} style={{ width: 36, height: 36, borderRadius: 18, marginRight: 10 }} />
+        ) : (
+          <Ionicons name="person-circle-outline" size={36} color="#ccc" style={{ marginRight: 10 }} />
+        )}
+        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{otherParticipantName}</Text>
+      </View>
+    ),
+    headerStyle: { backgroundColor: '#fff', elevation: 2 },
+    headerTitleAlign: 'left',
+  };
+};
 
 export default ChatRoomScreen;

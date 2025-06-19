@@ -44,6 +44,12 @@ export default function ScreensLayout() {
           headerBackTitle: "Security"
         }}
       />
+      <Stack.Screen
+        name="ChatRoomScreen"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
