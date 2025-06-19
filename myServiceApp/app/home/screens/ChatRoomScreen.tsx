@@ -21,6 +21,9 @@ import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db } from '@/firebase-config';
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/app/auth/AuthContext';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -66,6 +69,7 @@ const ChatRoomScreen: React.FC = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const { currentUser } = useAuth();
 
   const { chatId, otherParticipantName, otherParticipantId, otherParticipantPhoto } = useLocalSearchParams<{
     chatId: string;
@@ -79,9 +83,22 @@ const ChatRoomScreen: React.FC = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList<StaticMessage>>(null);
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const [messages, setMessages] = useState<any[]>([]);
 
-  const messages = ALL_STATIC_MESSAGES[chatId || ''] || [];
-  const MY_STATIC_UID = 'my_uid';
+  // Real-time Firestore listener for messages in this conversation
+  useEffect(() => {
+    if (!chatId) return;
+    const q = query(
+      collection(db, 'messages'),
+      where('conversationId', '==', chatId),
+      orderBy('timestamp', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(msgs);
+    });
+    return unsubscribe;
+  }, [chatId]);
 
   // Enhanced keyboard handling
   useEffect(() => {
@@ -122,22 +139,25 @@ const ChatRoomScreen: React.FC = () => {
     };
   }, [messages.length]);
 
-  const handleSendMessage = () => {
-    if (messageText.trim()) {
-      console.log(`Sending message in chat ${chatId}: ${messageText}`);
-      setMessageText('');
-      
-      // Scroll to end after sending
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
+  // Send message to Firestore
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !currentUser) return;
+    await addDoc(collection(db, 'messages'), {
+      conversationId: chatId,
+      senderId: currentUser.uid,
+      receiverId: otherParticipantId,
+      text: messageText.trim(),
+      timestamp: serverTimestamp(),
+      read: false,
+      attachments: { name: '', type: '', url: '', content: '' }
+    });
+    setMessageText('');
   };
 
-  const renderMessage = ({ item, index }: { item: StaticMessage; index: number }) => {
-    const isMyMessage = item.senderId === MY_STATIC_UID;
+  // Render message bubble
+  const renderMessage = ({ item, index }: { item: any; index: number }) => {
+    const isMyMessage = item.senderId === (currentUser ? currentUser.uid : '');
     const isLastMessage = index === messages.length - 1;
-    
     return (
       <Animated.View
         style={[
@@ -157,7 +177,7 @@ const ChatRoomScreen: React.FC = () => {
               styles.messageTimestamp,
               isMyMessage ? styles.myMessageTimestamp : styles.otherMessageTimestamp
             ]}>
-              {item.timestamp}
+              {item.timestamp && item.timestamp.toDate ? new Date(item.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
             </Text>
             {isMyMessage && (
               <Ionicons

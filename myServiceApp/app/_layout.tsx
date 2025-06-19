@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 
 // Import our custom theme provider
 import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
+import { AuthProvider } from '../app/auth/AuthContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -45,11 +46,13 @@ export default function RootLayout() {
     return null;
   }
 
-  // Wrap RootLayoutNav with our ThemeProvider
+  // Wrap RootLayoutNav with our ThemeProvider and AuthProvider
   return (
-    <ThemeProvider>
-      <RootLayoutNav />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <RootLayoutNav />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
