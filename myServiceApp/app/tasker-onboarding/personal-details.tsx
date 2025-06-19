@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Removed setDoc import as we won't save here
 import { getAuth } from 'firebase/auth'; // Import Auth functions
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 type FormData = {
     firstName: string;
@@ -42,10 +43,8 @@ export default function PersonalDetailsScreen() {
                             ...prev,
                             email: userData.email || '', // Prefill email
                             phone: userData.phoneNumber || '', // Prefill phone number
-                            // Do not prefill firstName and lastName from 'users' if they are meant to be entered specifically for 'taskers'
-                            // If they are in 'users' and you want to prefill, add:
-                            // firstName: userData.firstName || '',
-                            // lastName: userData.lastName || '',
+                            firstName: userData.firstName || '', // Prefill first name
+                            lastName: userData.lastName || '', // Prefill last name
                         }));
                     } else {
                         // This case means a user exists in auth but not in your 'users' Firestore collection.
@@ -92,23 +91,17 @@ export default function PersonalDetailsScreen() {
         if (!validateForm()) {
             return;
         }
-
-        setIsProcessing(true); // Indicate that we're processing (e.g., navigating)
+        setIsProcessing(true); // Show spinner immediately
         try {
-            // No saving to Firestore here. Just collect data and pass it.
-
-            // The formData now contains firstName, lastName, pre-filled email, and phone.
-            // Pass all of this to the next screen.
             router.push({
                 pathname: '/tasker-onboarding/id-verification',
-                params: { personalDetails: JSON.stringify(formData) } // Pass the entire formData object
+                params: { personalDetails: JSON.stringify(formData) }
             });
-
+            // Do not set isProcessing to false here; let navigation handle unmount
         } catch (error) {
             console.error("Error during navigation or data preparation for ID verification:", error);
             Alert.alert('Error', 'Failed to proceed. Please try again.');
-        } finally {
-            setIsProcessing(false); // End processing
+            setIsProcessing(false);
         }
     };
 
@@ -122,98 +115,92 @@ export default function PersonalDetailsScreen() {
     }
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isProcessing}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Personal Details</Text>
-            </View>
+        <>
+            <ScrollView style={styles.container}>
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        Let's start with your basic information. This will be used to create your tasker profile.
+                    </Text>
 
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Let's start with your basic information. This will be used to create your tasker profile.
-                </Text>
+                    <View style={styles.form}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>First Name</Text>
+                            <TextInput
+                                style={[styles.input, errors.firstName && styles.inputError]}
+                                value={formData.firstName}
+                                onChangeText={(text) => {
+                                    setFormData(prev => ({ ...prev, firstName: text }));
+                                    if (text.trim()) {
+                                        setErrors(prev => ({ ...prev, firstName: undefined }));
+                                    }
+                                }}
+                                placeholder="Enter your first name"
+                                editable={!isProcessing} // Disable input while processing
+                            />
+                            {errors.firstName && (
+                                <Text style={styles.errorText}>{errors.firstName}</Text>
+                            )}
+                        </View>
 
-                <View style={styles.form}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>First Name</Text>
-                        <TextInput
-                            style={[styles.input, errors.firstName && styles.inputError]}
-                            value={formData.firstName}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, firstName: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, firstName: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your first name"
-                            editable={!isProcessing} // Disable input while processing
-                        />
-                        {errors.firstName && (
-                            <Text style={styles.errorText}>{errors.firstName}</Text>
-                        )}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Last Name</Text>
+                            <TextInput
+                                style={[styles.input, errors.lastName && styles.inputError]}
+                                value={formData.lastName}
+                                onChangeText={(text) => {
+                                    setFormData(prev => ({ ...prev, lastName: text }));
+                                    if (text.trim()) {
+                                        setErrors(prev => ({ ...prev, lastName: undefined }));
+                                    }
+                                }}
+                                placeholder="Enter your last name"
+                                editable={!isProcessing} // Disable input while processing
+                            />
+                            {errors.lastName && (
+                                <Text style={styles.errorText}>{errors.lastName}</Text>
+                            )}
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Email</Text>
+                            <TextInput
+                                style={[styles.input, styles.uneditableInput]}
+                                value={formData.email}
+                                editable={false} // Make it uneditable
+                                placeholder="Email will be prefilled"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Phone Number</Text>
+                            <TextInput
+                                style={[styles.input]}
+                                value={formData.phone}
+                                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                                placeholder="Enter your phone number"
+                                keyboardType="phone-pad"
+                                editable={!isProcessing}
+                            />
+                        </View>
                     </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Last Name</Text>
-                        <TextInput
-                            style={[styles.input, errors.lastName && styles.inputError]}
-                            value={formData.lastName}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, lastName: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, lastName: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your last name"
-                            editable={!isProcessing} // Disable input while processing
-                        />
-                        {errors.lastName && (
-                            <Text style={styles.errorText}>{errors.lastName}</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email</Text>
-                        <TextInput
-                            style={[styles.input, styles.uneditableInput]}
-                            value={formData.email}
-                            editable={false} // Make it uneditable
-                            placeholder="Email will be prefilled"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Phone Number</Text>
-                        <TextInput
-                            style={[styles.input, styles.uneditableInput]}
-                            value={formData.phone}
-                            editable={false} // Make it uneditable
-                            placeholder="Phone number will be prefilled"
-                            keyboardType="phone-pad"
-                        />
-                    </View>
-                </View>
-
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={handleNext}
-                    disabled={isProcessing} // Disable button while processing
-                >
-                    {isProcessing ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <>
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={handleNext}
+                        disabled={isProcessing} // Disable button while processing
+                    >
+                        {isProcessing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
                             <Text style={styles.buttonText}>Next</Text>
-                            <Ionicons name="arrow-forward" size={20} color="#fff" />
-                        </>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+            <BottomBarSpace />
+        </>
     );
 }
 
@@ -232,21 +219,6 @@ const styles = StyleSheet.create({
         marginTop: 10,
         fontSize: 16,
         color: '#666',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

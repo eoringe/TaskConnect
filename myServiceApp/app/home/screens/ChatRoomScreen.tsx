@@ -22,7 +22,7 @@ import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '@/firebase-config';
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { useAuth } from '@/app/auth/AuthContext';
 
 // Get screen dimensions for responsive design
@@ -139,6 +139,32 @@ const ChatRoomScreen: React.FC = () => {
     };
   }, [messages.length]);
 
+  // Mark all messages sent to the current user as read when chat is opened
+  useEffect(() => {
+    if (!chatId || !currentUser) return;
+    const markAsRead = async () => {
+      const q = query(
+        collection(db, 'messages'),
+        where('conversationId', '==', chatId),
+        where('receiverId', '==', currentUser.uid),
+        where('read', '==', false)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach(docSnap => {
+          batch.update(doc(db, 'messages', docSnap.id), { read: true });
+        });
+        await batch.commit();
+        // Update the parent conversation to trigger onSnapshot in ChatListScreen
+        await updateDoc(doc(db, 'conversations', chatId), {
+          lastReadAt: serverTimestamp(),
+        });
+      }
+    };
+    markAsRead();
+  }, [chatId, currentUser]);
+
   // Send message to Firestore
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser) return;
@@ -150,6 +176,11 @@ const ChatRoomScreen: React.FC = () => {
       timestamp: serverTimestamp(),
       read: false,
       attachments: { name: '', type: '', url: '', content: '' }
+    });
+    // Update the conversation document with the latest message and timestamp
+    await updateDoc(doc(db, 'conversations', chatId), {
+      lastMessage: messageText.trim(),
+      lastMessageTimestamp: serverTimestamp(),
     });
     setMessageText('');
   };
@@ -183,7 +214,7 @@ const ChatRoomScreen: React.FC = () => {
               <Ionicons
                 name="checkmark-done"
                 size={12}
-                color="rgba(255,255,255,0.8)"
+                color={item.read ? "#2196F3" : "rgba(255,255,255,0.8)"}
                 style={styles.sentIcon}
               />
             )}

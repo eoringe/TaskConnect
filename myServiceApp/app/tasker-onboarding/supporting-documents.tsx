@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -131,46 +132,41 @@ export default function SupportingDocumentsScreen() {
     };
 
     const handleAddDocument = async () => {
+        setIsProcessing(true); // Show spinner immediately
         const newErrors: {[key: string]: string} = {};
-
         if (!currentDocument.uri) {
             newErrors.file = 'Please select a document/image to upload.';
         }
         if (!currentDocument.name.trim()) {
             newErrors.name = 'Document name is required.';
         }
-
         if (Object.keys(newErrors).length > 0) {
+            setIsProcessing(false);
             setErrors(newErrors);
             return;
         }
-
-        setIsProcessing(true); // Indicate processing for Base64 conversion
         try {
-            // Re-read base64 to ensure it's fresh and correctly handled
             const base64String = await FileSystem.readAsStringAsync(currentDocument.uri!, {
                 encoding: FileSystem.EncodingType.Base64,
             });
-
             if (!base64String) {
                 throw new Error("Failed to convert document to Base64.");
             }
-
             const newDoc: SupportingDocument = {
                 id: `doc-${Date.now()}`,
                 uri: currentDocument.uri!,
                 name: currentDocument.name.trim(),
                 description: currentDocument.description.trim(),
-                mimeType: currentDocument.mimeType!, // Ensure mimeType is captured
-                base64: base64String, // Store the actual base64 content
+                mimeType: currentDocument.mimeType!,
+                base64: base64String,
             };
-
             setUploadedDocuments(prev => [...prev, newDoc]);
-            setCurrentDocument({ uri: null, name: '', description: '', mimeType: null }); // Reset form
+            setCurrentDocument({ uri: null, name: '', description: '', mimeType: null });
             setShowDocumentForm(false);
-            setErrors({}); // Clear errors
+            setErrors({});
         } catch (error: any) {
             Alert.alert('Upload Error', `Failed to process document: ${error.message || 'Unknown error'}.`);
+            setIsProcessing(false);
         } finally {
             setIsProcessing(false);
         }
@@ -188,33 +184,29 @@ export default function SupportingDocumentsScreen() {
     };
 
     const handleFinishOnboarding = () => {
+        setIsProcessing(true); // Show loading indicator immediately
         if (uploadedDocuments.length === 0) {
+            setIsProcessing(false);
             Alert.alert('Requirement', 'Please upload at least one supporting document to prove your skills.');
             return;
         }
-
-        // Combine all data from previous steps and this step
         const finalOnboardingData: AllOnboardingData = {
-            ...receivedOnboardingData as AllOnboardingData, // Cast to full type
-            supportingDocuments: uploadedDocuments, // Add documents from this screen
-            onboardingStatus: 'pendingVerification', // Set a status for admin review
-            submissionDate: new Date().toISOString(), // Timestamp for submission
+            ...receivedOnboardingData as AllOnboardingData,
+            supportingDocuments: uploadedDocuments,
+            onboardingStatus: 'pendingVerification',
+            submissionDate: new Date().toISOString(),
         };
-
-        // --- START: The ONLY LOG remaining ---
-        console.log("--------------------------------------------------");
-        console.log("FINAL COLLECTED ONBOARDING DATA (Passing to Profile screen):");
-        console.log(JSON.stringify(finalOnboardingData, null, 2));
-        console.log("--------------------------------------------------");
-        // --- END: The ONLY LOG remaining ---
-
-        // *** MODIFIED NAVIGATION PATH ***
-        router.push({
-            pathname: '/tasker-onboarding/profile', // Changed from submission-complete
-            params: {
-                onboardingData: JSON.stringify(finalOnboardingData), // Pass the entire object
-            },
-        });
+        try {
+            router.push({
+                pathname: '/tasker-onboarding/profile',
+                params: {
+                    onboardingData: JSON.stringify(finalOnboardingData),
+                },
+            });
+            // Do not set isProcessing to false here; let navigation handle unmount
+        } catch (error) {
+            setIsProcessing(false);
+        }
     };
 
     // Helper to render document preview
@@ -239,110 +231,117 @@ export default function SupportingDocumentsScreen() {
 
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Supporting Documents</Text>
-            </View>
-
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Upload documents or images that showcase your skills and experience. This could include academic certificates, referral letters, portfolios, or work samples in formats like JPG, PNG, or PDF.
-                </Text>
-
-                {/* Section to add a new document */}
-                {!showDocumentForm && ( // Only show "Add Document" button if form is not active
-                    <TouchableOpacity style={styles.addDocumentButton} onPress={pickDocument} disabled={isProcessing}>
-                        {isProcessing ? (
-                            <ActivityIndicator size="small" color="#4A80F0" />
-                        ) : (
-                            <>
-                                <Ionicons name="add-circle-outline" size={24} color="#4A80F0" />
-                                <Text style={styles.addDocumentButtonText}>Upload New Document</Text>
-                            </>
+        <>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+            >
+                <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+                    <View style={styles.content}>
+                        <Text style={styles.description}>
+                            Upload documents or images that showcase your skills and experience. This could include academic certificates, referral letters, portfolios, or work samples in formats like JPG, PNG, or PDF.
+                        </Text>
+                        {/* Section to add a new document */}
+                        {!showDocumentForm && (
+                            <TouchableOpacity style={styles.addDocumentButton} onPress={pickDocument} disabled={isProcessing}>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#4A80F0" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="add-circle-outline" size={24} color="#4A80F0" />
+                                        <Text style={styles.addDocumentButtonText}>Upload New Document</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
                         )}
-                    </TouchableOpacity>
-                )}
-
-                {/* Document details form (shown after picking an image/document) */}
-                {showDocumentForm && (
-                    <View style={styles.documentForm}>
-                        <Text style={styles.formTitle}>Document Details</Text>
-                        {currentDocument.uri && currentDocument.mimeType && (
-                            renderDocumentPreview(currentDocument.uri, currentDocument.mimeType)
+                        {/* Display uploaded documents */}
+                        {uploadedDocuments.length > 0 && (
+                            <View style={styles.uploadedDocumentsContainer}>
+                                <Text style={styles.sectionTitle}>Uploaded Documents</Text>
+                                {uploadedDocuments.map(doc => (
+                                    <View key={doc.id} style={styles.documentCard}>
+                                        <View style={styles.documentCardHeader}>
+                                            <Text style={styles.documentName}>{doc.name}</Text>
+                                            <TouchableOpacity onPress={() => handleRemoveDocument(doc.id)} style={styles.removeButton}>
+                                                <Ionicons name="close-circle-outline" size={24} color="#ff4444" />
+                                            </TouchableOpacity>
+                                        </View>
+                                        {doc.description ? (
+                                            <Text style={styles.documentDescription}>{doc.description}</Text>
+                                        ) : (
+                                            <Text style={styles.documentDescriptionPlaceholder}>No description provided.</Text>
+                                        )}
+                                        {renderDocumentPreview(doc.uri, doc.mimeType)}
+                                    </View>
+                                ))}
+                            </View>
                         )}
-                        <TextInput
-                            style={[styles.input, errors.name && styles.inputError]}
-                            value={currentDocument.name}
-                            onChangeText={(text) => {
-                                setCurrentDocument(prev => ({ ...prev, name: text }));
-                                if (errors.name) setErrors(prev => { const newErrors = { ...prev }; delete newErrors.name; return newErrors; });
-                            }}
-                            placeholder="Document Name (e.g., 'Plumbing Certificate', 'Client Referral')"
-                        />
-                        {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-
-                        <TextInput
-                            style={styles.descriptionInput}
-                            value={currentDocument.description}
-                            onChangeText={(text) => setCurrentDocument(prev => ({ ...prev, description: text }))}
-                            placeholder="Description (e.g., 'Certified in advanced plumbing techniques')"
-                            multiline
-                        />
-                        {errors.file && <Text style={styles.errorText}>{errors.file}</Text>}
-
-                        <TouchableOpacity style={styles.saveButton} onPress={handleAddDocument} disabled={isProcessing}>
+                        {/* Finish Onboarding Button */}
+                        <TouchableOpacity style={styles.button} onPress={handleFinishOnboarding} disabled={isProcessing}>
                             {isProcessing ? (
                                 <ActivityIndicator size="small" color="#fff" />
                             ) : (
-                                <Text style={styles.saveButtonText}>Add Document</Text>
+                                <Text style={styles.buttonText}>Finish Onboarding</Text>
                             )}
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.cancelButton} onPress={() => {
-                            setShowDocumentForm(false);
-                            setCurrentDocument({ uri: null, name: '', description: '', mimeType: null });
-                            setErrors({});
-                        }}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
                     </View>
-                )}
-
-                {/* Display uploaded documents */}
-                {uploadedDocuments.length > 0 && (
-                    <View style={styles.uploadedDocumentsContainer}>
-                        <Text style={styles.sectionTitle}>Uploaded Documents</Text>
-                        {uploadedDocuments.map(doc => (
-                            <View key={doc.id} style={styles.documentCard}>
-                                <View style={styles.documentCardHeader}>
-                                    <Text style={styles.documentName}>{doc.name}</Text>
-                                    <TouchableOpacity onPress={() => handleRemoveDocument(doc.id)} style={styles.removeButton}>
-                                        <Ionicons name="close-circle-outline" size={24} color="#ff4444" />
-                                    </TouchableOpacity>
-                                </View>
-                                {doc.description ? (
-                                    <Text style={styles.documentDescription}>{doc.description}</Text>
+                </ScrollView>
+                {/* Add Document Modal */}
+                <Modal
+                    visible={showDocumentForm}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => {
+                        setShowDocumentForm(false);
+                        setCurrentDocument({ uri: null, name: '', description: '', mimeType: null });
+                        setErrors({});
+                    }}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.formTitle}>Document Details</Text>
+                            {currentDocument.uri && currentDocument.mimeType && (
+                                renderDocumentPreview(currentDocument.uri, currentDocument.mimeType)
+                            )}
+                            <TextInput
+                                style={[styles.input, errors.name && styles.inputError]}
+                                value={currentDocument.name}
+                                onChangeText={(text) => {
+                                    setCurrentDocument(prev => ({ ...prev, name: text }));
+                                    if (errors.name) setErrors(prev => { const newErrors = { ...prev }; delete newErrors.name; return newErrors; });
+                                }}
+                                placeholder="Document Name (e.g., 'Plumbing Certificate', 'Client Referral')"
+                            />
+                            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+                            <TextInput
+                                style={styles.descriptionInput}
+                                value={currentDocument.description}
+                                onChangeText={(text) => setCurrentDocument(prev => ({ ...prev, description: text }))}
+                                placeholder="Description (e.g., 'Certified in advanced plumbing techniques')"
+                                multiline
+                            />
+                            {errors.file && <Text style={styles.errorText}>{errors.file}</Text>}
+                            <TouchableOpacity style={styles.saveButton} onPress={handleAddDocument} disabled={isProcessing}>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#fff" />
                                 ) : (
-                                    <Text style={styles.documentDescriptionPlaceholder}>No description provided.</Text>
+                                    <Text style={styles.saveButtonText}>Add Document</Text>
                                 )}
-                                {renderDocumentPreview(doc.uri, doc.mimeType)}
-                            </View>
-                        ))}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.cancelButton} onPress={() => {
+                                setShowDocumentForm(false);
+                                setCurrentDocument({ uri: null, name: '', description: '', mimeType: null });
+                                setErrors({});
+                            }}>
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                )}
-
-                {/* Finish Onboarding Button */}
-                <TouchableOpacity style={styles.button} onPress={handleFinishOnboarding} disabled={isProcessing}>
-                    {isProcessing ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Text style={styles.buttonText}>Finish Onboarding</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                </Modal>
+            </KeyboardAvoidingView>
+            <BottomBarSpace />
+        </>
     );
 }
 
@@ -350,21 +349,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,
@@ -564,5 +548,19 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '90%',
+        maxWidth: 400,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 20,
+        elevation: 5,
     },
 });

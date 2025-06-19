@@ -13,6 +13,8 @@ import { updateProfile } from 'firebase/auth';
 // Interface definitions
 export interface UserProfile {
   displayName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phoneNumber?: string;
   photoURL?: string;

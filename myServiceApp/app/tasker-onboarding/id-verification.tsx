@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image,
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 // Removed Firestore imports: getFirestore, doc, setDoc
 // Removed Firebase auth imports: getAuth
 // Removed FirebaseError import as we're not directly handling Firestore errors here
@@ -204,126 +205,119 @@ export default function IDVerificationScreen() {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={isProcessing}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>ID Verification</Text>
-            </View>
+        <>
+            <ScrollView style={styles.container}>
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        To ensure the safety and trust of our community, we need to verify your identity.
+                        Please provide your KRA PIN, ID number, and upload clear images of your ID card.
+                    </Text>
 
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    To ensure the safety and trust of our community, we need to verify your identity.
-                    Please provide your KRA PIN, ID number, and upload clear images of your ID card.
-                </Text>
-
-                <View style={styles.form}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>KRA PIN</Text>
-                        <TextInput
-                            style={[styles.input, errors.kraPin && styles.inputError]}
-                            value={formData.kraPin}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, kraPin: text.toUpperCase() }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, kraPin: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your KRA PIN (e.g., A123456789Z)"
-                            autoCapitalize="characters"
-                            maxLength={11}
-                            editable={!isProcessing}
-                        />
-                        {errors.kraPin && (
-                            <Text style={styles.errorText}>{errors.kraPin}</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>ID Number</Text>
-                        <TextInput
-                            style={[styles.input, errors.idNumber && styles.inputError]}
-                            value={formData.idNumber}
-                            onChangeText={(text) => {
-                                setFormData(prev => ({ ...prev, idNumber: text }));
-                                if (text.trim()) {
-                                    setErrors(prev => ({ ...prev, idNumber: undefined }));
-                                }
-                            }}
-                            placeholder="Enter your ID number (e.g., 12345678)"
-                            keyboardType="number-pad"
-                            maxLength={8}
-                            editable={!isProcessing}
-                        />
-                        {errors.idNumber && (
-                            <Text style={styles.errorText}>{errors.idNumber}</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>ID Card Images</Text>
-                        <Text style={styles.sublabel}>Upload clear photos of both sides of your ID</Text>
-
-                        <View style={styles.idImagesContainer}>
-                            <TouchableOpacity
-                                style={[styles.imageUploadBox, errors.idFrontImage && styles.imageUploadError]}
-                                onPress={() => pickImage('front')}
-                                disabled={isProcessing}
-                            >
-                                {formData.idFrontImage ? (
-                                    <Image
-                                        source={{ uri: formData.idFrontImage }}
-                                        style={styles.uploadedImage}
-                                    />
-                                ) : (
-                                    <>
-                                        <Ionicons name="camera-outline" size={32} color="#666" />
-                                        <Text style={styles.uploadText}>Front Side</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.imageUploadBox, errors.idBackImage && styles.imageUploadError]}
-                                onPress={() => pickImage('back')}
-                                disabled={isProcessing}
-                            >
-                                {formData.idBackImage ? (
-                                    <Image
-                                        source={{ uri: formData.idBackImage }}
-                                        style={styles.uploadedImage}
-                                    />
-                                ) : (
-                                    <>
-                                        <Ionicons name="camera-outline" size={32} color="#666" />
-                                        <Text style={styles.uploadText}>Back Side</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                    <View style={styles.form}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>KRA PIN</Text>
+                            <TextInput
+                                style={[styles.input, errors.kraPin && styles.inputError]}
+                                value={formData.kraPin}
+                                onChangeText={(text) => {
+                                    setFormData(prev => ({ ...prev, kraPin: text.toUpperCase() }));
+                                    if (text.trim()) {
+                                        setErrors(prev => ({ ...prev, kraPin: undefined }));
+                                    }
+                                }}
+                                placeholder="Enter your KRA PIN (e.g., A123456789Z)"
+                                autoCapitalize="characters"
+                                maxLength={11}
+                                editable={!isProcessing}
+                            />
+                            {errors.kraPin && (
+                                <Text style={styles.errorText}>{errors.kraPin}</Text>
+                            )}
                         </View>
-                        {(errors.idFrontImage || errors.idBackImage) && (
-                            <Text style={styles.errorText}>Both sides of ID are required</Text>
-                        )}
-                    </View>
-                </View>
 
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={handleNext}
-                    disabled={isProcessing}
-                >
-                    {isProcessing ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>ID Number</Text>
+                            <TextInput
+                                style={[styles.input, errors.idNumber && styles.inputError]}
+                                value={formData.idNumber}
+                                onChangeText={(text) => {
+                                    setFormData(prev => ({ ...prev, idNumber: text }));
+                                    if (text.trim()) {
+                                        setErrors(prev => ({ ...prev, idNumber: undefined }));
+                                    }
+                                }}
+                                placeholder="Enter your ID number (e.g., 12345678)"
+                                keyboardType="number-pad"
+                                maxLength={8}
+                                editable={!isProcessing}
+                            />
+                            {errors.idNumber && (
+                                <Text style={styles.errorText}>{errors.idNumber}</Text>
+                            )}
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>ID Card Images</Text>
+                            <Text style={styles.sublabel}>Upload clear photos of both sides of your ID</Text>
+
+                            <View style={styles.idImagesContainer}>
+                                <TouchableOpacity
+                                    style={[styles.imageUploadBox, errors.idFrontImage && styles.imageUploadError]}
+                                    onPress={() => pickImage('front')}
+                                    disabled={isProcessing}
+                                >
+                                    {formData.idFrontImage ? (
+                                        <Image
+                                            source={{ uri: formData.idFrontImage }}
+                                            style={styles.uploadedImage}
+                                        />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="camera-outline" size={32} color="#666" />
+                                            <Text style={styles.uploadText}>Front Side</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.imageUploadBox, errors.idBackImage && styles.imageUploadError]}
+                                    onPress={() => pickImage('back')}
+                                    disabled={isProcessing}
+                                >
+                                    {formData.idBackImage ? (
+                                        <Image
+                                            source={{ uri: formData.idBackImage }}
+                                            style={styles.uploadedImage}
+                                        />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="camera-outline" size={32} color="#666" />
+                                            <Text style={styles.uploadText}>Back Side</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                            {(errors.idFrontImage || errors.idBackImage) && (
+                                <Text style={styles.errorText}>Both sides of ID are required</Text>
+                            )}
+                        </View>
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={handleNext}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
                             <Text style={styles.buttonText}>Next</Text>
-                            <Ionicons name="arrow-forward" size={20} color="#fff" />
-                        </>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+            <BottomBarSpace />
+        </>
     );
 }
 
@@ -331,21 +325,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

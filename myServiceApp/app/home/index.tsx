@@ -8,11 +8,14 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase-config';
 // Screens
 import HomeScreenContent from './screens/HomeScreenContent';
 import NotificationsScreen from './screens/NotificationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChatListScreen from './screens/ChatListScreen';
+import TaskerProfileScreen from './screens/TaskerProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,6 +25,7 @@ const HomeScreen = () => {
   const insets = useSafeAreaInsets();
 
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [unreadChats, setUnreadChats] = useState(0);
 
   // Check authentication state when component mounts
   useEffect(() => {
@@ -39,6 +43,38 @@ const HomeScreen = () => {
 
     // Clean up the listener on unmount
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Listen for unread chat count (number of chats with at least one unread message)
+    let unsubscribe: (() => void) | undefined;
+    const fetchUnreadChats = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      // Query all conversations where the user is a participant
+      const conversationsRef = collection(db, 'conversations');
+      const q = query(conversationsRef, where('participants', 'array-contains', user.uid));
+      unsubscribe = onSnapshot(q, async (snapshot) => {
+        let unreadChatsCount = 0;
+        for (const docSnap of snapshot.docs) {
+          const conversationId = docSnap.id;
+          // Query unread messages for this conversation
+          const messagesQ = query(
+            collection(db, 'messages'),
+            where('conversationId', '==', conversationId),
+            where('receiverId', '==', user.uid),
+            where('read', '==', false)
+          );
+          const messagesSnap = await getDocs(messagesQ);
+          if (messagesSnap.size > 0) {
+            unreadChatsCount += 1;
+          }
+        }
+        setUnreadChats(Math.max(unreadChatsCount - 1, 0));
+      });
+    };
+    fetchUnreadChats();
+    return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
   // Show loading indicator while checking authentication
@@ -67,6 +103,28 @@ const HomeScreen = () => {
             iconName = focused ? 'person' : 'person-outline';
           }
 
+          // Add badge for Messages tab
+          if (route.name === 'Messages' && unreadChats > 0) {
+            return (
+              <View>
+                <Ionicons name={iconName as any} size={size} color={color} />
+                <View style={{
+                  position: 'absolute',
+                  right: -6,
+                  top: -3,
+                  backgroundColor: theme.colors.primary,
+                  borderRadius: 8,
+                  minWidth: 16,
+                  height: 16,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  paddingHorizontal: 3,
+                }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{unreadChats}</Text>
+                </View>
+              </View>
+            );
+          }
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary, // Use the primary color (green) for active icons

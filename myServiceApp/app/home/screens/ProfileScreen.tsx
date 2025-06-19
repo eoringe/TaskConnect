@@ -22,6 +22,11 @@ import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
 import BiometricHelper from '../utils/BiometricHelper'; // Ensure this path is correct
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '@/firebase-config';
+import * as FileSystem from 'expo-file-system';
+
+const db = getFirestore(app);
 
 const ProfileScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
@@ -30,8 +35,10 @@ const ProfileScreen = () => {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageBase64, setProfileImageBase64] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [hasTaskerProfile, setHasTaskerProfile] = useState(false);
 
   // Mock data for profile sections
   const accountInfo = [
@@ -61,6 +68,41 @@ const ProfileScreen = () => {
 
   useEffect(() => {
     loadUserData();
+    // Check if user has a tasker profile
+    const checkTaskerProfile = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const docRef = doc(db, 'taskers', user.uid);
+        const docSnap = await getDoc(docRef);
+        setHasTaskerProfile(docSnap.exists());
+      }
+    };
+    checkTaskerProfile();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserProfileImage = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData.profileImageBase64) {
+              setProfileImageBase64(userData.profileImageBase64);
+              setProfileImage(null); // Use null instead of undefined
+              return;
+            }
+          }
+          // Fallback to photoURL if no base64
+          setProfileImage(user.photoURL);
+        } catch (err) {
+          setProfileImage(user.photoURL);
+        }
+      }
+    };
+    fetchUserProfileImage();
   }, []);
 
   const loadUserData = () => {
@@ -75,12 +117,10 @@ const ProfileScreen = () => {
   const pickImage = async () => {
     // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (status !== 'granted') {
       Alert.alert('Permission Denied', 'We need permission to access your photos to set a profile picture.');
       return;
     }
-
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -88,11 +128,12 @@ const ProfileScreen = () => {
         aspect: [1, 1],
         quality: 0.7,
       });
-
       if (!result.canceled) {
-        // For now, just update the local profile and Firebase Auth
-        // without uploading to Storage since that's causing errors
-        updateLocalProfileImage(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        updateLocalProfileImage(uri);
+        // Convert to base64 and save
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        setProfileImageBase64(base64);
       }
     } catch (error) {
       console.error("Error picking image:", error);
@@ -173,6 +214,11 @@ const ProfileScreen = () => {
     }
   };
 
+  const base64ToImageSource = (base64String: string | null) => {
+    if (!base64String) return undefined;
+    return { uri: `data:image/jpeg;base64,${base64String}` };
+  };
+
   const renderProfileHeader = () => (
     <View style={styles.profileHeader}>
       <View style={styles.profileImageContainer}>
@@ -182,14 +228,18 @@ const ProfileScreen = () => {
           </View>
         ) : (
           <>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            {profileImageBase64 ? (
+              <Image
+                source={base64ToImageSource(profileImageBase64)}
+                style={styles.profileImage}
+              />
+            ) : profileImage ? (
+              <Image
+                source={{ uri: profileImage }}
+                style={styles.profileImage}
+              />
             ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Text style={styles.profileImagePlaceholderText}>
-                  {userName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Ionicons name="person-circle" size={90} color={theme.colors.primary} />
             )}
             <TouchableOpacity
               style={styles.editImageButton}
@@ -271,8 +321,12 @@ const ProfileScreen = () => {
           {accountInfo.map(item => renderItem(item))}
 
           {/* NEW: Tasker Information Section */}
-          {renderSectionHeader('Tasker Information')}
-          {taskerInfo.map(item => renderItem(item))}
+          {hasTaskerProfile && (
+            <>
+              {renderSectionHeader('Tasker Information')}
+              {taskerInfo.map(item => renderItem(item))}
+            </>
+          )}
 
           {renderSectionHeader('App Settings')}
           {appSettings.map(item => renderItem(item))}

@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDocs, collection, writeBatch } from 'firebase/firestore';
 import { app } from '@/firebase-config'; // Adjust path as needed for your project structure
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
@@ -249,6 +249,48 @@ const TaskerProfileScreen = () => {
     );
   };
 
+  const handleDeleteProfile = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Authentication Error', 'You must be logged in to delete your profile.');
+      return;
+    }
+    Alert.alert('Delete Profile', 'Are you sure you want to delete your tasker profile? This action cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          setLoading(true);
+          try {
+            console.log('Attempting to delete tasker profile for UID:', currentUser.uid);
+            // 1. Delete the tasker document
+            await deleteDoc(doc(db, 'taskers', currentUser.uid));
+            console.log('Deleted tasker document for UID:', currentUser.uid);
+            // 2. Remove all services by this tasker from serviceCategories
+            if (taskerData?.services && taskerData.services.length > 0) {
+              const batch = writeBatch(db);
+              for (const service of taskerData.services) {
+                const categoryDocRef = doc(db, 'serviceCategories', service.category);
+                console.log('Removing service from category:', service.category, service);
+                batch.update(categoryDocRef, {
+                  services: arrayRemove(service)
+                });
+              }
+              await batch.commit();
+              console.log('Batch update committed for serviceCategories.');
+            }
+            Alert.alert('Profile Deleted', 'Your tasker profile has been deleted.');
+            router.replace('/home');
+          } catch (err) {
+            console.error('Failed to delete tasker profile:', err);
+            Alert.alert('Error', 'Failed to delete profile. Please try again.');
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    ]);
+  };
+
   // Content for the ListHeaderComponent - MUST be called unconditionally
   const renderHeaderContent = useMemo(() => {
     // Only render if taskerData is available
@@ -435,8 +477,6 @@ const TaskerProfileScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* <StatusBarSpace /> */}
-
       <FlatList
         data={flatListData}
         // Ensure unique keys for FlatList items using the 'id' property we added
@@ -516,6 +556,12 @@ const TaskerProfileScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {taskerData && (
+        <TouchableOpacity style={{ margin: 20, backgroundColor: theme.colors.error, padding: 14, borderRadius: 8, alignItems: 'center' }} onPress={handleDeleteProfile}>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete Tasker Profile</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

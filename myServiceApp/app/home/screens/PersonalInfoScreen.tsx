@@ -30,6 +30,8 @@ const PersonalInfoScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [userData, setUserData] = useState<Partial<UserProfile>>({
+    firstName: '',
+    lastName: '',
     displayName: '',
     email: '',
     phoneNumber: '',
@@ -53,25 +55,23 @@ const PersonalInfoScreen = () => {
       }
       
       const userProfile = await getUserProfile();
-      
-      if (userProfile) {
-        setUserData({
-          displayName: userProfile.displayName || user.displayName || '',
-          email: userProfile.email || user.email || '',
-          phoneNumber: userProfile.phoneNumber || user.phoneNumber || '',
-          userType: userProfile.userType || ''
-        });
-      } else {
-        // Use auth data if Firestore document doesn't exist
-        setUserData({
-          displayName: user.displayName || '',
-          email: user.email || '',
-          phoneNumber: user.phoneNumber || '',
-          userType: ''
-        });
+      let firstName = '';
+      let lastName = '';
+      if (userProfile && userProfile.displayName) {
+        const nameParts = userProfile.displayName.split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
       }
+      
+      setUserData({
+        firstName,
+        lastName,
+        displayName: userProfile?.displayName || user.displayName || '',
+        email: userProfile?.email || user.email || '',
+        phoneNumber: userProfile?.phoneNumber || user.phoneNumber || '',
+        userType: userProfile?.userType || ''
+      });
     } catch (error) {
-    
       Alert.alert('Error', 'Failed to load user data. Please try again.');
     } finally {
       setIsLoading(false);
@@ -87,12 +87,14 @@ const PersonalInfoScreen = () => {
         return;
       }
       
-      // Update user profile using our service
+      // Combine first and last name for displayName
+      const displayName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
       await updateUserProfile({
-        displayName: userData.displayName,
+        displayName,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         phoneNumber: userData.phoneNumber,
         userType: userData.userType,
-        // Don't update email here as it requires special auth methods
       });
       
       Alert.alert('Success', 'Profile updated successfully');
@@ -191,17 +193,29 @@ const PersonalInfoScreen = () => {
           <Text style={styles.sectionTitle}>Account Information</Text>
           
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Name</Text>
+            <Text style={styles.infoLabel}>First Name</Text>
             {editMode ? (
               <TextInput
                 style={styles.infoInput}
-                value={userData.displayName}
-                onChangeText={(text) => setUserData({...userData, displayName: text})}
-                placeholder="Enter your name"
-                placeholderTextColor={theme.colors.textLight}
+                value={userData.firstName}
+                onChangeText={(text) => setUserData({ ...userData, firstName: text })}
+                placeholder="Enter your first name"
               />
             ) : (
-              <Text style={styles.infoValue}>{userData.displayName || 'Not set'}</Text>
+              <Text style={styles.infoValue}>{userData.firstName}</Text>
+            )}
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Last Name</Text>
+            {editMode ? (
+              <TextInput
+                style={styles.infoInput}
+                value={userData.lastName}
+                onChangeText={(text) => setUserData({ ...userData, lastName: text })}
+                placeholder="Enter your last name"
+              />
+            ) : (
+              <Text style={styles.infoValue}>{userData.lastName}</Text>
             )}
           </View>
           

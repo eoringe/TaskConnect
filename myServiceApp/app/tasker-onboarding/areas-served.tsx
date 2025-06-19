@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import debounce from 'lodash.debounce';
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 // --- Firebase Imports (No longer directly used for saving on this screen) ---
 // import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -59,8 +60,7 @@ export default function AreasServedScreen() {
     const [loadingSearch, setLoadingSearch] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
-    // Removed isSaving state as saving is no longer done on this screen
-    // const [isSaving, setIsSaving] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
         if (!receivedOnboardingData) {
@@ -161,135 +161,126 @@ export default function AreasServedScreen() {
         Keyboard.dismiss();
     };
 
-    // Renamed back to handleNext as it no longer saves, but navigates
     const handleNext = async () => {
         if (selectedAreas.length === 0) {
             setError('Please select at least one area where you are available to work.');
             return;
         }
-
         if (!receivedOnboardingData) {
             Alert.alert('Error', 'Onboarding data from previous steps is missing. Please restart.');
             router.replace('/tasker-onboarding/personal-details');
             return;
         }
-
-        // 2. Combine all collected data into a single object
+        setIsProcessing(true);
         const allCombinedData: AllOnboardingData = {
-            ...receivedOnboardingData, // Includes personalDetails and IDVerificationFormData
-            areasServed: selectedAreas, // Add data from this screen
+            ...receivedOnboardingData,
+            areasServed: selectedAreas,
         };
-
-        // --- START: ADDED LOGGING HERE ---
-        console.log("--------------------------------------------------");
-        console.log("ALL COLLECTED ONBOARDING DATA (Passing to next screen):");
-        console.log(JSON.stringify(allCombinedData, null, 2));
-        console.log("--------------------------------------------------");
-        // --- END: ADDED LOGGING HERE ---
-
-        // 3. Pass the combined data as a JSON string to the next route
-        router.push({
-            pathname: '/tasker-onboarding/services',
-            params: {
-                onboardingData: JSON.stringify(allCombinedData),
-            },
-        });
+        try {
+            router.push({
+                pathname: '/tasker-onboarding/services',
+                params: {
+                    onboardingData: JSON.stringify(allCombinedData),
+                },
+            });
+        } catch (error) {
+            setIsProcessing(false);
+        }
     };
 
     return (
-        <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-            <View style={styles.header}>
-                {/* Removed disabled={isSaving} as isSaving state is gone */}
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Areas Served</Text>
-            </View>
+        <>
+            <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        Specify the areas where you're available to work by searching for specific locations, towns, or neighborhoods.
+                    </Text>
 
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Specify the areas where you're available to work by searching for specific locations, towns, or neighborhoods.
-                </Text>
-
-                {/* Search Input Section */}
-                <View style={styles.searchSection}>
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search for a location (e.g., Kilimani, Ruiru)"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        onFocus={() => setIsInputFocused(true)}
-                        onBlur={() => {
-                            setTimeout(() => setIsInputFocused(false), 200);
-                        }}
-                        autoCapitalize="words"
-                        returnKeyType="search"
-                        onSubmitEditing={() => {
-                            if (searchQuery.trim().length >= 3) {
-                                fetchMapboxResults(searchQuery);
-                            }
-                        }}
-                        // Removed editable={!isSaving}
-                    />
-                    {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
-                    {searchQuery.length > 0 && !loadingSearch && (
-                        <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }} style={styles.clearSearchButton}>
-                            <Ionicons name="close-circle" size={20} color="#999" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Search Results Display */}
-                {isInputFocused && searchResults.length > 0 && (
-                    <View style={styles.searchResultsContainer}>
-                        <Text style={styles.searchResultsTitle}>Suggestions</Text>
-                        {searchResults.map((area, index) => (
-                            <TouchableOpacity
-                                key={area + index}
-                                style={styles.searchResultItem}
-                                onPress={() => toggleArea(area)}
-                                // Removed disabled={isSaving}
-                            >
-                                <Text style={styles.searchResultText}>{area}</Text>
-                                {selectedAreas.includes(area) && (
-                                    <Ionicons name="checkmark-circle" size={20} color="#4A80F0" />
-                                )}
+                    {/* Search Input Section */}
+                    <View style={styles.searchSection}>
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search for a location (e.g., Kilimani, Ruiru)"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            onFocus={() => setIsInputFocused(true)}
+                            onBlur={() => {
+                                setTimeout(() => setIsInputFocused(false), 200);
+                            }}
+                            autoCapitalize="words"
+                            returnKeyType="search"
+                            onSubmitEditing={() => {
+                                if (searchQuery.trim().length >= 3) {
+                                    fetchMapboxResults(searchQuery);
+                                }
+                            }}
+                            // Removed editable={!isSaving}
+                        />
+                        {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
+                        {searchQuery.length > 0 && !loadingSearch && (
+                            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }} style={styles.clearSearchButton}>
+                                <Ionicons name="close-circle" size={20} color="#999" />
                             </TouchableOpacity>
-                        ))}
+                        )}
                     </View>
-                )}
 
-                {/* Display Selected Areas */}
-                {selectedAreas.length > 0 && (
-                    <View style={styles.selectedAreasContainer}>
-                        <Text style={styles.sectionTitle}>Your Selected Service Areas</Text>
-                        <View style={styles.selectedAreasList}>
-                            {selectedAreas.map((area) => (
-                                <View key={area} style={styles.selectedAreaTag}>
-                                    <Text style={styles.selectedAreaText}>{area}</Text>
-                                    {/* Removed disabled={isSaving} */}
-                                    <TouchableOpacity onPress={() => toggleArea(area)}>
-                                        <Ionicons name="close-circle" size={20} color="#666" />
-                                    </TouchableOpacity>
-                                </View>
+                    {/* Search Results Display */}
+                    {isInputFocused && searchResults.length > 0 && (
+                        <View style={styles.searchResultsContainer}>
+                            <Text style={styles.searchResultsTitle}>Suggestions</Text>
+                            {searchResults.map((area, index) => (
+                                <TouchableOpacity
+                                    key={area + index}
+                                    style={styles.searchResultItem}
+                                    onPress={() => toggleArea(area)}
+                                    // Removed disabled={isSaving}
+                                >
+                                    <Text style={styles.searchResultText}>{area}</Text>
+                                    {selectedAreas.includes(area) && (
+                                        <Ionicons name="checkmark-circle" size={20} color="#4A80F0" />
+                                    )}
+                                </TouchableOpacity>
                             ))}
                         </View>
-                    </View>
-                )}
+                    )}
 
-                {/* Error Display */}
-                {error && (
-                    <Text style={styles.errorText}>{error}</Text>
-                )}
+                    {/* Display Selected Areas */}
+                    {selectedAreas.length > 0 && (
+                        <View style={styles.selectedAreasContainer}>
+                            <Text style={styles.sectionTitle}>Your Selected Service Areas</Text>
+                            <View style={styles.selectedAreasList}>
+                                {selectedAreas.map((area) => (
+                                    <View key={area} style={styles.selectedAreaTag}>
+                                        <Text style={styles.selectedAreaText}>{area}</Text>
+                                        {/* Removed disabled={isSaving} */}
+                                        <TouchableOpacity onPress={() => toggleArea(area)}>
+                                            <Ionicons name="close-circle" size={20} color="#666" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
 
-                {/* Next Button (back to original behavior) */}
-                {/* Removed disabled={isSaving} and ActivityIndicator */}
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                    {/* Error Display */}
+                    {error && (
+                        <Text style={styles.errorText}>{error}</Text>
+                    )}
+
+                    {/* Next Button (back to original behavior) */}
+                    {/* Removed disabled={isSaving} and ActivityIndicator */}
+                    <TouchableOpacity style={styles.button} onPress={handleNext} disabled={isProcessing}>
+                        {isProcessing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Next</Text>
+                        )}
+                        <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+            <BottomBarSpace />
+        </>
     );
 }
 
@@ -297,21 +288,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

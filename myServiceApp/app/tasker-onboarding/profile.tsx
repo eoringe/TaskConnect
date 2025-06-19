@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { getDoc } from 'firebase/firestore';
 
 // Import Firebase (adjust path as needed for your project structure)
 import { getAuth } from 'firebase/auth'; // For getting the current user
@@ -98,6 +99,27 @@ export default function ProfileScreen() {
         }
     }, [receivedOnboardingData]);
 
+    useEffect(() => {
+        const prefillFromUsersCollection = async () => {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                try {
+                    const userDocRef = doc(db, 'users', currentUser.uid);
+                    const userDocSnap = await getDoc(userDocRef);
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        if (userData.profileImageBase64 && !profileImageBase64) {
+                            setProfileImageBase64(userData.profileImageBase64);
+                            setProfileImageUri(null);
+                        }
+                    }
+                } catch (err) {
+                    // Ignore errors, just don't prefill
+                }
+            }
+        };
+        prefillFromUsersCollection();
+    }, []);
 
     const pickImage = async () => {
         setIsProcessing(true);
@@ -159,174 +181,120 @@ export default function ProfileScreen() {
     };
 
     const handleComplete = async () => {
+        setIsSaving(true); // Show spinner immediately
         if (validateForm()) {
             const currentUser = auth.currentUser;
             if (!currentUser) {
+                setIsSaving(false);
                 Alert.alert("Authentication Error", "You must be logged in to complete your profile.");
-                router.replace('/login'); // Redirect to login or appropriate screen
+                router.replace('/login');
                 return;
             }
-
-            setIsSaving(true); // Start saving indicator
-
             const finalOnboardingData: AllOnboardingData = {
                 ...receivedOnboardingData as AllOnboardingData,
                 profileImageBase64: profileImageBase64,
                 bio: bio.trim(),
-                onboardingStatus: 'completed', // Set status to completed upon successful profile creation
+                onboardingStatus: 'completed',
                 submissionDate: new Date().toISOString(),
             };
-
             try {
-                // 1. Save all collected data to Firestore in the 'taskers' collection
-                // The document ID will be the user's UID
                 await setDoc(doc(db, 'taskers', currentUser.uid), finalOnboardingData);
-
-                // 2. Save services to the 'serviceCategories' collection
                 if (finalOnboardingData.services && finalOnboardingData.services.length > 0) {
                     for (const service of finalOnboardingData.services) {
                         const serviceWithTaskerId = {
                             ...service,
-                            taskerId: currentUser.uid // Include the UID of the authenticated user
+                            taskerId: currentUser.uid
                         };
-
-                        // Use the category name as the document ID in 'serviceCategories'
-                        // If the document doesn't exist, it will be created.
-                        // If it exists, 'arrayUnion' will add the service to the 'services' array
-                        // without duplicating existing identical service objects.
                         const categoryDocRef = doc(db, 'serviceCategories', service.category);
                         await updateDoc(categoryDocRef, {
                             services: arrayUnion(serviceWithTaskerId)
                         });
                     }
                 }
-
-                console.log("--------------------------------------------------");
-                console.log("TASKER PROFILE SAVED TO FIRESTORE (truncated Base64 for log):");
-                const dataToLog = { ...finalOnboardingData };
-                if (dataToLog.profileImageBase64) {
-                    dataToLog.profileImageBase64 = dataToLog.profileImageBase64.substring(0, 50) + "...[TRUNCATED]";
-                }
-                if (dataToLog.idFrontImageBase64) {
-                    dataToLog.idFrontImageBase64 = dataToLog.idFrontImageBase64.substring(0, 50) + "...[TRUNCATED]";
-                }
-                if (dataToLog.idBackImageBase64) {
-                    dataToLog.idBackImageBase64 = dataToLog.idBackImageBase64.substring(0, 50) + "...[TRUNCATED]";
-                }
-                if (dataToLog.supportingDocuments) {
-                    dataToLog.supportingDocuments = dataToLog.supportingDocuments.map(doc => ({
-                        ...doc,
-                        base64: doc.base64.substring(0, 50) + "...[TRUNCATED]"
-                    }));
-                }
-                console.log(JSON.stringify(dataToLog, null, 2));
-                console.log("Document ID (taskers):", currentUser.uid);
-                console.log("Services also saved to respective serviceCategories documents.");
-                console.log("--------------------------------------------------");
-
-
-                Alert.alert(
-                    'Profile Complete',
-                    'Your tasker profile has been created and submitted successfully!',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => router.push('/home/screens/TaskerProfileScreen'),
-                        },
-                    ]
-                );
-
-            } catch (error: any) {
-                console.error("Error saving profile data to Firestore:", error);
-                Alert.alert(
-                    'Save Error',
-                    `Failed to save your profile: ${error.message || 'Please check your internet connection and try again.'}`
-                );
-            } finally {
-                setIsSaving(false); // Stop saving indicator
+                router.replace('/'); // Switch to Home tab
+                // Do not set isSaving to false here; let navigation handle unmount
+            } catch (error) {
+                setIsSaving(false);
             }
+        } else {
+            setIsSaving(false);
         }
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Profile Setup</Text>
-            </View>
+        <View style={{ flex: 1 }}>
+            <ScrollView style={styles.container}>
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        Add a profile photo and bio to help clients get to know you better.
+                    </Text>
 
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Add a profile photo and bio to help clients get to know you better.
-                </Text>
+                    <View style={styles.photoSection}>
+                        <TouchableOpacity
+                            style={[styles.photoUpload, errors.image && styles.photoUploadError]}
+                            onPress={pickImage}
+                            disabled={isProcessing || isSaving}
+                        >
+                            {isProcessing ? (
+                                <ActivityIndicator size="large" color="#4A80F0" />
+                            ) : profileImageUri ? (
+                                <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+                            ) : (
+                                <>
+                                    <Ionicons name="camera-outline" size={40} color="#666" />
+                                    <Text style={styles.photoUploadText}>Add Profile Photo</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                        {errors.image && (
+                            <Text style={styles.errorText}>{errors.image}</Text>
+                        )}
+                    </View>
 
-                <View style={styles.photoSection}>
-                    <TouchableOpacity
-                        style={[styles.photoUpload, errors.image && styles.photoUploadError]}
-                        onPress={pickImage}
-                        disabled={isProcessing || isSaving}
-                    >
-                        {isProcessing ? (
-                            <ActivityIndicator size="large" color="#4A80F0" />
-                        ) : profileImageUri ? (
-                            <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+                    <View style={styles.bioSection}>
+                        <Text style={styles.label}>Professional Bio</Text>
+                        <Text style={styles.sublabel}>
+                            Tell clients about your experience, skills, and what makes you great at what you do.
+                        </Text>
+                        <TextInput
+                            style={[styles.bioInput, errors.bio && styles.inputError]}
+                            value={bio}
+                            onChangeText={(text) => {
+                                setBio(text);
+                                if (errors.bio && text.trim().length >= 50 && text.trim().length <= 200) {
+                                    setErrors(prev => {
+                                        const { bio, ...rest } = prev;
+                                        return rest;
+                                    });
+                                }
+                            }}
+                            placeholder="Write your bio here..."
+                            multiline
+                            textAlignVertical="top"
+                            maxLength={200}
+                            editable={!isSaving}
+                        />
+                        <Text style={styles.charCount}>
+                            {bio.length}/200 characters (minimum 50)
+                        </Text>
+                        {errors.bio && (
+                            <Text style={styles.errorText}>{errors.bio}</Text>
+                        )}
+                    </View>
+
+                    <TouchableOpacity style={styles.button} onPress={handleComplete} disabled={isProcessing || isSaving}>
+                        {(isProcessing || isSaving) ? (
+                            <ActivityIndicator size="small" color="#fff" />
                         ) : (
                             <>
-                                <Ionicons name="camera-outline" size={40} color="#666" />
-                                <Text style={styles.photoUploadText}>Add Profile Photo</Text>
+                                <Text style={styles.buttonText}>Complete Profile</Text>
+                                <Ionicons name="checkmark-circle" size={20} color="#fff" />
                             </>
                         )}
                     </TouchableOpacity>
-                    {errors.image && (
-                        <Text style={styles.errorText}>{errors.image}</Text>
-                    )}
                 </View>
-
-                <View style={styles.bioSection}>
-                    <Text style={styles.label}>Professional Bio</Text>
-                    <Text style={styles.sublabel}>
-                        Tell clients about your experience, skills, and what makes you great at what you do.
-                    </Text>
-                    <TextInput
-                        style={[styles.bioInput, errors.bio && styles.inputError]}
-                        value={bio}
-                        onChangeText={(text) => {
-                            setBio(text);
-                            if (errors.bio && text.trim().length >= 50 && text.trim().length <= 200) {
-                                setErrors(prev => {
-                                    const { bio, ...rest } = prev;
-                                    return rest;
-                                });
-                            }
-                        }}
-                        placeholder="Write your bio here..."
-                        multiline
-                        textAlignVertical="top"
-                        maxLength={200}
-                        editable={!isSaving}
-                    />
-                    <Text style={styles.charCount}>
-                        {bio.length}/200 characters (minimum 50)
-                    </Text>
-                    {errors.bio && (
-                        <Text style={styles.errorText}>{errors.bio}</Text>
-                    )}
-                </View>
-
-                <TouchableOpacity style={styles.button} onPress={handleComplete} disabled={isProcessing || isSaving}>
-                    {isSaving ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <>
-                            <Text style={styles.buttonText}>Complete Profile</Text>
-                            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                        </>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </View>
     );
 }
 
@@ -334,21 +302,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 type PaymentMethod = 'mpesa' | 'cash' | 'card';
 
@@ -20,6 +21,7 @@ export default function PaymentMethodsScreen() {
     });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [showMpesaModal, setShowMpesaModal] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const paymentMethods = [
         { id: 'mpesa', label: 'M-Pesa', icon: 'phone-portrait-outline' },
@@ -68,72 +70,76 @@ export default function PaymentMethodsScreen() {
 
     const handleNext = () => {
         if (validateForm()) {
-            router.push({
-                pathname: '/tasker-onboarding/profile',
-                params: {
-                    personalDetails: params.personalDetails,
-                    idVerification: params.idVerification,
-                    areasServed: params.areasServed,
-                    services: params.services,
-                    paymentMethods: JSON.stringify({
-                        methods: selectedMethods,
-                        mpesaDetails: selectedMethods.includes('mpesa') ? mpesaDetails : null,
-                    }),
-                },
-            });
+            setIsProcessing(true);
+            try {
+                router.push({
+                    pathname: '/tasker-onboarding/profile',
+                    params: {
+                        personalDetails: params.personalDetails,
+                        idVerification: params.idVerification,
+                        areasServed: params.areasServed,
+                        services: params.services,
+                        paymentMethods: JSON.stringify({
+                            methods: selectedMethods,
+                            mpesaDetails: selectedMethods.includes('mpesa') ? mpesaDetails : null,
+                        }),
+                    },
+                });
+            } catch (error) {
+                setIsProcessing(false);
+            }
         }
     };
 
     return (
-        <View style={styles.container}>
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color="#333" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Payment Methods</Text>
-                </View>
+        <>
+            <View style={styles.container}>
+                <ScrollView style={styles.scrollView}>
+                    <View style={styles.content}>
+                        <Text style={styles.description}>
+                            Select the payment methods you want to accept from clients.
+                        </Text>
 
-                <View style={styles.content}>
-                    <Text style={styles.description}>
-                        Select the payment methods you want to accept from clients.
-                    </Text>
+                        <View style={styles.methodsContainer}>
+                            {paymentMethods.map((method) => (
+                                <TouchableOpacity
+                                    key={method.id}
+                                    style={[
+                                        styles.methodButton,
+                                        selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonSelected,
+                                    ]}
+                                    onPress={() => togglePaymentMethod(method.id as PaymentMethod)}
+                                >
+                                    <Ionicons
+                                        name={method.icon as any}
+                                        size={24}
+                                        color={selectedMethods.includes(method.id as PaymentMethod) ? '#fff' : '#666'}
+                                    />
+                                    <Text style={[
+                                        styles.methodButtonText,
+                                        selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonTextSelected,
+                                    ]}>
+                                        {method.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
-                    <View style={styles.methodsContainer}>
-                        {paymentMethods.map((method) => (
-                            <TouchableOpacity
-                                key={method.id}
-                                style={[
-                                    styles.methodButton,
-                                    selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonSelected,
-                                ]}
-                                onPress={() => togglePaymentMethod(method.id as PaymentMethod)}
-                            >
-                                <Ionicons
-                                    name={method.icon as any}
-                                    size={24}
-                                    color={selectedMethods.includes(method.id as PaymentMethod) ? '#fff' : '#666'}
-                                />
-                                <Text style={[
-                                    styles.methodButtonText,
-                                    selectedMethods.includes(method.id as PaymentMethod) && styles.methodButtonTextSelected,
-                                ]}>
-                                    {method.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                        {errors.methods && (
+                            <Text style={styles.errorText}>{errors.methods}</Text>
+                        )}
+
+                        <TouchableOpacity style={styles.button} onPress={handleNext} disabled={isProcessing}>
+                            {isProcessing ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Text style={styles.buttonText}>Next</Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
-
-                    {errors.methods && (
-                        <Text style={styles.errorText}>{errors.methods}</Text>
-                    )}
-
-                    <TouchableOpacity style={styles.button} onPress={handleNext}>
-                        <Text style={styles.buttonText}>Next</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </View>
+            <BottomBarSpace />
 
             {/* M-Pesa Details Modal */}
             <Modal
@@ -215,7 +221,7 @@ export default function PaymentMethodsScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </>
     );
 }
 
@@ -226,21 +232,6 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

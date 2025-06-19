@@ -53,7 +53,9 @@ const BecomeTaskerCard = () => {
 
 const createStyles = createThemedStyles(theme => ({
   becomeTaskerCard: {
-    margin: 20,
+    marginLeft: 20,
+    marginRight: 20,
+    marginTop: 0,
     borderRadius: 20,
     backgroundColor: theme.dark ? theme.colors.card : '#f8f9fd',
     overflow: 'hidden',

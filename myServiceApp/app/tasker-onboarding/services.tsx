@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, getFirestore } from 'firebase/firestore'; // Import Firestore functions
 import { app } from '../../firebase-config'; // Assuming you have your firebase app config here
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -68,6 +69,8 @@ export default function ServicesScreen() {
     const [availableCategories, setAvailableCategories] = useState<ServiceCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [fetchingError, setFetchingError] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [isProcessingCustom, setIsProcessingCustom] = useState(false);
 
     // Effect to fetch service categories from Firestore
     useEffect(() => {
@@ -155,6 +158,9 @@ export default function ServicesScreen() {
         } else if (!validateRate(service.rate)) {
             newErrors[service.id + '_rate'] = 'Rate must be a number or a range (e.g., 5000 or 5000-6000)';
         }
+        if (!service.description.trim()) {
+            newErrors[service.id + '_description'] = 'Description is required';
+        }
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -175,8 +181,8 @@ export default function ServicesScreen() {
     };
 
     const handleCustomServiceAdd = () => {
+        setIsProcessingCustom(true); // Show spinner immediately
         const newErrors: {[key: string]: string} = {};
-
         if (!customService.title.trim()) {
             newErrors.customTitle = 'Service title is required';
         }
@@ -185,38 +191,44 @@ export default function ServicesScreen() {
         } else if (!validateRate(customService.rate)) {
             newErrors.customRate = 'Rate must be a number or a range (e.g., 5000 or 5000-6000)';
         }
-
+        if (!customService.description.trim()) {
+            newErrors.customDescription = 'Description is required';
+        }
         if (Object.keys(newErrors).length > 0) {
+            setIsProcessingCustom(false);
             setErrors(newErrors);
             return;
         }
-
-        const newService: Service = {
-            id: `custom-${Date.now()}`,
-            category: 'Custom',
-            title: customService.title.trim(),
-            rate: customService.rate,
-            description: customService.description.trim(),
-            isCustom: true,
-        };
-
-        setSelectedServices(prev => [...prev, newService]);
-        setCustomService({ title: '', rate: '', description: '' });
-        setShowCustomForm(false);
-        setErrors({});
+        try {
+            const newService: Service = {
+                id: `custom-${Date.now()}`,
+                category: 'Custom',
+                title: customService.title.trim(),
+                rate: customService.rate,
+                description: customService.description.trim(),
+                isCustom: true,
+            };
+            setSelectedServices(prev => [...prev, newService]);
+            setCustomService({ title: '', rate: '', description: '' });
+            setShowCustomForm(false);
+            setErrors({});
+        } finally {
+            setIsProcessingCustom(false);
+        }
     };
 
     const handleNext = () => {
+        setIsProcessing(true); // Show spinner immediately
         if (selectedServices.length === 0) {
+            setIsProcessing(false);
             Alert.alert('Error', 'Please select at least one service and set its details.');
             return;
         }
-
         const incompleteServices = selectedServices.filter(s =>
             !s.title.trim() || !s.rate.trim() || !validateRate(s.rate)
         );
-
         if (incompleteServices.length > 0) {
+            setIsProcessing(false);
             Alert.alert(
                 'Incomplete Services',
                 'Please ensure all selected services have a valid title and rate saved. Rate must be a number or a range (e.g., 5000 or 5000-6000).'
@@ -224,23 +236,21 @@ export default function ServicesScreen() {
             setEditingService(incompleteServices[0]);
             return;
         }
-
         const dataToPass: AllOnboardingData = {
             ...receivedOnboardingData as AllOnboardingData,
             services: selectedServices,
         };
-
-        console.log("--------------------------------------------------");
-        console.log("ALL COLLECTED ONBOARDING DATA (Passing to Supporting Documents screen):");
-        console.log(JSON.stringify(dataToPass, null, 2));
-        console.log("--------------------------------------------------");
-
-        router.push({
-            pathname: '/tasker-onboarding/supporting-documents',
-            params: {
-                onboardingData: JSON.stringify(dataToPass),
-            },
-        });
+        try {
+            router.push({
+                pathname: '/tasker-onboarding/supporting-documents',
+                params: {
+                    onboardingData: JSON.stringify(dataToPass),
+                },
+            });
+            // Do not set isProcessing to false here; let navigation handle unmount
+        } catch (error) {
+            setIsProcessing(false);
+        }
     };
 
     const renderServiceEditor = (service: Service) => (
@@ -283,14 +293,17 @@ export default function ServicesScreen() {
                 <Text style={styles.errorText}>{errors[service.id + '_rate']}</Text>
             )}
 
-            <Text style={styles.serviceEditorTitleLabel}>Description (Optional)</Text>
+            <Text style={styles.serviceEditorTitleLabel}>Description</Text>
             <TextInput
-                style={styles.descriptionInput}
+                style={[styles.descriptionInput, errors[service.id + '_description'] && styles.inputError]}
                 value={service.description}
                 onChangeText={(text) => setEditingService({ ...service, description: text })}
                 placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
                 multiline
             />
+            {errors[service.id + '_description'] && (
+                <Text style={styles.errorText}>{errors[service.id + '_description']}</Text>
+            )}
             <TouchableOpacity
                 style={styles.saveButton}
                 onPress={() => handleServiceSave(service)}
@@ -313,138 +326,158 @@ export default function ServicesScreen() {
     );
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Services & Pricing</Text>
-            </View>
+        <>
+            <ScrollView style={styles.container}>
+                <View style={styles.content}>
+                    <Text style={styles.description}>
+                        Select the service categories you want to offer. For each, you can define a specific title, rate, and description.
+                    </Text>
 
-            <View style={styles.content}>
-                <Text style={styles.description}>
-                    Select the service categories you want to offer. For each, you can define a specific title, rate, and description.
-                </Text>
+                    <Text style={styles.sectionTitle}>Available Service Categories</Text>
+                    {loading ? (
+                        <ActivityIndicator size="large" color="#4A80F0" />
+                    ) : fetchingError ? (
+                        <Text style={styles.errorText}>{fetchingError}</Text>
+                    ) : (
+                        <View style={styles.servicesGrid}>
+                            {availableCategories.map((service) => {
+                                const isSelected = selectedServices.some(s => s.id === service.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={service.id}
+                                        style={[
+                                            styles.serviceButton,
+                                            isSelected && styles.serviceButtonSelected,
+                                        ]}
+                                        onPress={() => handleServiceSelect(service.id, service.name)}
+                                    >
+                                        <Ionicons
+                                            name={service.icon as any}
+                                            size={24}
+                                            color={isSelected ? '#fff' : '#666'}
+                                        />
+                                        <Text style={[
+                                            styles.serviceButtonText,
+                                            isSelected && styles.serviceButtonTextSelected,
+                                        ]}>
+                                            {service.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
 
-                <Text style={styles.sectionTitle}>Available Service Categories</Text>
-                {loading ? (
-                    <ActivityIndicator size="large" color="#4A80F0" />
-                ) : fetchingError ? (
-                    <Text style={styles.errorText}>{fetchingError}</Text>
-                ) : (
-                    <View style={styles.servicesGrid}>
-                        {availableCategories.map((service) => {
-                            const isSelected = selectedServices.some(s => s.id === service.id);
-                            return (
-                                <TouchableOpacity
-                                    key={service.id}
-                                    style={[
-                                        styles.serviceButton,
-                                        isSelected && styles.serviceButtonSelected,
-                                    ]}
-                                    onPress={() => handleServiceSelect(service.id, service.name)}
-                                >
-                                    <Ionicons
-                                        name={service.icon as any} // Cast to any because Ionicons expects a specific string literal type
-                                        size={24}
-                                        color={isSelected ? '#fff' : '#666'}
-                                    />
-                                    <Text style={[
-                                        styles.serviceButtonText,
-                                        isSelected && styles.serviceButtonTextSelected,
-                                    ]}>
-                                        {service.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                )}
+                    {/* Service Editor Modal */}
+                    <Modal
+                        visible={!!editingService}
+                        animationType="slide"
+                        transparent={true}
+                        onRequestClose={() => setEditingService(null)}
+                    >
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                            <View style={[styles.serviceEditor, { width: '90%', maxWidth: 400, backgroundColor: '#fff', elevation: 5 }]}> 
+                                {editingService && renderServiceEditor(editingService)}
+                            </View>
+                        </View>
+                    </Modal>
 
-                {editingService && renderServiceEditor(editingService)}
+                    {!editingService && (
+                        <>
+                            <TouchableOpacity
+                                style={styles.addCustomButton}
+                                onPress={() => {
+                                    setShowCustomForm(true);
+                                    setErrors({});
+                                    setCustomService({ title: '', rate: '', description: '' });
+                                }}
+                            >
+                                <Ionicons name="add-circle-outline" size={24} color="#4A80F0" />
+                                <Text style={styles.addCustomButtonText}>Add Custom Service</Text>
+                            </TouchableOpacity>
 
-                {!editingService && (
-                    <>
-                        <TouchableOpacity
-                            style={styles.addCustomButton}
-                            onPress={() => {
-                                setShowCustomForm(true);
-                                setErrors({});
-                                setCustomService({ title: '', rate: '', description: '' });
-                            }}
-                        >
-                            <Ionicons name="add-circle-outline" size={24} color="#4A80F0" />
-                            <Text style={styles.addCustomButtonText}>Add Custom Service</Text>
-                        </TouchableOpacity>
-
-                        {showCustomForm && (
-                            <View style={styles.customServiceForm}>
-                                <Text style={styles.serviceEditorTitleLabel}>Service Title</Text>
-                                <TextInput
-                                    style={[styles.input, errors.customTitle && styles.inputError]}
-                                    value={customService.title}
-                                    onChangeText={(text) => {
-                                        setCustomService({ ...customService, title: text });
-                                        if (errors.customTitle) {
-                                            setErrors(prev => { const newErrors = { ...prev }; delete newErrors.customTitle; return newErrors; });
-                                        }
-                                    }}
-                                    placeholder="e.g., 'Personal Assistant for Errands'"
-                                />
-                                {errors.customTitle && (
-                                    <Text style={styles.errorText}>{errors.customTitle}</Text>
-                                )}
-
-                                <Text style={styles.serviceEditorTitleLabel}>Rate</Text>
-                                <View style={styles.rateInput}>
-                                    <Text style={styles.currencySymbol}>KSh</Text>
+                            {showCustomForm && (
+                                <View style={styles.customServiceForm}>
+                                    <Text style={styles.serviceEditorTitleLabel}>Service Title</Text>
                                     <TextInput
-                                        style={[styles.rateTextInput, errors.customRate && styles.inputError]}
-                                        value={customService.rate}
+                                        style={[styles.input, errors.customTitle && styles.inputError]}
+                                        value={customService.title}
                                         onChangeText={(text) => {
-                                            setCustomService({ ...customService, rate: text });
-                                            if (errors.customRate) {
-                                                setErrors(prev => { const newErrors = { ...prev }; delete newErrors.customRate; return newErrors; });
+                                            setCustomService({ ...customService, title: text });
+                                            if (errors.customTitle) {
+                                                setErrors(prev => { const newErrors = { ...prev }; delete newErrors.customTitle; return newErrors; });
                                             }
                                         }}
-                                        placeholder="e.g., 5000 or 5000-6000"
-                                        keyboardType="default"
+                                        placeholder="e.g., 'Personal Assistant for Errands'"
                                     />
-                                    <Text style={styles.rateUnit}>/task</Text>
-                                </View>
-                                {errors.customRate && (
-                                    <Text style={styles.errorText}>{errors.customRate}</Text>
-                                )}
-                                <Text style={styles.serviceEditorTitleLabel}>Description (Optional)</Text>
-                                <TextInput
-                                    style={styles.descriptionInput}
-                                    value={customService.description}
-                                    onChangeText={(text) => setCustomService({ ...customService, description: text })}
-                                    placeholder="Describe your custom service in detail"
-                                    multiline
-                                />
-                                <TouchableOpacity
-                                    style={styles.saveButton}
-                                    onPress={handleCustomServiceAdd}
-                                >
-                                    <Text style={styles.saveButtonText}>Add Service</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.cancelButton}
-                                    onPress={() => {
-                                        setShowCustomForm(false);
-                                        setErrors({});
-                                        setCustomService({ title: '', rate: '', description: '' });
-                                    }}
-                                >
-                                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
+                                    {errors.customTitle && (
+                                        <Text style={styles.errorText}>{errors.customTitle}</Text>
+                                    )}
 
-                        {selectedServices.length > 0 && (
-                            <View style={styles.selectedServicesContainer}>
-                                <Text style={styles.sectionTitle}>Your Added Services</Text>
+                                    <Text style={styles.serviceEditorTitleLabel}>Rate</Text>
+                                    <View style={styles.rateInput}>
+                                        <Text style={styles.currencySymbol}>KSh</Text>
+                                        <TextInput
+                                            style={[styles.rateTextInput, errors.customRate && styles.inputError]}
+                                            value={customService.rate}
+                                            onChangeText={(text) => {
+                                                setCustomService({ ...customService, rate: text });
+                                                if (errors.customRate) {
+                                                    setErrors(prev => { const newErrors = { ...prev }; delete newErrors.customRate; return newErrors; });
+                                                }
+                                            }}
+                                            placeholder="e.g., 5000 or 5000-6000"
+                                            keyboardType="default"
+                                        />
+                                        <Text style={styles.rateUnit}>/task</Text>
+                                    </View>
+                                    {errors.customRate && (
+                                        <Text style={styles.errorText}>{errors.customRate}</Text>
+                                    )}
+
+                                    <Text style={styles.serviceEditorTitleLabel}>Description</Text>
+                                    <TextInput
+                                        style={[styles.descriptionInput, errors.customDescription && styles.inputError]}
+                                        value={customService.description}
+                                        onChangeText={(text) => setCustomService({ ...customService, description: text })}
+                                        placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
+                                        multiline
+                                    />
+                                    {errors.customDescription && (
+                                        <Text style={styles.errorText}>{errors.customDescription}</Text>
+                                    )}
+                                    <TouchableOpacity
+                                        style={styles.saveButton}
+                                        onPress={handleCustomServiceAdd}
+                                        disabled={isProcessingCustom}
+                                    >
+                                        {isProcessingCustom ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <Text style={styles.saveButtonText}>Save Service</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.cancelButton}
+                                        onPress={() => {
+                                            setShowCustomForm(false);
+                                            setCustomService({ title: '', rate: '', description: '' });
+                                            setErrors({});
+                                        }}
+                                    >
+                                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </>
+                    )}
+
+                    <View style={[styles.selectedServicesContainer, { marginBottom: 32 }]}>
+                        <Text style={styles.sectionTitle}>Selected Services</Text>
+                        {selectedServices.length === 0 ? (
+                            <Text style={styles.errorText}>No services selected yet.</Text>
+                        ) : (
+                            <View>
                                 {selectedServices.map((service) => (
                                     <View key={service.id} style={styles.selectedServiceCard}>
                                         <View style={styles.selectedServiceHeader}>
@@ -467,15 +500,19 @@ export default function ServicesScreen() {
                                 ))}
                             </View>
                         )}
-                    </>
-                )}
+                    </View>
 
-                <TouchableOpacity style={styles.button} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                    <TouchableOpacity style={styles.button} onPress={handleNext} disabled={isProcessing}>
+                        {isProcessing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Next</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+            <BottomBarSpace />
+        </>
     );
 }
 
@@ -483,21 +520,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    backButton: {
-        marginRight: 15,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
     },
     content: {
         padding: 20,

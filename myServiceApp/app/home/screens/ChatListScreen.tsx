@@ -109,12 +109,6 @@ const ChatListScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [hasChatWithTestReceiver, setHasChatWithTestReceiver] = useState(false);
-
-  // Hardcoded receiver UID for initial testing (Tobiko Gay's UID from previous discussions)
-  // !!! THIS LINE HAS BEEN UPDATED WITH THE CORRECT UID !!!
-  const TEST_RECEIVER_UID = 'VEsxQytOqzQJ87MNUTj9VD0neGQ2';
-  const TEST_RECEIVER_FALLBACK_NAME = 'Tobiko Gay (Tasker)';
 
   console.log("ChatListScreen: Component mounted.");
 
@@ -165,7 +159,6 @@ const ChatListScreen: React.FC = () => {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       console.log(`ChatListScreen: New conversation snapshot received! Number of docs: ${snapshot.docs.length}`);
       const fetchedChats: ChatListItem[] = [];
-      let foundTestChatInSnapshot = false; // Flag for this specific snapshot
 
       if (snapshot.empty) {
         console.log("ChatListScreen: No conversations found for the current user.");
@@ -187,14 +180,6 @@ const ChatListScreen: React.FC = () => {
           continue; // Skip if no other participant is found
         }
         console.log(`ChatListScreen: Other participant ID identified: '${otherParticipantId}'`); // Added quotes for visual inspection
-
-        // --- NEW DEBUG LOGS HERE ---
-        // Ensure this hardcoded debug ID also matches the console for comparison purposes
-        const TEST_UID_FROM_CONSOLE_DEBUG = 'VEsxQytOqzQJ87MNUTj9VD0neGQ2';
-        console.log(`ChatListScreen: Debug - otherParticipantId length: ${otherParticipantId.length}`);
-        console.log(`ChatListScreen: Debug - TEST_UID_FROM_CONSOLE_DEBUG length: ${TEST_UID_FROM_CONSOLE_DEBUG.length}`);
-        console.log(`ChatListScreen: Debug - otherParticipantId === TEST_UID_FROM_CONSOLE_DEBUG: ${otherParticipantId === TEST_UID_FROM_CONSOLE_DEBUG}`);
-        // --- END NEW DEBUG LOGS ---
 
         // Initialize with default values
         let otherParticipantName = "Unknown User";
@@ -284,10 +269,17 @@ const ChatListScreen: React.FC = () => {
           }
         }
 
-        // Set the foundTestChatInSnapshot flag for the specific TEST_RECEIVER_UID
-        if (otherParticipantId === TEST_RECEIVER_UID) {
-          foundTestChatInSnapshot = true;
-          console.log("ChatListScreen: Detected conversation with TEST_RECEIVER_UID in current snapshot.");
+        // Count unread messages for this conversation
+        let unreadCount = 0;
+        if (currentUser) {
+          const messagesQ = query(
+            collection(db, 'messages'),
+            where('conversationId', '==', docSnapshot.id),
+            where('receiverId', '==', currentUser.uid),
+            where('read', '==', false)
+          );
+          const messagesSnap = await getDocs(messagesQ);
+          unreadCount = messagesSnap.size;
         }
 
         // Construct the chat item with the fetched details
@@ -298,14 +290,13 @@ const ChatListScreen: React.FC = () => {
           otherParticipantPhoto: otherParticipantPhoto,
           lastMessage: conversationData.lastMessage || 'No messages yet.',
           lastMessageTimestamp: (conversationData.lastMessageTimestamp as Timestamp)?.toDate() || new Date(0), // Ensure it's a Date object
-          unreadCount: 0, // Placeholder
+          unreadCount: unreadCount,
         };
         console.log("ChatListScreen: Prepared chat item for state update:", chatItem);
         fetchedChats.push(chatItem);
       }
 
       setChats(fetchedChats);
-      setHasChatWithTestReceiver(foundTestChatInSnapshot); // Update state based on this snapshot
       setLoading(false);
       setError(null);
       console.log("ChatListScreen: Finished processing conversation snapshot. Chats state updated.");
@@ -342,63 +333,12 @@ const ChatListScreen: React.FC = () => {
     const finalOtherParticipantName = initialChatItem.otherParticipantName;
     const finalOtherParticipantPhoto = initialChatItem.otherParticipantPhoto;
 
-    // This block specifically handles initiating a new chat from the "Start Chat" button
-    // where the initialChatItem.id might be empty or a placeholder
-    if (finalOtherParticipantId === TEST_RECEIVER_UID && !hasChatWithTestReceiver) {
-        console.log(`ChatListScreen: Initiating a new potential chat flow with TEST_RECEIVER_UID: ${TEST_RECEIVER_UID}`);
-
-        // Generate the sorted array of participants for consistent querying/storage
-        const sortedParticipants = [currentUser.uid, TEST_RECEIVER_UID].sort();
-        console.log("ChatListScreen: Sorted participants for checking/creating conversation:", sortedParticipants);
-
-        // Query to check if a conversation already exists between these two users
-        // Use '==' operator with the sorted array for an exact match
-        const q = query(
-            collection(db, CONVERSATIONS_COLLECTION_NAME),
-            where('participants', '==', sortedParticipants)
-        );
-
-        console.log("ChatListScreen: Executing query to find existing conversation using exact participants array match...");
-        try {
-            const querySnapshot = await getDocs(q);
-            console.log(`ChatListScreen: Query for existing conversation returned ${querySnapshot.empty ? 'no' : querySnapshot.docs.length} documents.`);
-
-            if (!querySnapshot.empty) {
-                // Conversation already exists
-                const existingDoc = querySnapshot.docs[0];
-                targetChatId = existingDoc.id;
-                console.log(`ChatListScreen: Found existing conversation with ID: ${targetChatId}`);
-                setHasChatWithTestReceiver(true); // Update state to reflect existing chat
-
-            } else {
-                // No existing conversation, create a new one
-                console.log("ChatListScreen: No existing conversation found, proceeding to create a new one.");
-                const newConversationRef = await addDoc(collection(db, CONVERSATIONS_COLLECTION_NAME), {
-                    participants: sortedParticipants, // Store the sorted array
-                    createdAt: Timestamp.now(), // Firestore server timestamp
-                    lastMessage: 'Chat created. Say hello!', // Initial message
-                    lastMessageTimestamp: Timestamp.now(), // Initial timestamp
-                });
-                targetChatId = newConversationRef.id;
-                console.log(`ChatListScreen: New conversation created with auto-generated ID: ${targetChatId}`);
-                setHasChatWithTestReceiver(true); // Update state to reflect new chat
-            }
-        } catch (queryError: any) {
-            console.error("ChatListScreen: Error querying/creating conversation:", queryError);
-            console.error("ChatListScreen: Query/create error details:", {
-              code: queryError.code,
-              message: queryError.message,
-              stack: queryError.stack
-            });
-            setError("Failed to create or find conversation. Please check network and Firestore rules.");
-            return; // Stop navigation if there's an error
-        }
-    } else if (initialChatItem.id) {
-        console.log(`ChatListScreen: Navigating to existing chat from list item with ID: ${initialChatItem.id}`);
+    if (initialChatItem.id) {
+      console.log(`ChatListScreen: Navigating to existing chat from list item with ID: ${initialChatItem.id}`);
     } else {
-        console.warn("ChatListScreen: navigateToChatRoom called without a valid chat ID or specific test receiver ID to initiate creation.");
-        setError("Invalid chat initiation. Please try again.");
-        return;
+      console.warn("ChatListScreen: navigateToChatRoom called without a valid chat ID.");
+      setError("Invalid chat initiation. Please try again.");
+      return;
     }
 
     // Navigate to ChatRoomScreen with the determined chatId and participant details
@@ -447,32 +387,7 @@ const ChatListScreen: React.FC = () => {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.headerTitle}>Your Chats</Text>
-
-      {/* Button to start a new chat with the hardcoded receiver UID if no existing chat is found */}
-      {currentUser && !hasChatWithTestReceiver ? (
-        <TouchableOpacity
-          style={styles.newChatButton}
-          onPress={() => {
-            console.log("ChatListScreen: 'Start Chat with Tobiko Gay' button pressed.");
-            navigateToChatRoom({
-              id: '', // Placeholder, actual ID determined in navigateToChatRoom
-              otherParticipantId: TEST_RECEIVER_UID,
-              otherParticipantName: TEST_RECEIVER_FALLBACK_NAME,
-              otherParticipantPhoto: '', // Will be fetched when chat loads
-              lastMessage: 'Starting new chat...',
-              lastMessageTimestamp: new Date(),
-              unreadCount: 0,
-            });
-          }}
-        >
-          <Ionicons name="add-circle-outline" size={24} color="#fff" />
-          <Text style={styles.newChatButtonText}>Start Chat with {TEST_RECEIVER_FALLBACK_NAME}</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.buttonPlaceholder} />
-      )}
-
-      {chats.length === 0 && (!currentUser || !hasChatWithTestReceiver) ? (
+      {chats.length === 0 ? (
         <View style={[styles.emptyChatsContainer, styles.centerContent]}>
           <Ionicons name="chatbubbles-outline" size={60} color={theme.colors.textLight} />
           <Text style={styles.noChatsText}>No chats yet.</Text>
@@ -507,7 +422,7 @@ const ChatListScreen: React.FC = () => {
                 </Text>
                 {item.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                    <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
                   </View>
                 )}
               </View>
@@ -635,37 +550,11 @@ const createStyles = createThemedStyles(theme => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unreadText: {
+  unreadBadgeText: {
     color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
   },
-  newChatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 10,
-    paddingVertical: 15,
-    paddingHorizontal: 25,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    justifyContent: 'center',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  newChatButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  buttonPlaceholder: {
-    height: 0,
-    marginBottom: 20,
-  }
 }));
 
 export default ChatListScreen;
