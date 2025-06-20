@@ -1,5 +1,7 @@
 // app/(tabs)/home/types.ts
 
+import { Firestore } from "firebase/firestore";
+
 // The raw shape as stored in Firestore:
 export interface FirestoreService {
   id: string;
@@ -13,6 +15,8 @@ export interface FirestoreService {
 
 // The UI‐friendly shape that ServiceCard expects:
 export interface Service {
+  taskerId(db: Firestore, arg1: string, taskerId: any): import("@firebase/firestore").DocumentReference<import("@firebase/firestore").DocumentData, import("@firebase/firestore").DocumentData>;
+  rate: any;
   id: string;
   name: string;
   category: string;

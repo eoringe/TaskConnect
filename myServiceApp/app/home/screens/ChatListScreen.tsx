@@ -1,3 +1,26 @@
+/**
+ * ChatListScreen displays a list of chat conversations for the authenticated user.
+ * 
+ * - Fetches conversations from Firestore where the current user is a participant.
+ * - For each conversation, retrieves the other participant's details from either the 'taskers' or 'users' Firestore collections.
+ * - Shows the last message, timestamp, and unread message count for each chat.
+ * - Handles authentication state, loading, and error states.
+ * - Allows navigation to individual chat rooms.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered chat list screen.
+ * 
+ * @remarks
+ * - Uses Firebase Firestore for real-time updates via `onSnapshot`.
+ * - Integrates with Expo Router for navigation.
+ * - Utilizes a custom theme context for styling.
+ * - Includes extensive debug logging for Firestore access and authentication.
+ * 
+ * @example
+ * ```tsx
+ * <ChatListScreen />
+ * ```
+ */
 // app/(tabs)/chat/ChatListScreen.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
