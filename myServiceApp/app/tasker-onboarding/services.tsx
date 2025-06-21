@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, getFirestore } from 'firebase/firestore'; // Import Firestore functions
 import { app } from '../../firebase-config'; // Assuming you have your firebase app config here
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -48,10 +50,238 @@ type ServiceCategory = {
     icon: string;
 };
 
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 15,
+    },
+    servicesGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 30,
+    },
+    serviceButton: {
+        width: '48%',
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: theme.colors.card,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+        gap: 8,
+    },
+    serviceButtonSelected: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
+    },
+    serviceButtonText: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '500',
+    },
+    serviceButtonTextSelected: {
+        color: '#fff',
+    },
+    serviceEditor: {
+        backgroundColor: theme.colors.card,
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    serviceEditorCategory: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 10,
+        fontWeight: '500',
+    },
+    serviceEditorTitleLabel: {
+        fontSize: 14,
+        color: theme.colors.text,
+        marginBottom: 5,
+        fontWeight: '500',
+    },
+    rateInput: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    currencySymbol: {
+        fontSize: 16,
+        color: theme.colors.text,
+        marginRight: 5,
+    },
+    rateTextInput: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    rateUnit: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        marginLeft: 5,
+    },
+    descriptionInput: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+        minHeight: 80,
+        textAlignVertical: 'top',
+        marginBottom: 5,
+    },
+    addCustomButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 20,
+    },
+    addCustomButtonText: {
+        fontSize: 16,
+        color: theme.colors.primary,
+        fontWeight: '500',
+    },
+    customServiceForm: {
+        backgroundColor: theme.colors.card,
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+        marginBottom: 15,
+    },
+    saveButton: {
+        backgroundColor: theme.colors.primary,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 15,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    cancelButton: {
+        backgroundColor: theme.colors.textLight,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    cancelButtonText: {
+        color: theme.colors.text,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    selectedServicesContainer: {
+        marginBottom: 30,
+    },
+    selectedServiceCard: {
+        backgroundColor: theme.colors.card,
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    selectedServiceHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 5,
+    },
+    selectedServiceCategory: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '500',
+    },
+    selectedServiceTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 5,
+    },
+    editButton: {
+        padding: 5,
+    },
+    selectedServiceRate: {
+        fontSize: 14,
+        color: theme.colors.primary,
+        fontWeight: '500',
+        marginBottom: 5,
+    },
+    selectedServiceDescription: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: -10,
+        marginBottom: 10,
+        textAlign: 'left',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 15,
+        borderRadius: 8,
+        marginTop: 20,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        marginRight: 8,
+    },
+}));
+
 export default function ServicesScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const db = getFirestore(app); // Initialize Firestore
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     const receivedOnboardingData: Partial<AllOnboardingData> = params.onboardingData
         ? JSON.parse(params.onboardingData as string)
@@ -267,6 +497,7 @@ export default function ServicesScreen() {
                     }
                 }}
                 placeholder="Enter a title for your service"
+                placeholderTextColor={theme.colors.textLight}
             />
             {errors[service.id + '_title'] && (
                 <Text style={styles.errorText}>{errors[service.id + '_title']}</Text>
@@ -286,6 +517,7 @@ export default function ServicesScreen() {
                     }}
                     placeholder="e.g., 5000 or 5000-6000"
                     keyboardType="default"
+                    placeholderTextColor={theme.colors.textLight}
                 />
                 <Text style={styles.rateUnit}>/task</Text>
             </View>
@@ -300,6 +532,7 @@ export default function ServicesScreen() {
                 onChangeText={(text) => setEditingService({ ...service, description: text })}
                 placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
                 multiline
+                placeholderTextColor={theme.colors.textLight}
             />
             {errors[service.id + '_description'] && (
                 <Text style={styles.errorText}>{errors[service.id + '_description']}</Text>
@@ -409,6 +642,7 @@ export default function ServicesScreen() {
                                             }
                                         }}
                                         placeholder="e.g., 'Personal Assistant for Errands'"
+                                        placeholderTextColor={theme.colors.textLight}
                                     />
                                     {errors.customTitle && (
                                         <Text style={styles.errorText}>{errors.customTitle}</Text>
@@ -428,6 +662,7 @@ export default function ServicesScreen() {
                                             }}
                                             placeholder="e.g., 5000 or 5000-6000"
                                             keyboardType="default"
+                                            placeholderTextColor={theme.colors.textLight}
                                         />
                                         <Text style={styles.rateUnit}>/task</Text>
                                     </View>
@@ -442,6 +677,7 @@ export default function ServicesScreen() {
                                         onChangeText={(text) => setCustomService({ ...customService, description: text })}
                                         placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
                                         multiline
+                                        placeholderTextColor={theme.colors.textLight}
                                     />
                                     {errors.customDescription && (
                                         <Text style={styles.errorText}>{errors.customDescription}</Text>
@@ -515,226 +751,3 @@ export default function ServicesScreen() {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 15,
-    },
-    servicesGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        marginBottom: 30,
-    },
-    serviceButton: {
-        width: '48%', // Approx half with gap
-        padding: 15,
-        borderRadius: 12,
-        backgroundColor: '#f8f9fd',
-        borderWidth: 1,
-        borderColor: '#eee',
-        alignItems: 'center',
-        gap: 8,
-    },
-    serviceButtonSelected: {
-        backgroundColor: '#4A80F0',
-        borderColor: '#4A80F0',
-    },
-    serviceButtonText: {
-        fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
-    },
-    serviceButtonTextSelected: {
-        color: '#fff',
-    },
-    serviceEditor: {
-        backgroundColor: '#f8f9fd',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    serviceEditorCategory: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 10,
-        fontWeight: '500',
-    },
-    serviceEditorTitleLabel: {
-        fontSize: 14,
-        color: '#333',
-        marginBottom: 5,
-        fontWeight: '500',
-    },
-    rateInput: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    currencySymbol: {
-        fontSize: 16,
-        color: '#333',
-        marginRight: 5,
-    },
-    rateTextInput: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#fff',
-    },
-    rateUnit: {
-        fontSize: 16,
-        color: '#666',
-        marginLeft: 5,
-    },
-    descriptionInput: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#fff',
-        minHeight: 80,
-        textAlignVertical: 'top',
-        marginBottom: 5,
-    },
-    addCustomButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 20,
-    },
-    addCustomButtonText: {
-        fontSize: 16,
-        color: '#4A80F0',
-        fontWeight: '500',
-    },
-    customServiceForm: {
-        backgroundColor: '#f8f9fd',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#fff',
-        marginBottom: 15,
-    },
-    saveButton: {
-        backgroundColor: '#4A80F0',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 15,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    cancelButton: {
-        backgroundColor: '#cccccc',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    cancelButtonText: {
-        color: '#333',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    selectedServicesContainer: {
-        marginBottom: 30,
-    },
-    selectedServiceCard: {
-        backgroundColor: '#f8f9fd',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    selectedServiceHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 5,
-    },
-    selectedServiceCategory: {
-        fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
-    },
-    selectedServiceTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 5,
-    },
-    editButton: {
-        padding: 5,
-    },
-    selectedServiceRate: {
-        fontSize: 14,
-        color: '#4A80F0',
-        fontWeight: '500',
-        marginBottom: 5,
-    },
-    selectedServiceDescription: {
-        fontSize: 14,
-        color: '#666',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: -10,
-        marginBottom: 10,
-        textAlign: 'left',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 15,
-        borderRadius: 8,
-        marginTop: 20,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginRight: 8,
-    },
-});

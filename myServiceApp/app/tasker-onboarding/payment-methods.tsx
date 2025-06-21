@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 type PaymentMethod = 'mpesa' | 'cash' | 'card';
 
@@ -10,6 +12,137 @@ type MpesaDetails = {
     phoneNumber: string;
     name: string;
 };
+
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    methodsContainer: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 20,
+    },
+    methodButton: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: theme.colors.card,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+        gap: 8,
+    },
+    methodButtonSelected: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
+    },
+    methodButtonText: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '500',
+    },
+    methodButtonTextSelected: {
+        color: '#fff',
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: 5,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: theme.colors.card,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        width: '100%',
+        padding: 20,
+        paddingBottom: 40,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    modalBody: {
+        marginTop: 10,
+    },
+    modalDescription: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 20,
+    },
+    inputGroup: {
+        marginBottom: 15,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: theme.colors.text,
+        marginBottom: 8,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    modalButton: {
+        backgroundColor: theme.colors.primary,
+        padding: 15,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    modalButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+}));
 
 export default function PaymentMethodsScreen() {
     const router = useRouter();
@@ -22,6 +155,7 @@ export default function PaymentMethodsScreen() {
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [showMpesaModal, setShowMpesaModal] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const theme = useTheme();
 
     const paymentMethods = [
         { id: 'mpesa', label: 'M-Pesa', icon: 'phone-portrait-outline' },
@@ -179,6 +313,7 @@ export default function PaymentMethodsScreen() {
                                     }}
                                     placeholder="Enter M-Pesa number"
                                     keyboardType="phone-pad"
+                                    placeholderTextColor={theme.colors.textLight}
                                 />
                                 {errors.phoneNumber && (
                                     <Text style={styles.errorText}>{errors.phoneNumber}</Text>
@@ -201,6 +336,7 @@ export default function PaymentMethodsScreen() {
                                         }
                                     }}
                                     placeholder="Enter account name"
+                                    placeholderTextColor={theme.colors.textLight}
                                 />
                                 {errors.name && (
                                     <Text style={styles.errorText}>{errors.name}</Text>
@@ -223,134 +359,4 @@ export default function PaymentMethodsScreen() {
             </Modal>
         </>
     );
-}
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    scrollView: {
-        flex: 1,
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    methodsContainer: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 20,
-    },
-    methodButton: {
-        flex: 1,
-        padding: 15,
-        borderRadius: 12,
-        backgroundColor: '#f8f9fd',
-        borderWidth: 1,
-        borderColor: '#eee',
-        alignItems: 'center',
-        gap: 8,
-    },
-    methodButtonSelected: {
-        backgroundColor: '#4A80F0',
-        borderColor: '#4A80F0',
-    },
-    methodButtonText: {
-        fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
-    },
-    methodButtonTextSelected: {
-        color: '#fff',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: 5,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        width: '100%',
-        padding: 20,
-        paddingBottom: 40,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    modalBody: {
-        marginTop: 10,
-    },
-    modalDescription: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 20,
-    },
-    inputGroup: {
-        marginBottom: 15,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-        marginBottom: 8,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 16,
-        backgroundColor: '#fff',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    modalButton: {
-        backgroundColor: '#4A80F0',
-        padding: 15,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    modalButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-}); 
+} 

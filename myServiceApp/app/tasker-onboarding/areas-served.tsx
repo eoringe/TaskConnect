@@ -4,6 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import debounce from 'lodash.debounce';
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // --- Firebase Imports (No longer directly used for saving on this screen) ---
 // import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -41,10 +43,140 @@ type AreasServedFormData = {
 // This is the structure that will be passed to the next screen
 type AllOnboardingData = CombinedOnboardingData & AreasServedFormData;
 
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 20,
+    },
+    searchSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        backgroundColor: theme.colors.card,
+        marginBottom: 20,
+    },
+    searchInput: {
+        flex: 1,
+        height: 50,
+        fontSize: 16,
+        color: '#fff',
+        backgroundColor: '#222',
+    },
+    searchLoadingIndicator: {
+        marginLeft: 10,
+    },
+    clearSearchButton: {
+        marginLeft: 10,
+        padding: 5,
+    },
+    searchResultsContainer: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        backgroundColor: theme.colors.background,
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 3,
+        marginBottom: 20,
+        zIndex: 10,
+    },
+    searchResultsTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    searchResultItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    searchResultText: {
+        fontSize: 16,
+        color: theme.colors.text,
+        flex: 1,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginTop: 10,
+        marginBottom: 15,
+    },
+    selectedAreasContainer: {
+        marginBottom: 20,
+    },
+    selectedAreasList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    selectedAreaTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: theme.colors.primaryLight,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: theme.colors.primary,
+    },
+    selectedAreaText: {
+        fontSize: 14,
+        color: theme.colors.primary,
+        fontWeight: '500',
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 14,
+        marginTop: 15,
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+}));
 
 export default function AreasServedScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     // No longer initializing Firestore/Auth here as saving is moved
     // const db = getFirestore(app);
@@ -214,7 +346,7 @@ export default function AreasServedScreen() {
                                     fetchMapboxResults(searchQuery);
                                 }
                             }}
-                            // Removed editable={!isSaving}
+                            placeholderTextColor={theme.colors.textLight}
                         />
                         {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
                         {searchQuery.length > 0 && !loadingSearch && (
@@ -283,131 +415,3 @@ export default function AreasServedScreen() {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 20,
-    },
-    searchSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        backgroundColor: '#f8f9fd',
-        marginBottom: 20,
-    },
-    searchInput: {
-        flex: 1,
-        height: 50,
-        fontSize: 16,
-        color: '#333',
-    },
-    searchLoadingIndicator: {
-        marginLeft: 10,
-    },
-    clearSearchButton: {
-        marginLeft: 10,
-        padding: 5,
-    },
-    searchResultsContainer: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 3,
-        marginBottom: 20,
-        zIndex: 10,
-    },
-    searchResultsTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    searchResultItem: {
-        paddingVertical: 12,
-        paddingHorizontal: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    searchResultText: {
-        fontSize: 16,
-        color: '#333',
-        flex: 1,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginTop: 10,
-        marginBottom: 15,
-    },
-    selectedAreasContainer: {
-        marginBottom: 20,
-    },
-    selectedAreasList: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    selectedAreaTag: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: '#e6f0ff',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#a0c8ff',
-    },
-    selectedAreaText: {
-        fontSize: 14,
-        color: '#4A80F0',
-        fontWeight: '500',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 14,
-        marginTop: 15,
-        marginBottom: 15,
-        textAlign: 'center',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-});

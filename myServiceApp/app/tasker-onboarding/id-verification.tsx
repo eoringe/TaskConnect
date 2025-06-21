@@ -4,6 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 // Removed Firestore imports: getFirestore, doc, setDoc
 // Removed Firebase auth imports: getAuth
 // Removed FirebaseError import as we're not directly handling Firestore errors here
@@ -30,9 +32,105 @@ type CombinedOnboardingData = PersonalDetails & IDVerificationFormData & {
     idBackImageBase64: string;
 };
 
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    form: {
+        gap: 20,
+    },
+    inputGroup: {
+        gap: 8,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: theme.colors.text,
+    },
+    sublabel: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 10,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: 5,
+    },
+    idImagesContainer: {
+        flexDirection: 'row',
+        gap: 15,
+        marginTop: 10,
+    },
+    imageUploadBox: {
+        flex: 1,
+        aspectRatio: 3 / 2,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.card,
+        overflow: 'hidden',
+    },
+    imageUploadError: {
+        borderColor: theme.colors.error,
+    },
+    uploadText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+    },
+    uploadedImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+}));
+
 export default function IDVerificationScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     // Parse the combined data from the params (assuming it comes from the previous step)
     const personalDetails: PersonalDetails | null = params.personalDetails
@@ -229,6 +327,7 @@ export default function IDVerificationScreen() {
                                 autoCapitalize="characters"
                                 maxLength={11}
                                 editable={!isProcessing}
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.kraPin && (
                                 <Text style={styles.errorText}>{errors.kraPin}</Text>
@@ -250,6 +349,7 @@ export default function IDVerificationScreen() {
                                 keyboardType="number-pad"
                                 maxLength={8}
                                 editable={!isProcessing}
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.idNumber && (
                                 <Text style={styles.errorText}>{errors.idNumber}</Text>
@@ -320,96 +420,3 @@ export default function IDVerificationScreen() {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    form: {
-        gap: 20,
-    },
-    inputGroup: {
-        gap: 8,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-    },
-    sublabel: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 10,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 16,
-        backgroundColor: '#f8f9fd',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: 5,
-    },
-    idImagesContainer: {
-        flexDirection: 'row',
-        gap: 15,
-        marginTop: 10,
-    },
-    imageUploadBox: {
-        flex: 1,
-        aspectRatio: 3 / 2,
-        borderWidth: 2,
-        borderColor: '#eee',
-        borderStyle: 'dashed',
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8f9fd',
-        overflow: 'hidden',
-    },
-    imageUploadError: {
-        borderColor: '#ff4444',
-    },
-    uploadText: {
-        marginTop: 8,
-        fontSize: 14,
-        color: '#666',
-    },
-    uploadedImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-});

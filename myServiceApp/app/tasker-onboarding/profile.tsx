@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { getDoc } from 'firebase/firestore';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // Import Firebase (adjust path as needed for your project structure)
 import { getAuth } from 'firebase/auth'; // For getting the current user
@@ -74,10 +76,110 @@ type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedF
     submissionDate?: string;
 };
 
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    photoSection: {
+        alignItems: 'center',
+        marginBottom: 30,
+    },
+    photoUpload: {
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+        backgroundColor: theme.colors.card,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    photoUploadError: {
+        borderColor: theme.colors.error,
+    },
+    photoUploadText: {
+        marginTop: 10,
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+    },
+    profileImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    bioSection: {
+        marginBottom: 30,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: theme.colors.text,
+        marginBottom: 8,
+    },
+    sublabel: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 15,
+    },
+    bioInput: {
+        height: 200,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    charCount: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginTop: 8,
+        textAlign: 'right',
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: 5,
+        textAlign: 'center',
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+}));
 
 export default function ProfileScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     // Reconstruct the full onboardingData object from previous steps
     const receivedOnboardingData: Partial<AllOnboardingData> = params.onboardingData
@@ -222,7 +324,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={styles.container}>
             <ScrollView style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.description}>
@@ -297,101 +399,3 @@ export default function ProfileScreen() {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    photoSection: {
-        alignItems: 'center',
-        marginBottom: 30,
-    },
-    photoUpload: {
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: '#f8f9fd',
-        borderWidth: 2,
-        borderColor: '#eee',
-        borderStyle: 'dashed',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    photoUploadError: {
-        borderColor: '#ff4444',
-    },
-    photoUploadText: {
-        marginTop: 10,
-        fontSize: 14,
-        color: '#666',
-    },
-    profileImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    bioSection: {
-        marginBottom: 30,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-        marginBottom: 8,
-    },
-    sublabel: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 15,
-    },
-    bioInput: {
-        height: 200,
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 16,
-        backgroundColor: '#f8f9fd',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    charCount: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 8,
-        textAlign: 'right',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: 5,
-        textAlign: 'center',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-});

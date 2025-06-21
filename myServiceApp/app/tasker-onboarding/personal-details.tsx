@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Removed setDoc import as we won't save here
 import { getAuth } from 'firebase/auth'; // Import Auth functions
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 type FormData = {
     firstName: string;
@@ -12,6 +14,80 @@ type FormData = {
     email: string;
     phone: string;
 };
+
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    form: {
+        gap: 20,
+    },
+    inputGroup: {
+        gap: 8,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: theme.colors.text,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    uneditableInput: {
+        backgroundColor: '#222',
+        color: '#fff',
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: 5,
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+}));
 
 export default function PersonalDetailsScreen() {
     const router = useRouter();
@@ -24,6 +100,8 @@ export default function PersonalDetailsScreen() {
     const [errors, setErrors] = useState<Partial<FormData>>({});
     const [loading, setLoading] = useState(true); // State to manage loading indicator
     const [isProcessing, setIsProcessing] = useState(false); // Renamed from isSaving, as we're not saving here yet
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     useEffect(() => {
         const fetchUserDetails = async () => {
@@ -135,7 +213,8 @@ export default function PersonalDetailsScreen() {
                                     }
                                 }}
                                 placeholder="Enter your first name"
-                                editable={!isProcessing} // Disable input while processing
+                                editable={!isProcessing}
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.firstName && (
                                 <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -154,7 +233,8 @@ export default function PersonalDetailsScreen() {
                                     }
                                 }}
                                 placeholder="Enter your last name"
-                                editable={!isProcessing} // Disable input while processing
+                                editable={!isProcessing}
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.lastName && (
                                 <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -166,10 +246,11 @@ export default function PersonalDetailsScreen() {
                             <TextInput
                                 style={[styles.input, styles.uneditableInput]}
                                 value={formData.email}
-                                editable={false} // Make it uneditable
+                                editable={false}
                                 placeholder="Email will be prefilled"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
+                                placeholderTextColor={theme.colors.textLight}
                             />
                         </View>
 
@@ -182,6 +263,7 @@ export default function PersonalDetailsScreen() {
                                 placeholder="Enter your phone number"
                                 keyboardType="phone-pad"
                                 editable={!isProcessing}
+                                placeholderTextColor={theme.colors.textLight}
                             />
                         </View>
                     </View>
@@ -203,76 +285,3 @@ export default function PersonalDetailsScreen() {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#666',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    form: {
-        gap: 20,
-    },
-    inputGroup: {
-        gap: 8,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 16,
-        backgroundColor: '#f8f9fd',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    uneditableInput: {
-        backgroundColor: '#e9e9e9',
-        color: '#888',
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: 5,
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-});

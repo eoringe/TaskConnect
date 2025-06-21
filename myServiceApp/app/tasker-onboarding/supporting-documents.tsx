@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import BottomBarSpace from '@/app/components/BottomBarSpace';
+import { useTheme } from '@/app/context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 
 // Define the types for data passed between onboarding screens
 type PersonalDetails = {
@@ -58,10 +60,233 @@ type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedF
     submissionDate?: string; // Optional ISO string for submission timestamp
 };
 
+const createStyles = createThemedStyles(theme => ({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    content: {
+        padding: 20,
+    },
+    description: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 15,
+        marginTop: 20,
+    },
+    addDocumentButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#e6f0ff',
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#4A80F0',
+        marginBottom: 20,
+        gap: 10,
+    },
+    addDocumentButtonText: {
+        fontSize: 16,
+        color: '#4A80F0',
+        fontWeight: '600',
+    },
+    documentForm: {
+        backgroundColor: '#f8f9fd',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    formTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 15,
+    },
+    previewImage: {
+        width: '100%',
+        height: 150,
+        borderRadius: 8,
+        resizeMode: 'contain', // Changed to contain for better document image fit
+        marginBottom: 15,
+        borderColor: '#eee',
+        borderWidth: 1,
+    },
+    pdfPreview: {
+        width: '100%',
+        height: 150,
+        borderRadius: 8,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 15,
+        borderColor: '#eee',
+        borderWidth: 1,
+    },
+    genericPreview: {
+        width: '100%',
+        height: 150,
+        borderRadius: 8,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 15,
+        borderColor: '#eee',
+        borderWidth: 1,
+    },
+    pdfPreviewText: {
+        marginTop: 5,
+        fontSize: 14,
+        color: '#555',
+        fontWeight: '500',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+        marginBottom: 15,
+    },
+    descriptionInput: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#222',
+        color: '#fff',
+        minHeight: 80,
+        textAlignVertical: 'top',
+        marginBottom: 15,
+    },
+    saveButton: {
+        backgroundColor: theme.colors.primary,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 5,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    cancelButton: {
+        backgroundColor: theme.colors.textLight,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    cancelButtonText: {
+        color: theme.colors.text,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    uploadedDocumentsContainer: {
+        marginTop: 20,
+    },
+    documentCard: {
+        backgroundColor: theme.colors.card,
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    documentCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 5,
+    },
+    documentName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+        flexShrink: 1,
+    },
+    removeButton: {
+        padding: 5,
+    },
+    documentDescription: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 10,
+    },
+    documentDescriptionPlaceholder: {
+        fontSize: 14,
+        color: theme.colors.textLight,
+        fontStyle: 'italic',
+        marginBottom: 10,
+    },
+    uploadedDocumentPreview: {
+        width: '100%',
+        height: 100,
+        borderRadius: 8,
+        resizeMode: 'contain',
+        marginTop: 5,
+        borderColor: theme.colors.border,
+        borderWidth: 1,
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 12,
+        marginTop: -10,
+        marginBottom: 10,
+        textAlign: 'left',
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    button: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary,
+        padding: 18,
+        borderRadius: 12,
+        marginTop: 30,
+        gap: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '90%',
+        maxWidth: 400,
+        backgroundColor: theme.colors.card,
+        borderRadius: 12,
+        padding: 20,
+        elevation: 5,
+    },
+}));
 
 export default function SupportingDocumentsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     // Reconstruct the full onboardingData object from previous steps
     const receivedOnboardingData: Partial<AllOnboardingData> = params.onboardingData
@@ -312,6 +537,7 @@ export default function SupportingDocumentsScreen() {
                                     if (errors.name) setErrors(prev => { const newErrors = { ...prev }; delete newErrors.name; return newErrors; });
                                 }}
                                 placeholder="Document Name (e.g., 'Plumbing Certificate', 'Client Referral')"
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
                             <TextInput
@@ -320,6 +546,7 @@ export default function SupportingDocumentsScreen() {
                                 onChangeText={(text) => setCurrentDocument(prev => ({ ...prev, description: text }))}
                                 placeholder="Description (e.g., 'Certified in advanced plumbing techniques')"
                                 multiline
+                                placeholderTextColor={theme.colors.textLight}
                             />
                             {errors.file && <Text style={styles.errorText}>{errors.file}</Text>}
                             <TouchableOpacity style={styles.saveButton} onPress={handleAddDocument} disabled={isProcessing}>
@@ -344,223 +571,3 @@ export default function SupportingDocumentsScreen() {
         </>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        padding: 20,
-    },
-    description: {
-        fontSize: 16,
-        color: '#666',
-        lineHeight: 24,
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 15,
-        marginTop: 20,
-    },
-    addDocumentButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#e6f0ff',
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#4A80F0',
-        marginBottom: 20,
-        gap: 10,
-    },
-    addDocumentButtonText: {
-        fontSize: 16,
-        color: '#4A80F0',
-        fontWeight: '600',
-    },
-    documentForm: {
-        backgroundColor: '#f8f9fd',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    formTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 15,
-    },
-    previewImage: {
-        width: '100%',
-        height: 150,
-        borderRadius: 8,
-        resizeMode: 'contain', // Changed to contain for better document image fit
-        marginBottom: 15,
-        borderColor: '#eee',
-        borderWidth: 1,
-    },
-    pdfPreview: {
-        width: '100%',
-        height: 150,
-        borderRadius: 8,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 15,
-        borderColor: '#eee',
-        borderWidth: 1,
-    },
-    genericPreview: {
-        width: '100%',
-        height: 150,
-        borderRadius: 8,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 15,
-        borderColor: '#eee',
-        borderWidth: 1,
-    },
-    pdfPreviewText: {
-        marginTop: 5,
-        fontSize: 14,
-        color: '#555',
-        fontWeight: '500',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#fff',
-        marginBottom: 15,
-    },
-    descriptionInput: {
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#fff',
-        minHeight: 80,
-        textAlignVertical: 'top',
-        marginBottom: 15,
-    },
-    saveButton: {
-        backgroundColor: '#4A80F0',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 5,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    cancelButton: {
-        backgroundColor: '#cccccc',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    cancelButtonText: {
-        color: '#333',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    uploadedDocumentsContainer: {
-        marginTop: 20,
-    },
-    documentCard: {
-        backgroundColor: '#f8f9fd',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    documentCardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 5,
-    },
-    documentName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        flexShrink: 1,
-    },
-    removeButton: {
-        padding: 5,
-    },
-    documentDescription: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 10,
-    },
-    documentDescriptionPlaceholder: {
-        fontSize: 14,
-        color: '#999',
-        fontStyle: 'italic',
-        marginBottom: 10,
-    },
-    uploadedDocumentPreview: { // This style is for the small preview in the list
-        width: '100%',
-        height: 100, // Smaller preview
-        borderRadius: 8,
-        resizeMode: 'contain',
-        marginTop: 5,
-        borderColor: '#eee',
-        borderWidth: 1,
-    },
-    errorText: {
-        color: '#ff4444',
-        fontSize: 12,
-        marginTop: -10,
-        marginBottom: 10,
-        textAlign: 'left',
-    },
-    inputError: {
-        borderColor: '#ff4444',
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4A80F0',
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 30,
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContent: {
-        width: '90%',
-        maxWidth: 400,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 20,
-        elevation: 5,
-    },
-});
