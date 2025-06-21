@@ -13,6 +13,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import DashboardOverview from './components/DashboardOverview';
 import DashboardAnalytics from './components/DashboardAnalytics';
 import DashboardTaskers from './components/DashboardTaskers';
+import DashboardCategories from './components/DashboardCategories';
 
 interface Tasker {
   id: string;
@@ -296,38 +297,13 @@ export default function AdminDashboard() {
   );
 
   const renderCategories = () => (
-    <div className="section">
-      <div className="section-header">
-        <h2>Service Categories</h2>
-        <p>Manage service categories and view assigned taskers</p>
-      </div>
-      
-      <div className="categories-grid">
-        {categories.map((cat) => {
-          const IconComp = getIonIconComponent(cat.icon);
-          const taskerCount = getTaskersForCategory(cat).length;
-          
-          return (
-            <div 
-              key={cat.id} 
-              className="category-card"
-              onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
-            >
-              <div className="category-icon">
-                {IconComp ? <IconComp size={32} /> : <IoGridOutline size={32} />}
-              </div>
-              <div className="category-info">
-                <h3>{cat.name}</h3>
-                <p>{taskerCount} tasker{taskerCount !== 1 ? 's' : ''}</p>
-              </div>
-              <div className="category-arrow">
-                <IoChevronForwardOutline size={20} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <DashboardCategories
+      categories={categories}
+      selectedCategory={selectedCategory}
+      setSelectedCategory={setSelectedCategory}
+      setShowCategoryModal={setShowCategoryModal}
+      getIonIconComponent={getIonIconComponent}
+    />
   );
 
   const renderContent = () => {
