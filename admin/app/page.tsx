@@ -34,7 +34,6 @@ const base64ToImageSrc = (base64?: string) =>
 
 function getIonIconComponent(iconName: string | undefined) {
   if (!iconName) return null;
-  // Convert expo icon name (e.g. 'happy-outline') to IoHappyOutline
   let compName = "Io";
   const parts = iconName.split("-");
   compName += parts
@@ -57,6 +56,8 @@ export default function AdminDashboard() {
   const [editData, setEditData] = useState<Partial<Tasker>>({});
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
+  const [activeSection, setActiveSection] = useState('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const fetchTaskers = async () => {
     setLoading(true);
@@ -87,9 +88,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"));
+      const data = querySnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+      setUsers(data);
+    } catch (err: any) {
+      setError("Failed to fetch users: " + err.message);
+    }
+  };
+
   useEffect(() => {
     fetchTaskers();
     fetchCategories();
+    fetchUsers();
   }, []);
 
   const handleEdit = (tasker: Tasker) => {
@@ -128,325 +143,501 @@ export default function AdminDashboard() {
     return taskers.filter((t) => taskerIds.has(t.id));
   };
 
-  // --- Analytics Data Preparation ---
-  // Pie/Bar chart: taskers per category
+  // Analytics Data Preparation
   const categoryTaskerCounts = categories.map(cat => ({
     name: cat.name,
     value: new Set((cat.services || []).map((svc: any) => svc.taskerId)).size
   })).filter(c => c.value > 0);
 
-  // Bar chart: sorted by most taskers
   const sortedCategoryTaskerCounts = [...categoryTaskerCounts].sort((a, b) => b.value - a.value);
+  const pieColors = ["#6366F1", "#06D6A0", "#F59E0B", "#EF4444", "#8B5CF6", "#F97316", "#10B981", "#3B82F6", "#EC4899", "#84CC16"];
 
-  // Pie chart colors
-  const pieColors = ["#4A80F0", "#27ae60", "#e67e22", "#e74c3c", "#8e44ad", "#f1c40f", "#16a085", "#2d3a4a", "#c0392b", "#2980b9"];
+  const sidebarItems = [
+    { id: 'overview', label: 'Overview', icon: 'IoHomeOutline' },
+    { id: 'taskers', label: 'Taskers', icon: 'IoPeopleOutline' },
+    { id: 'categories', label: 'Categories', icon: 'IoGridOutline' },
+    { id: 'analytics', label: 'Analytics', icon: 'IoBarChartOutline' },
+    { id: 'users', label: 'Users', icon: 'IoPersonOutline' },
+  ];
 
-  return (
-    <main style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-      padding: 0,
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      <div style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: "40px 20px"
-      }}>
-        <h1 style={{
-          fontSize: 36,
-          fontWeight: 800,
-          marginBottom: 30,
-          color: "#2d3a4a",
-          letterSpacing: -1
-        }}>TaskConnect Admin Dashboard</h1>
-        <div style={{
-          background: "#fff",
-          borderRadius: 18,
-          boxShadow: "0 4px 24px rgba(44,62,80,0.08)",
-          padding: 32,
-          overflowX: "auto"
-        }}>
-          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, color: "#4A80F0" }}>Taskers</h2>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: 40 }}>
-              <span style={{ fontSize: 18 }}>Loading...</span>
-            </div>
-          ) : error ? (
-            <div style={{ color: "#e74c3c", marginBottom: 20 }}>{error}</div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16 }}>
-              <thead>
-                <tr style={{ background: "#f0f4fa" }}>
-                  <th style={thStyle}>Profile</th>
-                  <th style={thStyle}>Name</th>
-                  <th style={thStyle}>ID Number</th>
-                  <th style={thStyle}>KRA PIN</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Services</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {taskers.map((tasker) => (
-                  <tr key={tasker.id} style={{ borderBottom: "1px solid #eaeaea" }}>
-                    <td style={{ padding: 10, textAlign: "center" }}>
+  const renderSidebar = () => (
+    <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+      <div className="sidebar-header">
+        <div className="logo">
+          <IoBusinessOutline size={32} />
+          {!sidebarCollapsed && <span>TaskConnect</span>}
+        </div>
+        <button 
+          className="collapse-btn"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        >
+          {sidebarCollapsed ? <IoChevronForwardOutline /> : <IoChevronBackOutline />}
+        </button>
+      </div>
+      <nav className="sidebar-nav">
+        {sidebarItems.map((item) => {
+          const IconComponent = (IonIcons as any)[item.icon];
+          return (
+            <button
+              key={item.id}
+              className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+              onClick={() => setActiveSection(item.id)}
+            >
+              <IconComponent size={20} />
+              {!sidebarCollapsed && <span>{item.label}</span>}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+
+  const renderOverview = () => (
+    <div className="section">
+      <div className="section-header">
+        <h2>Dashboard Overview</h2>
+        <p>Welcome to TaskConnect Admin Dashboard</p>
+      </div>
+      
+      <div className="stats-grid">
+        <div className="stat-card primary">
+          <div className="stat-icon">
+            <IoPeopleOutline size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{taskers.length}</h3>
+            <p>Total Taskers</p>
+          </div>
+        </div>
+        
+        <div className="stat-card success">
+          <div className="stat-icon">
+            <IoPersonOutline size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{users.length}</h3>
+            <p>App Users</p>
+          </div>
+        </div>
+        
+        <div className="stat-card warning">
+          <div className="stat-icon">
+            <IoGridOutline size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{categories.length}</h3>
+            <p>Categories</p>
+          </div>
+        </div>
+        
+        <div className="stat-card info">
+          <div className="stat-icon">
+            <IoCheckmarkCircleOutline size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{taskers.filter(t => t.onboardingStatus === 'completed').length}</h3>
+            <p>Verified Taskers</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="charts-grid">
+        <div className="chart-card">
+          <h3>Taskers by Category</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={categoryTaskerCounts}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                fill="#6366F1"
+                label={({ name, value }) => `${name}: ${value}`}
+              >
+                {categoryTaskerCounts.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        
+        <div className="chart-card">
+          <h3>Category Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={sortedCategoryTaskerCounts}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#6366F1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTaskers = () => (
+    <div className="section">
+      <div className="section-header">
+        <h2>Taskers Management</h2>
+        <p>Manage all registered taskers</p>
+      </div>
+      
+      {loading ? (
+        <div className="loading">
+          <div className="spinner"></div>
+          <span>Loading taskers...</span>
+        </div>
+      ) : error ? (
+        <div className="error-message">{error}</div>
+      ) : (
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Name</th>
+                <th>ID Number</th>
+                <th>KRA PIN</th>
+                <th>Status</th>
+                <th>Services</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {taskers.map((tasker) => (
+                <tr key={tasker.id}>
+                  <td>
+                    <div className="profile-cell">
                       {tasker.profileImageBase64 ? (
                         <img
                           src={base64ToImageSrc(tasker.profileImageBase64)}
                           alt="Profile"
-                          style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: "2px solid #4A80F0" }}
+                          className="profile-image"
                         />
                       ) : (
-                        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#eee", display: "flex", alignItems: "center", justifyContent: "center", color: "#aaa", fontSize: 24 }}>?</div>
+                        <div className="profile-placeholder">
+                          <IoPersonOutline size={20} />
+                        </div>
                       )}
-                    </td>
-                    <td style={{ padding: 10, fontWeight: 600 }}>
-                      {editId === tasker.id ? (
-                        <input
-                          type="text"
-                          value={editData.firstName || ""}
-                          onChange={e => handleEditChange("firstName", e.target.value)}
-                          style={inputStyle}
-                        />
-                      ) : (
-                        `${tasker.firstName} ${tasker.lastName}`
-                      )}
-                    </td>
-                    <td style={{ padding: 10 }}>
-                      {editId === tasker.id ? (
-                        <input
-                          type="text"
-                          value={editData.idNumber || ""}
-                          onChange={e => handleEditChange("idNumber", e.target.value)}
-                          style={inputStyle}
-                        />
-                      ) : (
-                        tasker.idNumber
-                      )}
-                    </td>
-                    <td style={{ padding: 10 }}>
-                      {editId === tasker.id ? (
-                        <input
-                          type="text"
-                          value={editData.kraPin || ""}
-                          onChange={e => handleEditChange("kraPin", e.target.value)}
-                          style={inputStyle}
-                        />
-                      ) : (
-                        tasker.kraPin
-                      )}
-                    </td>
-                    <td style={{ padding: 10 }}>
-                      {editId === tasker.id ? (
-                        <select
-                          value={editData.onboardingStatus || "pendingVerification"}
-                          onChange={e => handleEditChange("onboardingStatus", e.target.value)}
-                          style={inputStyle}
-                        >
-                          <option value="pendingVerification">Pending</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      ) : (
-                        <span style={{
-                          color: tasker.onboardingStatus === "completed" ? "#27ae60" : "#e67e22",
-                          fontWeight: 700
-                        }}>
-                          {tasker.onboardingStatus === "completed" ? "Completed" : "Pending"}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: 10, maxWidth: 220 }}>
-                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                        {Array.isArray(tasker.services) && tasker.services.length > 0 ? (
-                          tasker.services.map((svc, idx) => (
-                            <li key={idx} style={{ marginBottom: 4, background: "#f6f8fc", borderRadius: 6, padding: "4px 8px", fontSize: 14 }}>
-                              <b>{svc.title}</b> <span style={{ color: "#4A80F0" }}>({svc.category})</span> - <span style={{ color: "#888" }}>{svc.rate}</span>
-                            </li>
-                          ))
-                        ) : (
-                          <li style={{ color: "#aaa" }}>No services</li>
-                        )}
-                      </ul>
-                    </td>
-                    <td style={{ padding: 10 }}>
-                      {editId === tasker.id ? (
-                        <>
-                          <button onClick={handleEditSave} style={saveBtnStyle}>Save</button>
-                          <button onClick={() => setEditId(null)} style={cancelBtnStyle}>Cancel</button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => handleEdit(tasker)} style={editBtnStyle}>Edit</button>
-                          <button onClick={() => handleDelete(tasker.id)} style={deleteBtnStyle}>Delete</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        {/* Service Categories Section */}
-        <div style={{ marginTop: 48, marginBottom: 48 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#4A80F0", marginBottom: 16 }}>Service Categories</h2>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            {categories.map((cat) => {
-              const IconComp = getIonIconComponent(cat.icon);
-              return (
-                <div key={cat.id} style={{ background: "#f8fafc", borderRadius: 12, padding: 20, minWidth: 220, boxShadow: "0 2px 8px #eaeaea", cursor: "pointer", border: selectedCategory?.id === cat.id ? "2px solid #4A80F0" : "2px solid transparent" }} onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>
-                    {IconComp ? <IconComp size={32} color="#4A80F0" /> : <span>📦</span>}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: 18 }}>{cat.name}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        {/* Category Modal: Show taskers for selected category */}
-        {showCategoryModal && selectedCategory && (
-          <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.25)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowCategoryModal(false)}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: 32, minWidth: 400, maxWidth: 600, boxShadow: "0 4px 24px rgba(44,62,80,0.12)", position: "relative" }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setShowCategoryModal(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", fontSize: 22, color: "#aaa", cursor: "pointer" }}>&times;</button>
-              <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 18 }}>
-                {(() => { const IconComp = getIonIconComponent(selectedCategory.icon); return IconComp ? <IconComp size={32} color="#4A80F0" /> : <span>📦</span>; })()} {selectedCategory.name}
-              </h3>
-              <h4 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, color: "#4A80F0" }}>Taskers for this category</h4>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {getTaskersForCategory(selectedCategory).length > 0 ? getTaskersForCategory(selectedCategory).map(tasker => (
-                  <li key={tasker.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                    {tasker.profileImageBase64 ? (
-                      <img src={base64ToImageSrc(tasker.profileImageBase64)} alt="Profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "1.5px solid #4A80F0" }} />
+                    </div>
+                  </td>
+                  <td>
+                    {editId === tasker.id ? (
+                      <input
+                        type="text"
+                        value={editData.firstName || ""}
+                        onChange={e => handleEditChange("firstName", e.target.value)}
+                        className="edit-input"
+                      />
                     ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#eee", display: "flex", alignItems: "center", justifyContent: "center", color: "#aaa", fontSize: 16 }}>?</div>
+                      <div className="name-cell">
+                        <span className="full-name">{tasker.firstName} {tasker.lastName}</span>
+                      </div>
                     )}
-                    <span style={{ fontWeight: 600 }}>{tasker.firstName} {tasker.lastName}</span>
-                    <span style={{ color: "#888", fontSize: 14 }}>ID: {tasker.idNumber}</span>
-                  </li>
-                )) : <li style={{ color: "#aaa" }}>No taskers for this category.</li>}
-              </ul>
+                  </td>
+                  <td>
+                    {editId === tasker.id ? (
+                      <input
+                        type="text"
+                        value={editData.idNumber || ""}
+                        onChange={e => handleEditChange("idNumber", e.target.value)}
+                        className="edit-input"
+                      />
+                    ) : (
+                      tasker.idNumber
+                    )}
+                  </td>
+                  <td>
+                    {editId === tasker.id ? (
+                      <input
+                        type="text"
+                        value={editData.kraPin || ""}
+                        onChange={e => handleEditChange("kraPin", e.target.value)}
+                        className="edit-input"
+                      />
+                    ) : (
+                      tasker.kraPin
+                    )}
+                  </td>
+                  <td>
+                    {editId === tasker.id ? (
+                      <select
+                        value={editData.onboardingStatus || "pendingVerification"}
+                        onChange={e => handleEditChange("onboardingStatus", e.target.value)}
+                        className="edit-select"
+                      >
+                        <option value="pendingVerification">Pending</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    ) : (
+                      <span className={`status-badge ${tasker.onboardingStatus === "completed" ? "completed" : "pending"}`}>
+                        {tasker.onboardingStatus === "completed" ? "Completed" : "Pending"}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="services-list">
+                      {Array.isArray(tasker.services) && tasker.services.length > 0 ? (
+                        tasker.services.slice(0, 2).map((svc, idx) => (
+                          <div key={idx} className="service-tag">
+                            {svc.title}
+                          </div>
+                        ))
+                      ) : (
+                        <span className="no-services">No services</span>
+                      )}
+                      {tasker.services && tasker.services.length > 2 && (
+                        <span className="more-services">+{tasker.services.length - 2} more</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      {editId === tasker.id ? (
+                        <>
+                          <button onClick={handleEditSave} className="btn-save">
+                            <IoCheckmarkOutline size={16} />
+                          </button>
+                          <button onClick={() => setEditId(null)} className="btn-cancel">
+                            <IoCloseOutline size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEdit(tasker)} className="btn-edit">
+                            <IoPencilOutline size={16} />
+                          </button>
+                          <button onClick={() => handleDelete(tasker.id)} className="btn-delete">
+                            <IoTrashOutline size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCategories = () => (
+    <div className="section">
+      <div className="section-header">
+        <h2>Service Categories</h2>
+        <p>Manage service categories and view assigned taskers</p>
+      </div>
+      
+      <div className="categories-grid">
+        {categories.map((cat) => {
+          const IconComp = getIonIconComponent(cat.icon);
+          const taskerCount = getTaskersForCategory(cat).length;
+          
+          return (
+            <div 
+              key={cat.id} 
+              className="category-card"
+              onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
+            >
+              <div className="category-icon">
+                {IconComp ? <IconComp size={32} /> : <IoGridOutline size={32} />}
+              </div>
+              <div className="category-info">
+                <h3>{cat.name}</h3>
+                <p>{taskerCount} tasker{taskerCount !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="category-arrow">
+                <IoChevronForwardOutline size={20} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return renderOverview();
+      case 'taskers':
+        return renderTaskers();
+      case 'categories':
+        return renderCategories();
+      case 'analytics':
+        return renderOverview(); // Reuse overview for now
+      case 'users':
+        return (
+          <div className="section">
+            <div className="section-header">
+              <h2>Users Management</h2>
+              <p>Total registered users: {users.length}</p>
+            </div>
+            <div className="stat-card primary">
+              <div className="stat-icon">
+                <IoPersonOutline size={24} />
+              </div>
+              <div className="stat-content">
+                <h3>{users.length}</h3>
+                <p>Total App Users</p>
+              </div>
             </div>
           </div>
-        )}
-        {/* Analytics Section */}
-        <div style={{ display: 'flex', gap: 32, marginBottom: 48, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {/* Total Users Card */}
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 220, textAlign: 'center', flex: '0 0 220px' }}>
-            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Total App Users</div>
-            <div style={{ fontSize: 40, fontWeight: 800, color: '#4A80F0' }}>{users.length}</div>
-          </div>
-          {/* Pie Chart */}
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
-            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Taskers per Category</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={categoryTaskerCounts}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#4A80F0"
-                  label={({ name, value }) => `${name} (${value})`}
-                >
-                  {categoryTaskerCounts.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          {/* Bar Chart */}
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
-            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Most Common Categories</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={sortedCategoryTaskerCounts}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#4A80F0" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        );
+      default:
+        return renderOverview();
+    }
+  };
+
+  const { IoBusinessOutline, IoChevronForwardOutline, IoChevronBackOutline, IoHomeOutline, IoPeopleOutline, IoGridOutline, IoBarChartOutline, IoPersonOutline, IoCheckmarkCircleOutline, IoCheckmarkOutline, IoCloseOutline, IoPencilOutline, IoTrashOutline } = IonIcons;
+
+  return (
+    <div>
+      <div className="admin-layout">
+        {renderSidebar()}
+        <div className="admin-main-content">
+          {renderContent()}
         </div>
       </div>
-      <style>{`
-        body { background: #f5f7fa; }
-        ::selection { background: #4A80F0; color: #fff; }
-        th, td { text-align: left; }
-        th { font-weight: 700; }
-        button { font-family: inherit; }
+      <style jsx global>{`
+        body {
+          font-family: 'Inter', sans-serif;
+          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        .admin-layout {
+          display: flex;
+          min-height: 100vh;
+        }
+        .sidebar {
+          width: 220px;
+          background: #232946;
+          color: #fff;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          padding: 0;
+          transition: width 0.2s;
+          box-shadow: 2px 0 12px rgba(44,62,80,0.04);
+          z-index: 10;
+        }
+        .sidebar.collapsed {
+          width: 64px;
+        }
+        .sidebar-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 24px 20px 16px 20px;
+          border-bottom: 1px solid #2d3a4a;
+        }
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 20px;
+          font-weight: 700;
+          color: #fff;
+        }
+        .collapse-btn {
+          background: none;
+          border: none;
+          color: #fff;
+          cursor: pointer;
+          font-size: 20px;
+          padding: 4px;
+          border-radius: 4px;
+          transition: background 0.2s;
+        }
+        .collapse-btn:hover {
+          background: #2d3a4a;
+        }
+        .sidebar-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 24px;
+          padding: 0 8px;
+        }
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          background: none;
+          border: none;
+          color: #bfc9e0;
+          font-size: 16px;
+          font-weight: 500;
+          padding: 12px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.18s, color 0.18s;
+          margin-bottom: 2px;
+        }
+        .nav-item.active, .nav-item:hover {
+          background: #4A80F0;
+          color: #fff;
+        }
+        .admin-main-content {
+          flex: 1;
+          padding: 40px 32px 32px 32px;
+          background: none;
+          min-width: 0;
+        }
+        /* Service Categories Grid */
+        .categories-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 24px;
+          margin-top: 24px;
+        }
+        .category-card {
+          background: #fff;
+          border-radius: 18px;
+          box-shadow: 0 2px 12px rgba(44,62,80,0.07);
+          padding: 32px 20px 24px 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          cursor: pointer;
+          border: 2px solid transparent;
+          transition: box-shadow 0.18s, border 0.18s, transform 0.18s;
+          position: relative;
+          min-height: 170px;
+        }
+        .category-card:hover, .category-card.selected {
+          border: 2px solid #4A80F0;
+          box-shadow: 0 4px 24px rgba(74,128,240,0.10);
+          transform: translateY(-2px) scale(1.03);
+        }
+        .category-icon {
+          font-size: 44px;
+          margin-bottom: 14px;
+          color: #4A80F0;
+          background: #f0f4fa;
+          border-radius: 50%;
+          width: 64px;
+          height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 4px rgba(44,62,80,0.04);
+        }
+        .category-name {
+          font-size: 18px;
+          font-weight: 700;
+          color: #232946;
+          text-align: center;
+          margin-bottom: 4px;
+        }
       `}</style>
-    </main>
+    </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: 12,
-  background: "#f0f4fa",
-  color: "#2d3a4a",
-  fontWeight: 700,
-  fontSize: 15,
-  borderBottom: "2px solid #eaeaea"
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #c3cfe2",
-  fontSize: 15,
-  width: "100%",
-  background: "#f8fafc"
-};
-
-const editBtnStyle: React.CSSProperties = {
-  background: "#4A80F0",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  marginRight: 8,
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const deleteBtnStyle: React.CSSProperties = {
-  background: "#e74c3c",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const saveBtnStyle: React.CSSProperties = {
-  background: "#27ae60",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  marginRight: 8,
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const cancelBtnStyle: React.CSSProperties = {
-  background: "#aaa",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
