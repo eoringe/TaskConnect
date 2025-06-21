@@ -10,6 +10,9 @@ import {
 } from "firebase/firestore";
 import * as IonIcons from "react-icons/io5";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import DashboardOverview from './components/DashboardOverview';
+import DashboardAnalytics from './components/DashboardAnalytics';
+import DashboardTaskers from './components/DashboardTaskers';
 
 interface Tasker {
   id: string;
@@ -45,6 +48,70 @@ function getIonIconComponent(iconName: string | undefined) {
   if (iconName.endsWith("-sharp")) compName += "Sharp";
   return (IonIcons as any)[compName] || null;
 }
+
+const thStyle: React.CSSProperties = {
+  padding: 12,
+  background: "#f0f4fa",
+  color: "#2d3a4a",
+  fontWeight: 700,
+  fontSize: 15,
+  borderBottom: "2px solid #eaeaea"
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #c3cfe2",
+  fontSize: 15,
+  width: "100%",
+  background: "#f8fafc"
+};
+
+const editBtnStyle: React.CSSProperties = {
+  background: "#4A80F0",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  padding: "6px 14px",
+  marginRight: 8,
+  fontWeight: 600,
+  cursor: "pointer",
+  transition: "background 0.2s"
+};
+
+const deleteBtnStyle: React.CSSProperties = {
+  background: "#e74c3c",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  padding: "6px 14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  transition: "background 0.2s"
+};
+
+const saveBtnStyle: React.CSSProperties = {
+  background: "#27ae60",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  padding: "6px 14px",
+  marginRight: 8,
+  fontWeight: 600,
+  cursor: "pointer",
+  transition: "background 0.2s"
+};
+
+const cancelBtnStyle: React.CSSProperties = {
+  background: "#aaa",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  padding: "6px 14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  transition: "background 0.2s"
+};
 
 export default function AdminDashboard() {
   const [taskers, setTaskers] = useState<Tasker[]>([]);
@@ -198,235 +265,38 @@ export default function AdminDashboard() {
         <h2>Dashboard Overview</h2>
         <p>Welcome to TaskConnect Admin Dashboard</p>
       </div>
-      
-      <div className="stats-grid">
-        <div className="stat-card primary">
-          <div className="stat-icon">
-            <IoPeopleOutline size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>{taskers.length}</h3>
-            <p>Total Taskers</p>
-          </div>
-        </div>
-        
-        <div className="stat-card success">
-          <div className="stat-icon">
-            <IoPersonOutline size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>{users.length}</h3>
-            <p>App Users</p>
-          </div>
-        </div>
-        
-        <div className="stat-card warning">
-          <div className="stat-icon">
-            <IoGridOutline size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>{categories.length}</h3>
-            <p>Categories</p>
-          </div>
-        </div>
-        
-        <div className="stat-card info">
-          <div className="stat-icon">
-            <IoCheckmarkCircleOutline size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>{taskers.filter(t => t.onboardingStatus === 'completed').length}</h3>
-            <p>Verified Taskers</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="charts-grid">
-        <div className="chart-card">
-          <h3>Taskers by Category</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryTaskerCounts}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#6366F1"
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {categoryTaskerCounts.map((entry, idx) => (
-                  <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        
-        <div className="chart-card">
-          <h3>Category Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sortedCategoryTaskerCounts}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#6366F1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <DashboardOverview
+        totalUsers={users.length}
+        totalTaskers={taskers.length}
+        totalCategories={categories.length}
+      />
+      <DashboardAnalytics
+        categoryTaskerCounts={categoryTaskerCounts}
+        sortedCategoryTaskerCounts={sortedCategoryTaskerCounts}
+        pieColors={pieColors}
+      />
     </div>
   );
 
   const renderTaskers = () => (
-    <div className="section">
-      <div className="section-header">
-        <h2>Taskers Management</h2>
-        <p>Manage all registered taskers</p>
-      </div>
-      
-      {loading ? (
-        <div className="loading">
-          <div className="spinner"></div>
-          <span>Loading taskers...</span>
-        </div>
-      ) : error ? (
-        <div className="error-message">{error}</div>
-      ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Profile</th>
-                <th>Name</th>
-                <th>ID Number</th>
-                <th>KRA PIN</th>
-                <th>Status</th>
-                <th>Services</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {taskers.map((tasker) => (
-                <tr key={tasker.id}>
-                  <td>
-                    <div className="profile-cell">
-                      {tasker.profileImageBase64 ? (
-                        <img
-                          src={base64ToImageSrc(tasker.profileImageBase64)}
-                          alt="Profile"
-                          className="profile-image"
-                        />
-                      ) : (
-                        <div className="profile-placeholder">
-                          <IoPersonOutline size={20} />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    {editId === tasker.id ? (
-                      <input
-                        type="text"
-                        value={editData.firstName || ""}
-                        onChange={e => handleEditChange("firstName", e.target.value)}
-                        className="edit-input"
-                      />
-                    ) : (
-                      <div className="name-cell">
-                        <span className="full-name">{tasker.firstName} {tasker.lastName}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {editId === tasker.id ? (
-                      <input
-                        type="text"
-                        value={editData.idNumber || ""}
-                        onChange={e => handleEditChange("idNumber", e.target.value)}
-                        className="edit-input"
-                      />
-                    ) : (
-                      tasker.idNumber
-                    )}
-                  </td>
-                  <td>
-                    {editId === tasker.id ? (
-                      <input
-                        type="text"
-                        value={editData.kraPin || ""}
-                        onChange={e => handleEditChange("kraPin", e.target.value)}
-                        className="edit-input"
-                      />
-                    ) : (
-                      tasker.kraPin
-                    )}
-                  </td>
-                  <td>
-                    {editId === tasker.id ? (
-                      <select
-                        value={editData.onboardingStatus || "pendingVerification"}
-                        onChange={e => handleEditChange("onboardingStatus", e.target.value)}
-                        className="edit-select"
-                      >
-                        <option value="pendingVerification">Pending</option>
-                        <option value="completed">Completed</option>
-                      </select>
-                    ) : (
-                      <span className={`status-badge ${tasker.onboardingStatus === "completed" ? "completed" : "pending"}`}>
-                        {tasker.onboardingStatus === "completed" ? "Completed" : "Pending"}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="services-list">
-                      {Array.isArray(tasker.services) && tasker.services.length > 0 ? (
-                        tasker.services.slice(0, 2).map((svc, idx) => (
-                          <div key={idx} className="service-tag">
-                            {svc.title}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="no-services">No services</span>
-                      )}
-                      {tasker.services && tasker.services.length > 2 && (
-                        <span className="more-services">+{tasker.services.length - 2} more</span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      {editId === tasker.id ? (
-                        <>
-                          <button onClick={handleEditSave} className="btn-save">
-                            <IoCheckmarkOutline size={16} />
-                          </button>
-                          <button onClick={() => setEditId(null)} className="btn-cancel">
-                            <IoCloseOutline size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => handleEdit(tasker)} className="btn-edit">
-                            <IoPencilOutline size={16} />
-                          </button>
-                          <button onClick={() => handleDelete(tasker.id)} className="btn-delete">
-                            <IoTrashOutline size={16} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <DashboardTaskers
+      taskers={taskers}
+      editId={editId}
+      editData={editData}
+      loading={loading}
+      error={error}
+      handleEdit={handleEdit}
+      handleEditChange={handleEditChange}
+      handleEditSave={handleEditSave}
+      handleDelete={handleDelete}
+      base64ToImageSrc={base64ToImageSrc}
+      thStyle={thStyle}
+      inputStyle={inputStyle}
+      editBtnStyle={editBtnStyle}
+      deleteBtnStyle={deleteBtnStyle}
+      saveBtnStyle={saveBtnStyle}
+      cancelBtnStyle={cancelBtnStyle}
+    />
   );
 
   const renderCategories = () => (
