@@ -14,6 +14,7 @@ import DashboardOverview from './components/DashboardOverview';
 import DashboardAnalytics from './components/DashboardAnalytics';
 import DashboardTaskers from './components/DashboardTaskers';
 import DashboardCategories from './components/DashboardCategories';
+import DashboardUsers from './components/DashboardUsers';
 
 interface Tasker {
   id: string;
@@ -306,6 +307,10 @@ export default function AdminDashboard() {
     />
   );
 
+  const renderUsers = () => (
+    <DashboardUsers users={users} taskers={taskers} />
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'overview':
@@ -317,23 +322,7 @@ export default function AdminDashboard() {
       case 'analytics':
         return renderOverview(); // Reuse overview for now
       case 'users':
-        return (
-          <div className="section">
-            <div className="section-header">
-              <h2>Users Management</h2>
-              <p>Total registered users: {users.length}</p>
-            </div>
-            <div className="stat-card primary">
-              <div className="stat-icon">
-                <IoPersonOutline size={24} />
-              </div>
-              <div className="stat-content">
-                <h3>{users.length}</h3>
-                <p>Total App Users</p>
-              </div>
-            </div>
-          </div>
-        );
+        return renderUsers();
       default:
         return renderOverview();
     }
