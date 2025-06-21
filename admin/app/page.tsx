@@ -8,6 +8,7 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
+import * as IonIcons from "react-icons/io5";
 
 interface Tasker {
   id: string;
@@ -20,11 +21,36 @@ interface Tasker {
   services: any[];
 }
 
+interface ServiceCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  services: any[];
+}
+
 const base64ToImageSrc = (base64?: string) =>
   base64 ? `data:image/jpeg;base64,${base64}` : undefined;
 
+function getIonIconComponent(iconName: string | undefined) {
+  if (!iconName) return null;
+  // Convert expo icon name (e.g. 'happy-outline') to IoHappyOutline
+  let compName = "Io";
+  const parts = iconName.split("-");
+  compName += parts
+    .map((part, i) =>
+      part.charAt(0).toUpperCase() + part.slice(1)
+    )
+    .join("");
+  if (iconName.endsWith("-outline")) compName += "Outline";
+  if (iconName.endsWith("-sharp")) compName += "Sharp";
+  return (IonIcons as any)[compName] || null;
+}
+
 export default function AdminDashboard() {
   const [taskers, setTaskers] = useState<Tasker[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Tasker>>({});
@@ -46,8 +72,22 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "serviceCategories"));
+      const data: ServiceCategory[] = querySnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as ServiceCategory[];
+      setCategories(data);
+    } catch (err: any) {
+      setError("Failed to fetch categories: " + err.message);
+    }
+  };
+
   useEffect(() => {
     fetchTaskers();
+    fetchCategories();
   }, []);
 
   const handleEdit = (tasker: Tasker) => {
@@ -79,6 +119,11 @@ export default function AdminDashboard() {
     } catch (err: any) {
       setError("Failed to delete tasker: " + err.message);
     }
+  };
+
+  const getTaskersForCategory = (category: ServiceCategory) => {
+    const taskerIds = new Set((category.services || []).map((svc: any) => svc.taskerId));
+    return taskers.filter((t) => taskerIds.has(t.id));
   };
 
   return (
@@ -228,6 +273,48 @@ export default function AdminDashboard() {
             </table>
           )}
         </div>
+        {/* Service Categories Section */}
+        <div style={{ marginTop: 48, marginBottom: 48 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#4A80F0", marginBottom: 16 }}>Service Categories</h2>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {categories.map((cat) => {
+              const IconComp = getIonIconComponent(cat.icon);
+              return (
+                <div key={cat.id} style={{ background: "#f8fafc", borderRadius: 12, padding: 20, minWidth: 220, boxShadow: "0 2px 8px #eaeaea", cursor: "pointer", border: selectedCategory?.id === cat.id ? "2px solid #4A80F0" : "2px solid transparent" }} onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>
+                    {IconComp ? <IconComp size={32} color="#4A80F0" /> : <span>📦</span>}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 18 }}>{cat.name}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Category Modal: Show taskers for selected category */}
+        {showCategoryModal && selectedCategory && (
+          <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.25)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowCategoryModal(false)}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: 32, minWidth: 400, maxWidth: 600, boxShadow: "0 4px 24px rgba(44,62,80,0.12)", position: "relative" }} onClick={e => e.stopPropagation()}>
+              <button onClick={() => setShowCategoryModal(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", fontSize: 22, color: "#aaa", cursor: "pointer" }}>&times;</button>
+              <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 18 }}>
+                {(() => { const IconComp = getIonIconComponent(selectedCategory.icon); return IconComp ? <IconComp size={32} color="#4A80F0" /> : <span>📦</span>; })()} {selectedCategory.name}
+              </h3>
+              <h4 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, color: "#4A80F0" }}>Taskers for this category</h4>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {getTaskersForCategory(selectedCategory).length > 0 ? getTaskersForCategory(selectedCategory).map(tasker => (
+                  <li key={tasker.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    {tasker.profileImageBase64 ? (
+                      <img src={base64ToImageSrc(tasker.profileImageBase64)} alt="Profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "1.5px solid #4A80F0" }} />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#eee", display: "flex", alignItems: "center", justifyContent: "center", color: "#aaa", fontSize: 16 }}>?</div>
+                    )}
+                    <span style={{ fontWeight: 600 }}>{tasker.firstName} {tasker.lastName}</span>
+                    <span style={{ color: "#888", fontSize: 14 }}>ID: {tasker.idNumber}</span>
+                  </li>
+                )) : <li style={{ color: "#aaa" }}>No taskers for this category.</li>}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
       <style>{`
         body { background: #f5f7fa; }
