@@ -32,19 +32,40 @@ const valueStyle: React.CSSProperties = {
   color: '#4A80F0',
 };
 
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 24,
+  fontWeight: 700,
+  color: '#232946',
+  marginBottom: 8,
+  marginTop: 0,
+  paddingTop: 0,
+};
+
+const sectionSubtitleStyle: React.CSSProperties = {
+  fontSize: 16,
+  color: '#666',
+  marginBottom: 24,
+  marginTop: 0,
+  paddingTop: 0,
+};
+
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({ totalUsers, totalTaskers, totalCategories }) => (
-  <div style={{ display: 'flex', gap: 32, marginBottom: 32, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Users</div>
-      <div style={valueStyle}>{totalUsers}</div>
-    </div>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Taskers</div>
-      <div style={valueStyle}>{totalTaskers}</div>
-    </div>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Categories</div>
-      <div style={valueStyle}>{totalCategories}</div>
+  <div style={{ marginBottom: 32 }}>
+    <h2 style={sectionTitleStyle}>Dashboard Overview</h2>
+    <p style={sectionSubtitleStyle}>Welcome to TaskConnect Admin Dashboard</p>
+    <div style={{ display: 'flex', gap: 32, marginBottom: 32, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+      <div style={cardStyle}>
+        <div style={labelStyle}>Total Users</div>
+        <div style={valueStyle}>{totalUsers}</div>
+      </div>
+      <div style={cardStyle}>
+        <div style={labelStyle}>Total Taskers</div>
+        <div style={valueStyle}>{totalTaskers}</div>
+      </div>
+      <div style={cardStyle}>
+        <div style={labelStyle}>Total Categories</div>
+        <div style={valueStyle}>{totalCategories}</div>
+      </div>
     </div>
   </div>
 );

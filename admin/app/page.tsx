@@ -261,10 +261,6 @@ export default function AdminDashboard() {
 
   const renderOverview = () => (
     <div className="section">
-      <div className="section-header">
-        <h2>Dashboard Overview</h2>
-        <p>Welcome to TaskConnect Admin Dashboard</p>
-      </div>
       <DashboardOverview
         totalUsers={users.length}
         totalTaskers={taskers.length}
