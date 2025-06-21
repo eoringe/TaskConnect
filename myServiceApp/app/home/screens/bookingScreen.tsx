@@ -27,7 +27,7 @@ import {
   Address
 } from '@/app/services/userDatabaseService';
 import * as Location from 'expo-location';
-import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, updateDoc, doc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase-config';
 
 type SearchParamTypes = {
@@ -468,29 +468,64 @@ const BookingScreen = () => {
     return date.toLocaleTimeString(undefined, options);
   };
 
+  /**
+   * Helper to find the UID of a tasker given a tasker object (with category and name fields)
+   * 1. Get the serviceCategory doc for the tasker's category
+   * 2. For each service in the services array, get the taskerId
+   * 3. For each taskerId, fetch the tasker doc and compare firstName + lastName to taskerName
+   * 4. Return the UID if found, else null
+   */
+  const findTaskerUidByCategoryAndName = async (taskerObj: any) => {
+    if (!taskerObj?.category || !taskerObj?.taskerName) return null;
+    try {
+      const catSnap = await getDoc(doc(db, 'serviceCategories', taskerObj.category));
+      if (!catSnap.exists()) return null;
+      const { services } = catSnap.data();
+      if (!services || !Array.isArray(services)) return null;
+      for (const svc of services) {
+        const taskerId = svc.taskerId || svc.TaskerId || svc.taskerID;
+        if (!taskerId) continue;
+        const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
+        if (!taskerSnap.exists()) continue;
+        const t = taskerSnap.data();
+        const fullName = `${t.firstName || ''} ${t.lastName || ''}`.trim();
+        if (fullName === taskerObj.taskerName) {
+          return taskerId;
+        }
+      }
+      return null;
+    } catch (err) {
+      console.error('Error finding tasker UID:', err);
+      return null;
+    }
+  };
+
   const handleBooking = async () => {
     if (!address.trim()) {
       alert('Please enter your address');
       return;
     }
-
     if (!mpesaNumber.trim()) {
       alert('Please enter your M-PESA phone number');
       return;
     }
-
     // Validate M-PESA number format (Kenya format)
     const mpesaRegex = /^(?:254|\+254|0)?([71](?:(?:0[0-8])|(?:[12][0-9])|(?:9[0-9])|(?:4[0-3]))[0-9]{6})$/;
     if (!mpesaRegex.test(mpesaNumber)) {
       alert('Please enter a valid M-PESA phone number');
       return;
     }
-
     try {
+      // Find the correct tasker UID
+      const taskerUid = await findTaskerUidByCategoryAndName(tasker);
+      if (!taskerUid) {
+        alert('Could not find the tasker. Please try again.');
+        return;
+      }
       // 1. Create job in Firestore
       const jobRef = await addDoc(collection(db, 'jobs'), {
         clientId: auth.currentUser?.uid,
-        taskerId: tasker.id || tasker.taskerId,
+        taskerId: taskerUid,
         amount: parseFloat(tasker.price?.replace(/[^\d.]/g, '')),
         date: date.toISOString(),
         address,
@@ -525,6 +560,68 @@ const BookingScreen = () => {
     }
   };
 
+  const handleChatPress = async () => {
+    if (!auth.currentUser) {
+      Alert.alert('Error', 'You must be logged in to chat with the tasker.');
+      return;
+    }
+    // Find the correct tasker UID
+    const taskerUid = await findTaskerUidByCategoryAndName(tasker);
+    if (!taskerUid) {
+      Alert.alert('Error', 'Could not find the tasker. Please try again.');
+      return;
+    }
+    // Log the UIDs for debugging
+    console.log('Current User UID:', auth.currentUser.uid);
+    console.log('Tasker UID (Other Participant):', taskerUid);
+    console.log('Tasker object:', tasker);
+    try {
+      // Check if conversation already exists
+      const conversationsRef = collection(db, 'conversations');
+      const q = query(
+        conversationsRef,
+        where('participants', 'array-contains', auth.currentUser?.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      let conversationId;
+      // Filter results to find conversation with both participants
+      const existingConversation = querySnapshot.docs.find(doc => {
+        const data = doc.data();
+        return data.participants && 
+               data.participants.includes(auth.currentUser?.uid) && 
+               data.participants.includes(taskerUid);
+      });
+      if (existingConversation) {
+        // Use existing conversation
+        conversationId = existingConversation.id;
+        console.log('Using existing conversation ID:', conversationId);
+      } else {
+        // Create new conversation
+        const conversationRef = await addDoc(conversationsRef, {
+          participants: [auth.currentUser.uid, taskerUid],
+          lastMessage: 'Chat created. Say hello!',
+          lastMessageTimestamp: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        });
+        conversationId = conversationRef.id;
+        console.log('Created new conversation ID:', conversationId);
+      }
+      // Navigate to chat room
+      router.push({
+        pathname: '/home/screens/ChatRoomScreen',
+        params: {
+          chatId: conversationId,
+          otherParticipantId: taskerUid,
+          otherParticipantName: tasker.taskerName || 'Tasker',
+          otherParticipantPhoto: tasker.profileImageBase64 ? `data:image/jpeg;base64,${tasker.profileImageBase64}` : ''
+        }
+      });
+    } catch (error) {
+      console.error('Error navigating to chat:', error);
+      Alert.alert('Error', 'Failed to open chat. Please try again.');
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
@@ -534,6 +631,12 @@ const BookingScreen = () => {
           <Text style={styles.detail}>{tasker.category}</Text>
           <Text style={styles.detail}>{tasker.price}</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.chatButton} 
+          onPress={handleChatPress}
+        >
+          <Ionicons name="chatbubble-outline" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Date & Time Selection */}
@@ -1285,6 +1388,9 @@ const createStyles = createThemedStyles(theme => ({
     flex: 1,
   },
   deleteButton: {
+    padding: 8,
+  },
+  chatButton: {
     padding: 8,
   },
 }));
