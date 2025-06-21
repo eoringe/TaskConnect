@@ -9,6 +9,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import * as IonIcons from "react-icons/io5";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 interface Tasker {
   id: string;
@@ -55,6 +56,7 @@ export default function AdminDashboard() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Tasker>>({});
   const [error, setError] = useState<string | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
 
   const fetchTaskers = async () => {
     setLoading(true);
@@ -125,6 +127,19 @@ export default function AdminDashboard() {
     const taskerIds = new Set((category.services || []).map((svc: any) => svc.taskerId));
     return taskers.filter((t) => taskerIds.has(t.id));
   };
+
+  // --- Analytics Data Preparation ---
+  // Pie/Bar chart: taskers per category
+  const categoryTaskerCounts = categories.map(cat => ({
+    name: cat.name,
+    value: new Set((cat.services || []).map((svc: any) => svc.taskerId)).size
+  })).filter(c => c.value > 0);
+
+  // Bar chart: sorted by most taskers
+  const sortedCategoryTaskerCounts = [...categoryTaskerCounts].sort((a, b) => b.value - a.value);
+
+  // Pie chart colors
+  const pieColors = ["#4A80F0", "#27ae60", "#e67e22", "#e74c3c", "#8e44ad", "#f1c40f", "#16a085", "#2d3a4a", "#c0392b", "#2980b9"];
 
   return (
     <main style={{
@@ -315,6 +330,51 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+        {/* Analytics Section */}
+        <div style={{ display: 'flex', gap: 32, marginBottom: 48, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          {/* Total Users Card */}
+          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 220, textAlign: 'center', flex: '0 0 220px' }}>
+            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Total App Users</div>
+            <div style={{ fontSize: 40, fontWeight: 800, color: '#4A80F0' }}>{users.length}</div>
+          </div>
+          {/* Pie Chart */}
+          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
+            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Taskers per Category</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={categoryTaskerCounts}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#4A80F0"
+                  label={({ name, value }) => `${name} (${value})`}
+                >
+                  {categoryTaskerCounts.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Bar Chart */}
+          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
+            <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Most Common Categories</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={sortedCategoryTaskerCounts}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#4A80F0" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
       <style>{`
         body { background: #f5f7fa; }
