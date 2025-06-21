@@ -1,52 +1,59 @@
 import React from 'react';
+import * as IonIcons from "react-icons/io5";
 
-interface DashboardCategoriesProps {
-  categories: any[];
-  selectedCategory: any;
-  setSelectedCategory: (cat: any) => void;
-  setShowCategoryModal: (show: boolean) => void;
-  getIonIconComponent: (iconName: string) => React.ElementType | null;
+interface ServiceCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  services: any[];
 }
 
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 24,
-  fontWeight: 700,
-  color: '#232946',
-  marginBottom: 8,
-  marginTop: 0,
-  paddingTop: 0,
-};
+const DashboardCategories = ({
+  categories,
+  setSelectedCategory,
+  setShowCategoryModal,
+  getIonIconComponent,
+  getTaskersForCategory,
+}: {
+  categories: ServiceCategory[];
+  setSelectedCategory: (category: ServiceCategory) => void;
+  setShowCategoryModal: (show: boolean) => void;
+  getIonIconComponent: (iconName?: string) => React.ComponentType<any> | null;
+  getTaskersForCategory: (category: ServiceCategory) => any[];
+}) => {
+  const { IoGridOutline, IoChevronForwardOutline } = IonIcons;
 
-const sectionSubtitleStyle: React.CSSProperties = {
-  fontSize: 16,
-  color: '#666',
-  marginBottom: 24,
-  marginTop: 0,
-  paddingTop: 0,
-};
+  return (
+    <div className="section">
+      <div className="section-header">
+        <h2>Service Categories</h2>
+        <p>Manage categories and view assigned taskers.</p>
+      </div>
+      <div className="categories-grid">
+        {categories.map((cat: ServiceCategory) => {
+          const IconComp = getIonIconComponent(cat.icon) || IoGridOutline;
+          const taskerCount = getTaskersForCategory(cat).length;
 
-const DashboardCategories: React.FC<DashboardCategoriesProps> = ({ categories, selectedCategory, setSelectedCategory, setShowCategoryModal, getIonIconComponent }) => (
-  <div style={{ marginBottom: 32 }}>
-    <h2 style={sectionTitleStyle}>Service Categories</h2>
-    <p style={sectionSubtitleStyle}>Browse and manage all service categories in the system</p>
-    <div className="categories-grid">
-      {categories.map((cat) => {
-        const IconComp = getIonIconComponent(cat.icon);
-        return (
-          <div
-            key={cat.id}
-            className={`category-card${selectedCategory?.id === cat.id ? ' selected' : ''}`}
-            onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
-          >
-            <div className="category-icon">
-              {IconComp ? <IconComp size={32} color="#4A80F0" /> : <span>📦</span>}
+          return (
+            <div
+              key={cat.id}
+              className="category-card"
+              onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
+            >
+              <div className="category-icon-wrapper">
+                <IconComp size={28} />
+              </div>
+              <div className="category-info">
+                <h3>{cat.name}</h3>
+                <p>{taskerCount} tasker{taskerCount !== 1 ? 's' : ''}</p>
+              </div>
+              <IoChevronForwardOutline className="category-arrow" size={20} />
             </div>
-            <div className="category-name">{cat.name}</div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default DashboardCategories; 

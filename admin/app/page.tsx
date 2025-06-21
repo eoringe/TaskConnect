@@ -241,51 +241,16 @@ export default function AdminDashboard() {
   const renderCategories = () => (
     <DashboardCategories
       categories={categories}
-      selectedCategory={selectedCategory}
       setSelectedCategory={setSelectedCategory}
       setShowCategoryModal={setShowCategoryModal}
       getIonIconComponent={getIonIconComponent}
+      getTaskersForCategory={getTaskersForCategory}
     />
   );
 
+
   const renderUsers = () => (
     <DashboardUsers users={users} taskers={taskers} />
-    <div className="section">
-      {renderSectionHeader("Service Categories", "Manage categories and view assigned taskers.")}
-      <div className="categories-grid">
-        {categories.map((cat) => {
-          const IconComp = getIonIconComponent(cat.icon) || IoGridOutline;
-          const taskerCount = getTaskersForCategory(cat).length;
-
-          return (
-            <div
-              key={cat.id}
-              className="category-card"
-              onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
-            >
-              <div className="category-icon-wrapper">
-                <IconComp size={28} />
-              </div>
-              <div className="category-info">
-                <h3>{cat.name}</h3>
-                <p>{taskerCount} tasker{taskerCount !== 1 ? 's' : ''}</p>
-              </div>
-              <IoChevronForwardOutline className="category-arrow" size={20} />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderUsers = () => (
-    <div className="section">
-      {renderSectionHeader("User Management", `A list of all ${users.length} registered users on the platform.`)}
-      <div className="user-list-container">
-        {/* User list can be implemented here, similar to taskers table */}
-        <p>User management UI is not yet implemented.</p>
-      </div>
-    </div>
   );
 
 
@@ -298,7 +263,6 @@ export default function AdminDashboard() {
       case 'categories':
         return renderCategories();
       case 'users':
-        return renderUsers();
         return renderUsers();
       default:
         return renderOverview();
@@ -399,8 +363,17 @@ export default function AdminDashboard() {
         .category-arrow { color: #9ca3af; transition: transform 0.2s; }
         .category-card:hover .category-arrow { transform: translateX(4px); color: #4A80F0; }
         
-        /* Tasker Table Row Hover Style */
-        .tasker-row:hover { background-color: #f9fafb; }
+        /* User/Tasker Table Row Hover Style */
+        .tasker-row:hover, .user-row:hover { background-color: #f9fafb; }
+
+        .section {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </div>
   );
