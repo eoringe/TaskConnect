@@ -12,6 +12,8 @@ import * as IonIcons from "react-icons/io5";
 import DashboardOverview from './components/DashboardOverview';
 import DashboardAnalytics from './components/DashboardAnalytics';
 import DashboardTaskers from './components/DashboardTaskers';
+import DashboardCategories from './components/DashboardCategories';
+import DashboardUsers from './components/DashboardUsers';
 
 interface Tasker {
   id: string;
@@ -237,6 +239,17 @@ export default function AdminDashboard() {
   );
 
   const renderCategories = () => (
+    <DashboardCategories
+      categories={categories}
+      selectedCategory={selectedCategory}
+      setSelectedCategory={setSelectedCategory}
+      setShowCategoryModal={setShowCategoryModal}
+      getIonIconComponent={getIonIconComponent}
+    />
+  );
+
+  const renderUsers = () => (
+    <DashboardUsers users={users} taskers={taskers} />
     <div className="section">
       {renderSectionHeader("Service Categories", "Manage categories and view assigned taskers.")}
       <div className="categories-grid">
@@ -285,6 +298,7 @@ export default function AdminDashboard() {
       case 'categories':
         return renderCategories();
       case 'users':
+        return renderUsers();
         return renderUsers();
       default:
         return renderOverview();
