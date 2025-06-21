@@ -4,6 +4,18 @@ import { useLocalSearchParams } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase-config';
 
+/**
+ * JobStatusScreen is a React component that displays the status and details of a specific job.
+ * 
+ * It fetches job data from Firestore using the provided `jobId` from local search parameters,
+ * and polls for updates every 5 seconds. The screen shows job information such as status, amount,
+ * date, address, and notes. If the job is in escrow, it allows the user to approve payment to the
+ * tasker by triggering a backend API call. The UI provides feedback for loading, errors, and payment
+ * approval status.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered job status screen.
+ */
 const JobStatusScreen = () => {
     const { jobId } = useLocalSearchParams();
     const [job, setJob] = useState<any>(null);

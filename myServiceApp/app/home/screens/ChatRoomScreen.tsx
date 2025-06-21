@@ -1,3 +1,28 @@
+/**
+ * ChatRoomScreen component displays a real-time chat interface between the current user and another participant.
+ * 
+ * Features:
+ * - Real-time message updates using Firestore onSnapshot.
+ * - Marks messages as read when the chat is opened.
+ * - Fetches and displays participant details (name and photo) from 'taskers' or 'users' collections.
+ * - Responsive UI with keyboard handling and safe area insets.
+ * - Custom header with participant avatar and online status.
+ * - Message bubbles with timestamps and read status indicators.
+ * - Input area for sending text messages, with attachment and microphone buttons (UI only).
+ * 
+ * @component
+ * @returns {React.FC} The chat room screen component.
+ * 
+ * @remarks
+ * - Requires `ThemeContext` for theming.
+ * - Uses Firebase Firestore for message and conversation data.
+ * - Depends on `AuthContext` for current user information.
+ * - Expects navigation params: `chatId`, `otherParticipantName`, `otherParticipantId`, `otherParticipantPhoto`.
+ * 
+ * @example
+ * // Usage in navigation
+ * <ChatRoomScreen />
+ */
 // app/home/screens/ChatRoomScreen.tsx
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';

@@ -68,5 +68,9 @@
     "react-test-renderer": "19.0.0",
     "typescript": "~5.3.3"
   },
-  "private": true
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "type": "commonjs"
 }

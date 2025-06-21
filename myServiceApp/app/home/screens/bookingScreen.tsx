@@ -535,16 +535,32 @@ const BookingScreen = () => {
       });
 
       // 2. Call backend to initiate STK Push
-      const res = await fetch('https://7633-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: parseFloat(tasker.price?.replace(/[^\d.]/g, '')),
-          phoneNumber: mpesaNumber,
-          accountReference: jobRef.id,
-          transactionDesc: 'Service Booking'
-        })
-      });
+      const res = await fetch('https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
+         method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: parseFloat(tasker.price.replace(/[^\d.]/g, '')),
+        phoneNumber: mpesaNumber,
+        accountReference: jobRef.id,
+        transactionDesc: 'Service Booking',
+      }),
+    }
+  );
+
+  const text = await res.text();             // ← grab raw text
+  console.log('STK Push raw response:', text);    // ← inspect it in Metro or Chrome debug
+
+  if (!res.ok) {
+    throw new Error(`STK failed: ${res.status} ${text}`);
+  }
+
+  let json;
+  try {
+    json = JSON.parse(text);                       // ← only parse if it’s valid JSON
+  } catch (e) {
+    throw new Error(`Invalid JSON from STK Push: ${text}`);
+  }
+
       const { checkoutRequestId } = await res.json();
       // 3. Save checkoutRequestId to job
       await updateDoc(doc(db, 'jobs', jobRef.id), { checkoutRequestId });
