@@ -7,12 +7,31 @@ interface DashboardAnalyticsProps {
   pieColors: string[];
 }
 
+const chartContainerStyle: React.CSSProperties = {
+  background: '#fff',
+  borderRadius: 12,
+  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  padding: '24px',
+  minWidth: 320,
+  flex: '1 1 400px',
+  height: '380px',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const chartTitleStyle: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 600,
+  color: '#374151',
+  marginBottom: 24,
+};
+
 const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({ categoryTaskerCounts, sortedCategoryTaskerCounts, pieColors }) => (
-  <div style={{ display: 'flex', gap: 32, marginBottom: 48, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+  <div style={{ display: 'flex', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
     {/* Pie Chart */}
-    <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
-      <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Taskers per Category</div>
-      <ResponsiveContainer width="100%" height={220}>
+    <div style={chartContainerStyle}>
+      <h3 style={chartTitleStyle}>Taskers per Category</h3>
+      <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={categoryTaskerCounts}
@@ -20,29 +39,41 @@ const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({ categoryTaskerC
             nameKey="name"
             cx="50%"
             cy="50%"
-            outerRadius={80}
+            outerRadius={100}
             fill="#4A80F0"
-            label={({ name, value }) => `${name} (${value})`}
           >
             {categoryTaskerCounts.map((entry, idx) => (
               <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip
+            contentStyle={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+            }}
+          />
+          <Legend />
         </PieChart>
       </ResponsiveContainer>
     </div>
     {/* Bar Chart */}
-    <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #eaeaea', padding: 32, minWidth: 320, flex: '1 1 320px', height: 320 }}>
-      <div style={{ fontSize: 18, color: '#888', marginBottom: 8 }}>Most Common Categories</div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={sortedCategoryTaskerCounts}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
+    <div style={chartContainerStyle}>
+      <h3 style={chartTitleStyle}>Top Categories by Tasker Count</h3>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={sortedCategoryTaskerCounts} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#4b5563' }} />
+          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#4b5563' }} />
+          <Tooltip
+            contentStyle={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+            }}
+          />
           <Legend />
-          <Bar dataKey="value" fill="#4A80F0" />
+          <Bar dataKey="value" name="Taskers" fill="#4A80F0" barSize={30} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

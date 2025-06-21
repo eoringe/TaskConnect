@@ -1,4 +1,5 @@
 import React from 'react';
+import { IoPeopleOutline, IoBuildOutline, IoAppsOutline } from 'react-icons/io5';
 
 interface DashboardOverviewProps {
   totalUsers: number;
@@ -6,46 +7,71 @@ interface DashboardOverviewProps {
   totalCategories: number;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: '#fff',
-  borderRadius: 18,
-  boxShadow: '0 2px 12px rgba(44,62,80,0.07)',
-  padding: '32px 20px 24px 20px',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  minWidth: 180,
-  minHeight: 140,
-  margin: '0 12px',
-};
+const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: number, color: string }) => {
+  const cardStyle: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    flex: '1 1 250px',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  };
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 16,
-  color: '#888',
-  marginBottom: 8,
-  fontWeight: 500,
-};
+  const iconContainerStyle: React.CSSProperties = {
+    width: 50,
+    height: 50,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: color,
+    background: `${color}20`, // Light background tint
+    fontSize: '24px',
+  };
 
-const valueStyle: React.CSSProperties = {
-  fontSize: 36,
-  fontWeight: 800,
-  color: '#4A80F0',
+  const textContainerStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 15,
+    color: '#6b7280',
+    marginBottom: 4,
+    fontWeight: 500,
+  };
+
+  const valueStyle: React.CSSProperties = {
+    fontSize: 32,
+    fontWeight: 700,
+    color: '#111827',
+  };
+
+  return (
+    <div style={cardStyle} onMouseOver={e => {
+      e.currentTarget.style.transform = 'translateY(-5px)';
+      e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+    }} onMouseOut={e => {
+      e.currentTarget.style.transform = 'translateY(0)';
+      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+    }}>
+      <div style={iconContainerStyle}>{icon}</div>
+      <div style={textContainerStyle}>
+        <div style={labelStyle}>{label}</div>
+        <div style={valueStyle}>{value}</div>
+      </div>
+    </div>
+  );
 };
 
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({ totalUsers, totalTaskers, totalCategories }) => (
-  <div style={{ display: 'flex', gap: 32, marginBottom: 32, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Users</div>
-      <div style={valueStyle}>{totalUsers}</div>
-    </div>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Taskers</div>
-      <div style={valueStyle}>{totalTaskers}</div>
-    </div>
-    <div style={cardStyle}>
-      <div style={labelStyle}>Total Categories</div>
-      <div style={valueStyle}>{totalCategories}</div>
-    </div>
+  <div style={{ display: 'flex', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
+    <StatCard icon={<IoPeopleOutline />} label="Total Users" value={totalUsers} color="#3B82F6" />
+    <StatCard icon={<IoBuildOutline />} label="Total Taskers" value={totalTaskers} color="#10B981" />
+    <StatCard icon={<IoAppsOutline />} label="Total Categories" value={totalCategories} color="#F59E0B" />
   </div>
 );
 

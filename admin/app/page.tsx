@@ -9,7 +9,6 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import * as IonIcons from "react-icons/io5";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import DashboardOverview from './components/DashboardOverview';
 import DashboardAnalytics from './components/DashboardAnalytics';
 import DashboardTaskers from './components/DashboardTaskers';
@@ -40,78 +39,11 @@ function getIonIconComponent(iconName: string | undefined) {
   let compName = "Io";
   const parts = iconName.split("-");
   compName += parts
-    .map((part, i) =>
-      part.charAt(0).toUpperCase() + part.slice(1)
-    )
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join("");
-  if (iconName.endsWith("-outline")) compName += "Outline";
-  if (iconName.endsWith("-sharp")) compName += "Sharp";
   return (IonIcons as any)[compName] || null;
 }
 
-const thStyle: React.CSSProperties = {
-  padding: 12,
-  background: "#f0f4fa",
-  color: "#2d3a4a",
-  fontWeight: 700,
-  fontSize: 15,
-  borderBottom: "2px solid #eaeaea"
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #c3cfe2",
-  fontSize: 15,
-  width: "100%",
-  background: "#f8fafc"
-};
-
-const editBtnStyle: React.CSSProperties = {
-  background: "#4A80F0",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  marginRight: 8,
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const deleteBtnStyle: React.CSSProperties = {
-  background: "#e74c3c",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const saveBtnStyle: React.CSSProperties = {
-  background: "#27ae60",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  marginRight: 8,
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
-
-const cancelBtnStyle: React.CSSProperties = {
-  background: "#aaa",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background 0.2s"
-};
 
 export default function AdminDashboard() {
   const [taskers, setTaskers] = useState<Tasker[]>([]);
@@ -210,31 +142,33 @@ export default function AdminDashboard() {
     return taskers.filter((t) => taskerIds.has(t.id));
   };
 
+
   // Analytics Data Preparation
   const categoryTaskerCounts = categories.map(cat => ({
     name: cat.name,
     value: new Set((cat.services || []).map((svc: any) => svc.taskerId)).size
   })).filter(c => c.value > 0);
 
-  const sortedCategoryTaskerCounts = [...categoryTaskerCounts].sort((a, b) => b.value - a.value);
-  const pieColors = ["#6366F1", "#06D6A0", "#F59E0B", "#EF4444", "#8B5CF6", "#F97316", "#10B981", "#3B82F6", "#EC4899", "#84CC16"];
+  const sortedCategoryTaskerCounts = [...categoryTaskerCounts].sort((a, b) => b.value - a.value).slice(0, 5);
+  const pieColors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
   const sidebarItems = [
     { id: 'overview', label: 'Overview', icon: 'IoHomeOutline' },
     { id: 'taskers', label: 'Taskers', icon: 'IoPeopleOutline' },
-    { id: 'categories', label: 'Categories', icon: 'IoGridOutline' },
-    { id: 'analytics', label: 'Analytics', icon: 'IoBarChartOutline' },
-    { id: 'users', label: 'Users', icon: 'IoPersonOutline' },
+    { id: 'categories', label: 'Categories', icon: 'IoAppsOutline' },
+    { id: 'users', label: 'Users', icon: 'IoPersonCircleOutline' },
   ];
+
+  const { IoBusinessOutline, IoChevronForwardOutline, IoChevronBackOutline, IoGridOutline } = IonIcons;
 
   const renderSidebar = () => (
     <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <div className="logo">
-          <IoBusinessOutline size={32} />
-          {!sidebarCollapsed && <span>TaskConnect</span>}
+          <IoBusinessOutline size={32} color="#3B82F6" />
+          {!sidebarCollapsed && <span>AdminPanel</span>}
         </div>
-        <button 
+        <button
           className="collapse-btn"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         >
@@ -243,14 +177,15 @@ export default function AdminDashboard() {
       </div>
       <nav className="sidebar-nav">
         {sidebarItems.map((item) => {
-          const IconComponent = (IonIcons as any)[item.icon];
+          const IconComponent = (IonIcons as any)[item.icon] || IoGridOutline;
           return (
             <button
               key={item.id}
               className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
               onClick={() => setActiveSection(item.id)}
+              title={sidebarCollapsed ? item.label : ''}
             >
-              <IconComponent size={20} />
+              <IconComponent size={22} />
               {!sidebarCollapsed && <span>{item.label}</span>}
             </button>
           );
@@ -259,17 +194,22 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const renderSectionHeader = (title: string, subtitle: string) => (
+    <div className="section-header">
+      <h2>{title}</h2>
+      <p>{subtitle}</p>
+    </div>
+  );
+
   const renderOverview = () => (
     <div className="section">
-      <div className="section-header">
-        <h2>Dashboard Overview</h2>
-        <p>Welcome to TaskConnect Admin Dashboard</p>
-      </div>
+      {renderSectionHeader("Dashboard Overview", `Welcome back, Admin!`)}
       <DashboardOverview
         totalUsers={users.length}
         totalTaskers={taskers.length}
         totalCategories={categories.length}
       />
+      {renderSectionHeader("Analytics", "Key metrics and tasker distribution.")}
       <DashboardAnalytics
         categoryTaskerCounts={categoryTaskerCounts}
         sortedCategoryTaskerCounts={sortedCategoryTaskerCounts}
@@ -279,60 +219,62 @@ export default function AdminDashboard() {
   );
 
   const renderTaskers = () => (
-    <DashboardTaskers
-      taskers={taskers}
-      editId={editId}
-      editData={editData}
-      loading={loading}
-      error={error}
-      handleEdit={handleEdit}
-      handleEditChange={handleEditChange}
-      handleEditSave={handleEditSave}
-      handleDelete={handleDelete}
-      base64ToImageSrc={base64ToImageSrc}
-      thStyle={thStyle}
-      inputStyle={inputStyle}
-      editBtnStyle={editBtnStyle}
-      deleteBtnStyle={deleteBtnStyle}
-      saveBtnStyle={saveBtnStyle}
-      cancelBtnStyle={cancelBtnStyle}
-    />
+    <div className="section">
+      {renderSectionHeader("Tasker Management", "View, edit, or remove taskers from the platform.")}
+      <DashboardTaskers
+        taskers={taskers}
+        editId={editId}
+        editData={editData}
+        loading={loading}
+        error={error}
+        handleEdit={handleEdit}
+        handleEditChange={handleEditChange}
+        handleEditSave={handleEditSave}
+        handleDelete={handleDelete}
+        base64ToImageSrc={base64ToImageSrc}
+      />
+    </div>
   );
 
   const renderCategories = () => (
     <div className="section">
-      <div className="section-header">
-        <h2>Service Categories</h2>
-        <p>Manage service categories and view assigned taskers</p>
-      </div>
-      
+      {renderSectionHeader("Service Categories", "Manage categories and view assigned taskers.")}
       <div className="categories-grid">
         {categories.map((cat) => {
-          const IconComp = getIonIconComponent(cat.icon);
+          const IconComp = getIonIconComponent(cat.icon) || IoGridOutline;
           const taskerCount = getTaskersForCategory(cat).length;
-          
+
           return (
-            <div 
-              key={cat.id} 
+            <div
+              key={cat.id}
               className="category-card"
               onClick={() => { setSelectedCategory(cat); setShowCategoryModal(true); }}
             >
-              <div className="category-icon">
-                {IconComp ? <IconComp size={32} /> : <IoGridOutline size={32} />}
+              <div className="category-icon-wrapper">
+                <IconComp size={28} />
               </div>
               <div className="category-info">
                 <h3>{cat.name}</h3>
                 <p>{taskerCount} tasker{taskerCount !== 1 ? 's' : ''}</p>
               </div>
-              <div className="category-arrow">
-                <IoChevronForwardOutline size={20} />
-              </div>
+              <IoChevronForwardOutline className="category-arrow" size={20} />
             </div>
           );
         })}
       </div>
     </div>
   );
+
+  const renderUsers = () => (
+    <div className="section">
+      {renderSectionHeader("User Management", `A list of all ${users.length} registered users on the platform.`)}
+      <div className="user-list-container">
+        {/* User list can be implemented here, similar to taskers table */}
+        <p>User management UI is not yet implemented.</p>
+      </div>
+    </div>
+  );
+
 
   const renderContent = () => {
     switch (activeSection) {
@@ -342,171 +284,109 @@ export default function AdminDashboard() {
         return renderTaskers();
       case 'categories':
         return renderCategories();
-      case 'analytics':
-        return renderOverview(); // Reuse overview for now
       case 'users':
-        return (
-          <div className="section">
-            <div className="section-header">
-              <h2>Users Management</h2>
-              <p>Total registered users: {users.length}</p>
-            </div>
-            <div className="stat-card primary">
-              <div className="stat-icon">
-                <IoPersonOutline size={24} />
-              </div>
-              <div className="stat-content">
-                <h3>{users.length}</h3>
-                <p>Total App Users</p>
-              </div>
-            </div>
-          </div>
-        );
+        return renderUsers();
       default:
         return renderOverview();
     }
   };
 
-  const { IoBusinessOutline, IoChevronForwardOutline, IoChevronBackOutline, IoHomeOutline, IoPeopleOutline, IoGridOutline, IoBarChartOutline, IoPersonOutline, IoCheckmarkCircleOutline, IoCheckmarkOutline, IoCloseOutline, IoPencilOutline, IoTrashOutline } = IonIcons;
-
   return (
-    <div>
+    <div className="admin-dashboard">
       <div className="admin-layout">
         {renderSidebar()}
-        <div className="admin-main-content">
+        <main className="admin-main-content">
           {renderContent()}
-        </div>
+        </main>
       </div>
       <style jsx global>{`
-        body {
-          font-family: 'Inter', sans-serif;
-          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        }
-        .admin-layout {
-          display: flex;
-          min-height: 100vh;
-        }
+        /* Basic Reset & Font */
+        :root { --sidebar-width: 240px; --collapsed-sidebar-width: 80px; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; color: #1a202c; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        /* Layout */
+        .admin-dashboard { max-width: 1800px; margin: 0 auto; }
+        .admin-layout { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
         .sidebar {
-          width: 220px;
-          background: #232946;
-          color: #fff;
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          padding: 0;
-          transition: width 0.2s;
-          box-shadow: 2px 0 12px rgba(44,62,80,0.04);
-          z-index: 10;
+          width: var(--sidebar-width);
+          background: #ffffff;
+          display: flex; flex-direction: column;
+          padding: 16px;
+          transition: width 0.3s ease;
+          border-right: 1px solid #e2e8f0;
+          position: fixed; top: 0; left: 0; height: 100%;
         }
-        .sidebar.collapsed {
-          width: 64px;
-        }
+        .sidebar.collapsed { width: var(--collapsed-sidebar-width); }
         .sidebar-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 24px 20px 16px 20px;
-          border-bottom: 1px solid #2d3a4a;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 4px; margin-bottom: 24px;
         }
         .logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 20px;
-          font-weight: 700;
-          color: #fff;
+          display: flex; align-items: center; gap: 12px;
+          font-size: 20px; font-weight: 700; color: #111827;
+          overflow: hidden; white-space: nowrap;
         }
         .collapse-btn {
-          background: none;
-          border: none;
-          color: #fff;
-          cursor: pointer;
-          font-size: 20px;
-          padding: 4px;
-          border-radius: 4px;
-          transition: background 0.2s;
+          background: none; border: none; color: #4a5568; cursor: pointer;
+          font-size: 24px; padding: 4px; border-radius: 6px;
+          display: flex; align-items: center; justify-content: center;
         }
-        .collapse-btn:hover {
-          background: #2d3a4a;
-        }
-        .sidebar-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          margin-top: 24px;
-          padding: 0 8px;
-        }
+        .collapse-btn:hover { background: #f1f5f9; }
+        
+        .sidebar-nav { display: flex; flex-direction: column; gap: 8px; }
         .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          background: none;
-          border: none;
-          color: #bfc9e0;
-          font-size: 16px;
-          font-weight: 500;
-          padding: 12px 16px;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: background 0.18s, color 0.18s;
-          margin-bottom: 2px;
+          display: flex; align-items: center; gap: 16px;
+          background: none; border: none; color: #4a5568;
+          font-size: 15px; font-weight: 500; text-align: left;
+          width: 100%; padding: 12px; border-radius: 8px;
+          cursor: pointer; transition: background 0.2s, color 0.2s;
         }
-        .nav-item.active, .nav-item:hover {
-          background: #4A80F0;
-          color: #fff;
-        }
+        .sidebar.collapsed .nav-item { justify-content: center; padding: 16px 12px; }
+        .sidebar.collapsed .nav-item span { display: none; }
+        .nav-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+        .nav-item:not(.active):hover { background: #f8fafc; color: #111827; }
+        
+        /* Main Content */
         .admin-main-content {
-          flex: 1;
-          padding: 40px 32px 32px 32px;
-          background: none;
-          min-width: 0;
+          width: calc(100% - var(--sidebar-width));
+          margin-left: var(--sidebar-width);
+          padding: 32px 40px;
+          transition: width 0.3s, margin-left 0.3s;
         }
-        /* Service Categories Grid */
-        .categories-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-          gap: 24px;
-          margin-top: 24px;
+        .sidebar.collapsed ~ .admin-main-content {
+          width: calc(100% - var(--collapsed-sidebar-width));
+          margin-left: var(--collapsed-sidebar-width);
         }
+        .section-header { margin-bottom: 24px; }
+        .section-header h2 { font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+        .section-header p { font-size: 16px; color: #6b7280; }
+
+        /* Categories Grid */
+        .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
         .category-card {
-          background: #fff;
-          border-radius: 18px;
-          box-shadow: 0 2px 12px rgba(44,62,80,0.07);
-          padding: 32px 20px 24px 20px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          cursor: pointer;
-          border: 2px solid transparent;
-          transition: box-shadow 0.18s, border 0.18s, transform 0.18s;
-          position: relative;
-          min-height: 170px;
+          background: #fff; border-radius: 12px;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+          padding: 20px; display: flex; align-items: center; gap: 16px;
+          cursor: pointer; border: 1px solid #e2e8f0;
+          transition: all 0.2s ease;
         }
-        .category-card:hover, .category-card.selected {
-          border: 2px solid #4A80F0;
-          box-shadow: 0 4px 24px rgba(74,128,240,0.10);
-          transform: translateY(-2px) scale(1.03);
+        .category-card:hover { border-color: #4A80F0; transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(74,128,240,0.1), 0 4px 6px -2px rgba(74,128,240,0.05); }
+        .category-icon-wrapper {
+          font-size: 24px; color: #4A80F0; background: #eef2ff;
+          border-radius: 8px; width: 48px; height: 48px;
+          display: flex; align-items: center; justify-content: center;
         }
-        .category-icon {
-          font-size: 44px;
-          margin-bottom: 14px;
-          color: #4A80F0;
-          background: #f0f4fa;
-          border-radius: 50%;
-          width: 64px;
-          height: 64px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 1px 4px rgba(44,62,80,0.04);
-        }
-        .category-name {
-          font-size: 18px;
-          font-weight: 700;
-          color: #232946;
-          text-align: center;
-          margin-bottom: 4px;
-        }
+        .category-info { flex: 1; }
+        .category-info h3 { font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 2px; }
+        .category-info p { font-size: 14px; color: #6b7280; }
+        .category-arrow { color: #9ca3af; transition: transform 0.2s; }
+        .category-card:hover .category-arrow { transform: translateX(4px); color: #4A80F0; }
+        
+        /* Tasker Table Row Hover Style */
+        .tasker-row:hover { background-color: #f9fafb; }
       `}</style>
     </div>
   );

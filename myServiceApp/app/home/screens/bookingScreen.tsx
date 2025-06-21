@@ -536,30 +536,30 @@ const BookingScreen = () => {
 
       // 2. Call backend to initiate STK Push
       const res = await fetch('https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
-         method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: parseFloat(tasker.price.replace(/[^\d.]/g, '')),
-        phoneNumber: mpesaNumber,
-        accountReference: jobRef.id,
-        transactionDesc: 'Service Booking',
-      }),
-    }
-  );
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(tasker.price.replace(/[^\d.]/g, '')),
+          phoneNumber: mpesaNumber,
+          accountReference: jobRef.id,
+          transactionDesc: 'Service Booking',
+        }),
+      }
+      );
 
-  const text = await res.text();             // ← grab raw text
-  console.log('STK Push raw response:', text);    // ← inspect it in Metro or Chrome debug
+      const text = await res.text();             // ← grab raw text
+      console.log('STK Push raw response:', text);    // ← inspect it in Metro or Chrome debug
 
-  if (!res.ok) {
-    throw new Error(`STK failed: ${res.status} ${text}`);
-  }
+      if (!res.ok) {
+        throw new Error(`STK failed: ${res.status} ${text}`);
+      }
 
-  let json;
-  try {
-    json = JSON.parse(text);                       // ← only parse if it’s valid JSON
-  } catch (e) {
-    throw new Error(`Invalid JSON from STK Push: ${text}`);
-  }
+      let json;
+      try {
+        json = JSON.parse(text);                       // ← only parse if it’s valid JSON
+      } catch (e) {
+        throw new Error(`Invalid JSON from STK Push: ${text}`);
+      }
 
       const { checkoutRequestId } = await res.json();
       // 3. Save checkoutRequestId to job
@@ -603,9 +603,9 @@ const BookingScreen = () => {
       // Filter results to find conversation with both participants
       const existingConversation = querySnapshot.docs.find(doc => {
         const data = doc.data();
-        return data.participants && 
-               data.participants.includes(auth.currentUser?.uid) && 
-               data.participants.includes(taskerUid);
+        return data.participants &&
+          data.participants.includes(auth.currentUser?.uid) &&
+          data.participants.includes(taskerUid);
       });
       if (existingConversation) {
         // Use existing conversation
@@ -647,8 +647,8 @@ const BookingScreen = () => {
           <Text style={styles.detail}>{tasker.category}</Text>
           <Text style={styles.detail}>{tasker.price}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.chatButton} 
+        <TouchableOpacity
+          style={styles.chatButton}
           onPress={handleChatPress}
         >
           <Ionicons name="chatbubble-outline" size={24} color={theme.colors.primary} />
