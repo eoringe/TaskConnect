@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
+import { useRouter } from 'expo-router';
 
 // Components
 import Header from '../components/Header';
@@ -33,6 +34,7 @@ type FilterOptions = { minRating: number; maxPrice: number; maxDistance: number;
 export default function HomeScreenContent() {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const router = useRouter();
 
   // state
   const [services, setServices] = useState<Service[]>([]);
@@ -47,6 +49,7 @@ export default function HomeScreenContent() {
   const [userName, setUserName] = useState<string>('User');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [isTasker, setIsTasker] = useState<boolean>(false);
+  const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // fetch profile & tasker status once
@@ -114,9 +117,19 @@ export default function HomeScreenContent() {
           id: s.id,
           title: s.title || s.name,
           subtitle: `${s.taskerName || s.name} • ${s.category}`,
-          onPress: () => {
-            setSearchQuery(s.title || s.name);
-            // Optionally scroll to the card (if you want to implement this)
+          onPress: async () => {
+            setIsBookingLoading(true);
+            try {
+              await router.push({
+                pathname: "/home/screens/bookingScreen",
+                params: { tasker: JSON.stringify(s) }
+              });
+            } catch (error) {
+              console.error('Error navigating to booking screen:', error);
+              alert('Unable to proceed with booking. Please try again.');
+            } finally {
+              setIsBookingLoading(false);
+            }
           },
           profileImage: s.taskerProfileImage || null,
         }))
@@ -152,6 +165,12 @@ export default function HomeScreenContent() {
       <Header userName={userName} onProfilePress={() => setShowProfileModal(true)} />
 
       {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      )}
+
+      {isBookingLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
