@@ -88,17 +88,28 @@ export default function HomeScreenContent() {
     })();
   }, [selectedCategory]);
 
-  // Filtered services based on search query
-  const filteredServices = services.filter(s => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.trim().toLowerCase();
-    return (
-      (s.title && s.title.toLowerCase().includes(q)) ||
-      (s.name && s.name.toLowerCase().includes(q)) ||
-      (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
-      (s.category && s.category.toLowerCase().includes(q))
+  // Combined search and filter logic
+  const filteredServices = services
+    .filter(s => {
+      // Search filter
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase();
+      return (
+        (s.title && s.title.toLowerCase().includes(q)) ||
+        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+        (s.category && s.category.toLowerCase().includes(q))
+      );
+    })
+    .filter(s => s.rating >= filterOptions.minRating)
+    .filter(s => parseInt(s.price.replace('Ksh','')) <= filterOptions.maxPrice)
+    .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
+    .sort((a,b) => filterOptions.sortBy === 'rating'
+      ? b.rating - a.rating
+      : filterOptions.sortBy === 'price'
+      ? parseInt(a.price.replace('Ksh','')) - parseInt(b.price.replace('Ksh',''))
+      : parseFloat(a.location) - parseFloat(b.location)
     );
-  });
 
   // Prepare dropdown results for SearchBar
   const searchResults = searchQuery.trim()
@@ -135,28 +146,9 @@ export default function HomeScreenContent() {
         }))
     : [];
 
-  // apply filterOptions client-side
-  const applyFilters = async () => {
+  // Just close the modal on apply
+  const applyFilters = () => {
     setShowFilterModal(false);
-    setIsLoading(true);
-    let data = selectedCategory === 'All'
-      ? await fetchAllServices()
-      : await fetchServicesByCategory(selectedCategory);
-
-    // filter & sort
-    data = data
-      .filter(s => s.rating >= filterOptions.minRating)
-      .filter(s => parseInt(s.price.replace('Ksh','')) <= filterOptions.maxPrice)
-      .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
-      .sort((a,b) => filterOptions.sortBy === 'rating'
-        ? b.rating - a.rating
-        : filterOptions.sortBy === 'price'
-        ? parseInt(a.price.replace('Ksh','')) - parseInt(b.price.replace('Ksh',''))
-        : parseFloat(a.location) - parseFloat(b.location)
-      );
-
-    setServices(data);
-    setIsLoading(false);
   };
 
   return (
@@ -218,7 +210,7 @@ export default function HomeScreenContent() {
       </ScrollView>
 
       <ProfileModal visible={showProfileModal} onClose={() => setShowProfileModal(false)} userName={userName} />
-      <FilterModal visible={showFilterModal} onClose={() => setShowFilterModal(false)} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
+      <FilterModal visible={showFilterModal} onClose={applyFilters} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
       <CategoryListModal visible={showCategoryListModal} onClose={() => setShowCategoryListModal(false)} selectedCategory={selectedCategory} services={services} />
       <LocationModal visible={showLocationModal} onClose={() => setShowLocationModal(false)} currentLocation={cities[0]} cities={cities} onLocationChange={() => {}} />
     </View>

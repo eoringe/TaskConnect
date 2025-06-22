@@ -556,7 +556,7 @@ const BookingScreen = () => {
 
       let json;
       try {
-        json = JSON.parse(text);                       // ← only parse if it’s valid JSON
+        json = JSON.parse(text);                       // ← only parse if it's valid JSON
       } catch (e) {
         throw new Error(`Invalid JSON from STK Push: ${text}`);
       }
@@ -637,6 +637,14 @@ const BookingScreen = () => {
       Alert.alert('Error', 'Failed to open chat. Please try again.');
     }
   };
+
+  if (isLoadingLocation) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 1000 }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
