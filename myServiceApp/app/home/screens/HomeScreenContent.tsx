@@ -1,6 +1,6 @@
 // app/(tabs)/home/screens/HomeScreenContent.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { auth, db } from '@/firebase-config';
 import { doc, getDoc } from 'firebase/firestore';
@@ -47,6 +47,7 @@ export default function HomeScreenContent() {
   const [userName, setUserName] = useState<string>('User');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [isTasker, setIsTasker] = useState<boolean>(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // fetch profile & tasker status once
   useEffect(() => {
@@ -84,6 +85,43 @@ export default function HomeScreenContent() {
     })();
   }, [selectedCategory]);
 
+  // Filtered services based on search query
+  const filteredServices = services.filter(s => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      (s.title && s.title.toLowerCase().includes(q)) ||
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+      (s.category && s.category.toLowerCase().includes(q))
+    );
+  });
+
+  // Prepare dropdown results for SearchBar
+  const searchResults = searchQuery.trim()
+    ? services
+        .filter(s => {
+          const q = searchQuery.trim().toLowerCase();
+          return (
+            (s.title && s.title.toLowerCase().includes(q)) ||
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+            (s.category && s.category.toLowerCase().includes(q))
+          );
+        })
+        .slice(0, 8) // limit results
+        .map(s => ({
+          id: s.id,
+          title: s.title || s.name,
+          subtitle: `${s.taskerName || s.name} • ${s.category}`,
+          onPress: () => {
+            setSearchQuery(s.title || s.name);
+            // Optionally scroll to the card (if you want to implement this)
+          },
+          profileImage: s.taskerProfileImage || null,
+        }))
+    : [];
+
   // apply filterOptions client-side
   const applyFilters = async () => {
     setShowFilterModal(false);
@@ -119,8 +157,15 @@ export default function HomeScreenContent() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} onFilterPress={() => setShowFilterModal(true)} />
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onFilterPress={() => setShowFilterModal(true)}
+        results={searchResults}
+        onDismiss={() => setSearchQuery('')}
+        loading={!!(isLoading && searchQuery.trim())}
+      />
+      <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <BannerCarousel />
         {!isTasker && <BecomeTaskerCard />}
 
@@ -142,13 +187,13 @@ export default function HomeScreenContent() {
           </TouchableOpacity>
         </View>
 
-        {services.length > 0 ? (
-          services.map(s => <ServiceCard key={s.id} service={s} />)
+        {filteredServices.length > 0 ? (
+          filteredServices.map(s => <ServiceCard key={s.id} service={s} />)
         ) : (
           <View style={styles.noResultsContainer}>
             <Ionicons name="search-outline" size={50} color={theme.colors.textLight} />
             <Text style={styles.noResultsText}>No services found</Text>
-            <Text style={styles.noResultsSubtext}>Try adjusting your filters</Text>
+            <Text style={styles.noResultsSubtext}>Try adjusting your filters or search</Text>
           </View>
         )}
       </ScrollView>
