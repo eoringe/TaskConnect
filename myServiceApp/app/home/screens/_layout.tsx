@@ -50,6 +50,30 @@ export default function ScreensLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="TermsAndPoliciesScreen"
+        options={{
+          headerShown: true,
+          title: "Terms and Policies",
+          headerBackTitle: "Back"
+        }}
+      />
+      <Stack.Screen
+        name="AboutScreen"
+        options={{
+          headerShown: true,
+          title: "About",
+          headerBackTitle: "Back"
+        }}
+      />
+      <Stack.Screen
+        name="HelpSupportScreen"
+        options={{
+          headerShown: true,
+          title: "Help & Support",
+          headerBackTitle: "Back"
+        }}
+      />
     </Stack>
   );
 }

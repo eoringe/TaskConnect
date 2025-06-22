@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Dimensions, Animated, StyleSheet } from 'react-native';
 import Banner from './Banner';
+import EllaImg from '@/assets/images/Ella.jpg';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,13 +19,23 @@ interface BannerData {
   title: string;
   subtitle: string;
   buttonText: string;
-  iconName: keyof typeof Ionicons.glyphMap; // Type for Ionicons glyph names
+  iconName?: keyof typeof Ionicons.glyphMap; // Optional for custom image
+  image?: any; // For custom image (e.g. Ella)
   backgroundColor: string;
   onPress: () => void;
 }
 
 // Mock data array for the banners to be displayed in the carousel
 const mockBanners: BannerData[] = [
+  {
+    id: 'ella',
+    title: 'Meet Ella',
+    subtitle: 'Your friendly AI assistant for TaskConnect. Ask Ella anything about booking, payments, or using the app!',
+    buttonText: 'Chat Now',
+    image: EllaImg,
+    backgroundColor: '#FFD600', // Bright yellow
+    onPress: () => console.log('Chat with Ella'),
+  },
   {
     id: '1',
     title: 'Get 20% off',
@@ -121,6 +132,7 @@ const BannerCarousel: React.FC = () => {
               subtitle={banner.subtitle}
               buttonText={banner.buttonText}
               iconName={banner.iconName}
+              image={banner.image}
               backgroundColor={banner.backgroundColor}
               onPress={banner.onPress}
             />

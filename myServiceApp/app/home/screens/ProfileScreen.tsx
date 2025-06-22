@@ -198,7 +198,16 @@ const ProfileScreen = () => {
         router.push('/home/screens/SecurityScreen');
         break;
       case 'TaskerProfileScreen':
-        router.push('/home/screens/TaskerProfileScreen'); // Navigate to the new Tasker Profile screen
+        router.push('/home/screens/TaskerProfileScreen');
+        break;
+      case 'helpSupport':
+        router.push('/home/screens/HelpSupportScreen');
+        break;
+      case 'termsAndPolicies':
+        router.push('/home/screens/TermsAndPoliciesScreen');
+        break;
+      case 'about':
+        router.push('/home/screens/AboutScreen');
         break;
       case 'editProfile':
         router.push('/home/screens/PersonalInfoScreen');

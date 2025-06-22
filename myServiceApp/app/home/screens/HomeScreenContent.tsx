@@ -1,13 +1,14 @@
 // app/(tabs)/home/screens/HomeScreenContent.tsx
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity, Image } from 'react-native';
 import { auth, db } from '@/firebase-config';
 import { doc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import StatusBarSpace from '@/app/components/StatusBarSpace';
+import { useRouter } from 'expo-router';
 
 // Components
 import Header from '../components/Header';
@@ -33,6 +34,7 @@ type FilterOptions = { minRating: number; maxPrice: number; maxDistance: number;
 export default function HomeScreenContent() {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const router = useRouter();
 
   // state
   const [services, setServices] = useState<Service[]>([]);
@@ -47,6 +49,8 @@ export default function HomeScreenContent() {
   const [userName, setUserName] = useState<string>('User');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [isTasker, setIsTasker] = useState<boolean>(false);
+  const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // fetch profile & tasker status once
   useEffect(() => {
@@ -84,28 +88,72 @@ export default function HomeScreenContent() {
     })();
   }, [selectedCategory]);
 
-  // apply filterOptions client-side
-  const applyFilters = async () => {
-    setShowFilterModal(false);
-    setIsLoading(true);
-    let data = selectedCategory === 'All'
-      ? await fetchAllServices()
-      : await fetchServicesByCategory(selectedCategory);
-
-    // filter & sort
-    data = data
-      .filter(s => s.rating >= filterOptions.minRating)
-      .filter(s => parseInt(s.price.replace('Ksh','')) <= filterOptions.maxPrice)
-      .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
-      .sort((a,b) => filterOptions.sortBy === 'rating'
-        ? b.rating - a.rating
-        : filterOptions.sortBy === 'price'
-        ? parseInt(a.price.replace('Ksh','')) - parseInt(b.price.replace('Ksh',''))
-        : parseFloat(a.location) - parseFloat(b.location)
+  // Combined search and filter logic
+  const filteredServices = services
+    .filter(s => {
+      // Search filter
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase();
+      return (
+        (s.title && s.title.toLowerCase().includes(q)) ||
+        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+        (s.category && s.category.toLowerCase().includes(q))
       );
+    })
+    .filter(s => s.rating >= filterOptions.minRating)
+    .filter(s => parseInt(s.price.replace('Ksh','')) <= filterOptions.maxPrice)
+    .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
+    .sort((a,b) => filterOptions.sortBy === 'rating'
+      ? b.rating - a.rating
+      : filterOptions.sortBy === 'price'
+      ? parseInt(a.price.replace('Ksh','')) - parseInt(b.price.replace('Ksh',''))
+      : parseFloat(a.location) - parseFloat(b.location)
+    );
 
-    setServices(data);
-    setIsLoading(false);
+  // Prepare dropdown results for SearchBar
+  const searchResults = searchQuery.trim()
+    ? services
+        .filter(s => {
+          const q = searchQuery.trim().toLowerCase();
+          return (
+            (s.title && s.title.toLowerCase().includes(q)) ||
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+            (s.category && s.category.toLowerCase().includes(q))
+          );
+        })
+        .slice(0, 8) // limit results
+        .map(s => ({
+          id: s.id,
+          title: s.title || s.name,
+          subtitle: `${s.taskerName || s.name} • ${s.category}`,
+          onPress: async () => {
+            setIsBookingLoading(true);
+            try {
+              await router.push({
+                pathname: "/home/screens/bookingScreen",
+                params: { tasker: JSON.stringify(s) }
+              });
+            } catch (error) {
+              console.error('Error navigating to booking screen:', error);
+              alert('Unable to proceed with booking. Please try again.');
+            } finally {
+              setIsBookingLoading(false);
+            }
+          },
+          profileImage: s.taskerProfileImage || null,
+        }))
+    : [];
+
+  // Just close the modal on apply
+  const applyFilters = () => {
+    setShowFilterModal(false);
+  };
+
+  // Floating Ella chat button handler
+  const handleEllaChat = () => {
+    router.push('/home/screens/HelpSupportScreen');
   };
 
   return (
@@ -119,8 +167,21 @@ export default function HomeScreenContent() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} onFilterPress={() => setShowFilterModal(true)} />
+      {isBookingLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      )}
+
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onFilterPress={() => setShowFilterModal(true)}
+        results={searchResults}
+        onDismiss={() => setSearchQuery('')}
+        loading={!!(isLoading && searchQuery.trim())}
+      />
+      <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <BannerCarousel />
         {!isTasker && <BecomeTaskerCard />}
 
@@ -142,21 +203,33 @@ export default function HomeScreenContent() {
           </TouchableOpacity>
         </View>
 
-        {services.length > 0 ? (
-          services.map(s => <ServiceCard key={s.id} service={s} />)
+        {filteredServices.length > 0 ? (
+          filteredServices.map(s => <ServiceCard key={s.id} service={s} />)
         ) : (
           <View style={styles.noResultsContainer}>
             <Ionicons name="search-outline" size={50} color={theme.colors.textLight} />
             <Text style={styles.noResultsText}>No services found</Text>
-            <Text style={styles.noResultsSubtext}>Try adjusting your filters</Text>
+            <Text style={styles.noResultsSubtext}>Try adjusting your filters or search</Text>
           </View>
         )}
       </ScrollView>
 
       <ProfileModal visible={showProfileModal} onClose={() => setShowProfileModal(false)} userName={userName} />
-      <FilterModal visible={showFilterModal} onClose={() => setShowFilterModal(false)} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
+      <FilterModal visible={showFilterModal} onClose={applyFilters} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
       <CategoryListModal visible={showCategoryListModal} onClose={() => setShowCategoryListModal(false)} selectedCategory={selectedCategory} services={services} />
       <LocationModal visible={showLocationModal} onClose={() => setShowLocationModal(false)} currentLocation={cities[0]} cities={cities} onLocationChange={() => {}} />
+
+      {/* Floating Ella Chat Button */}
+      <TouchableOpacity
+        style={styles.ellaFab}
+        activeOpacity={0.85}
+        onPress={handleEllaChat}
+      >
+        <Image
+          source={require('@/assets/images/Ella.jpg')}
+          style={styles.ellaFabAvatar}
+        />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -172,4 +245,27 @@ const createStyles = createThemedStyles(theme => ({
   noResultsContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30, marginHorizontal: 20 },
   noResultsText: { fontSize: 18, fontWeight: '600', color: theme.colors.text, marginTop: 15 },
   noResultsSubtext: { fontSize: 14, color: theme.colors.textLight, marginTop: 5 },
+  ellaFab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
+  ellaFabAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#eee',
+  },
 }));
