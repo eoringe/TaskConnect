@@ -1,6 +1,18 @@
 import React from 'react';
 import { IoPencilOutline, IoTrashOutline, IoCheckmarkOutline, IoCloseOutline } from 'react-icons/io5';
 
+interface Tasker {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImageBase64?: string;
+  idNumber: string;
+  kraPin: string;
+  onboardingStatus: string;
+  services: any[];
+  email?: string;
+}
+
 const thStyle: React.CSSProperties = {
   padding: '12px 16px',
   background: '#f9fafb',
@@ -64,11 +76,24 @@ const DashboardTaskers = ({
   loading,
   error,
   handleEdit,
+  handleCancelEdit,
   handleEditChange,
   handleEditSave,
   handleDelete,
   base64ToImageSrc,
-}: any) => (
+}: {
+  taskers: Tasker[];
+  editId: string | null;
+  editData: Partial<Tasker>;
+  loading: boolean;
+  error: string | null;
+  handleEdit: (tasker: Tasker) => void;
+  handleCancelEdit: () => void;
+  handleEditChange: (field: keyof Tasker, value: any) => void;
+  handleEditSave: () => Promise<void>;
+  handleDelete: (id: string) => Promise<void>;
+  base64ToImageSrc: (base64?: string) => string | undefined;
+}) => (
   <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
     <h2 style={{ fontSize: 22, fontWeight: 700, padding: '24px 24px 0 24px', color: '#111827' }}>Tasker Management</h2>
     {loading ? (
@@ -87,7 +112,7 @@ const DashboardTaskers = ({
           </tr>
         </thead>
         <tbody style={{ color: '#374151' }}>
-          {taskers.map((tasker: any) => (
+          {taskers.map((tasker: Tasker) => (
             <tr key={tasker.id} style={{ borderBottom: '1px solid #e5e7eb' }} className="tasker-row">
               <td style={{ padding: '12px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <img
@@ -97,12 +122,22 @@ const DashboardTaskers = ({
                 />
                 <div>
                   {editId === tasker.id ? (
-                    <input
-                      type="text"
-                      value={editData.firstName || ''}
-                      onChange={e => handleEditChange('firstName', e.target.value)}
-                      style={{ ...inputStyle, marginBottom: '4px' }}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <input
+                        type="text"
+                        value={editData.firstName || ''}
+                        onChange={e => handleEditChange('firstName', e.target.value)}
+                        style={{ ...inputStyle, width: '200px' }}
+                        placeholder="First Name"
+                      />
+                      <input
+                        type="text"
+                        value={editData.lastName || ''}
+                        onChange={e => handleEditChange('lastName', e.target.value)}
+                        style={{ ...inputStyle, width: '200px' }}
+                        placeholder="Last Name"
+                      />
+                    </div>
                   ) : (
                     <div style={{ fontWeight: 600 }}>{`${tasker.firstName} ${tasker.lastName}`}</div>
                   )}
@@ -111,10 +146,10 @@ const DashboardTaskers = ({
               </td>
               <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
                 {editId === tasker.id ? (
-                  <>
-                    <input type="text" value={editData.idNumber || ''} onChange={e => handleEditChange('idNumber', e.target.value)} style={{ ...inputStyle, marginBottom: '4px' }} placeholder="ID Number" />
-                    <input type="text" value={editData.kraPin || ''} onChange={e => handleEditChange('kraPin', e.target.value)} style={inputStyle} placeholder="KRA Pin" />
-                  </>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input type="text" value={editData.idNumber || ''} onChange={e => handleEditChange('idNumber', e.target.value)} style={{ ...inputStyle, width: '200px' }} placeholder="ID Number" />
+                    <input type="text" value={editData.kraPin || ''} onChange={e => handleEditChange('kraPin', e.target.value)} style={{ ...inputStyle, width: '200px' }} placeholder="KRA Pin" />
+                  </div>
                 ) : (
                   <>
                     <div>ID: <strong>{tasker.idNumber}</strong></div>
@@ -127,7 +162,7 @@ const DashboardTaskers = ({
                   <select
                     value={editData.onboardingStatus || 'pendingVerification'}
                     onChange={e => handleEditChange('onboardingStatus', e.target.value)}
-                    style={inputStyle}
+                    style={{ ...inputStyle, width: '200px' }}
                   >
                     <option value="pendingVerification">Pending</option>
                     <option value="completed">Completed</option>
@@ -155,7 +190,7 @@ const DashboardTaskers = ({
                 {editId === tasker.id ? (
                   <>
                     <button onClick={handleEditSave} style={saveBtnStyle}><IoCheckmarkOutline /> Save</button>
-                    <button onClick={() => handleEdit(null)} style={cancelBtnStyle}><IoCloseOutline /> Cancel</button>
+                    <button onClick={handleCancelEdit} style={cancelBtnStyle}><IoCloseOutline /> Cancel</button>
                   </>
                 ) : (
                   <>
