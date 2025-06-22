@@ -1,14 +1,12 @@
 {
-  
-    "consumer_key":    "ndWjc3ndwRTrZVMi3t89fPcro5AfjiEgvkwH4AQbGYucFG3m",
-    "consumer_secret": "bhEqOsXJ8Sr2vziSlKywtUa1uz9DmheEmcAu4kFUlSk3IkzMulA29SamCBuTfvAn",
-    "passkey":         "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919",
-    "shortcode":       "174379",
-    "callback_url":    "https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/callback",
-    "sandbox":         "true",
-    "b2c_initiator":   "testapi",
-    "b2c_security_cred": "YOUR_B2C_SECURITY_CREDENTIALS",
-    "b2c_timeout_url": "https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c",
-  "b2c_result_url":  "https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c"
-  
+  "consumer_key": "ndWjc3ndwRTrZVMi3t89fPcro5AfjiEgvkwH4AQbGYucFG3m",
+  "consumer_secret": "bhEqOsXJ8Sr2vziSlKywtUa1uz9DmheEmcAu4kFUlSk3IkzMulA29SamCBuTfvAn",
+  "passkey": "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919",
+  "shortcode": "174379",
+  "callback_url": "https://df72-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/callback",
+  "sandbox": "true",
+  "b2c_initiator": "testapi",
+  "b2c_security_cred": "YOUR_B2C_SECURITY_CREDENTIALS",
+  "b2c_timeout_url": "https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c",
+  "b2c_result_url": "https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c"
 }

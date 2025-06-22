@@ -530,38 +530,43 @@ const BookingScreen = () => {
         date: date.toISOString(),
         address,
         notes,
-        status: 'pending',
+        status: 'pending_payment',
+        paymentStatus: 'pending',
         createdAt: serverTimestamp(),
       });
 
       // 2. Call backend to initiate STK Push
-      const res = await fetch('https://11c8-41-80-113-194.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
+      // NOTE: Remember to replace this ngrok URL with your actual production URL when you deploy
+      const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: parseFloat(tasker.price.replace(/[^\d.]/g, '')),
           phoneNumber: mpesaNumber,
           accountReference: jobRef.id,
-          transactionDesc: 'Service Booking',
+          transactionDesc: `Service Booking for ${jobRef.id}`,
         }),
-      }
-      );
-
-      const text = await res.text();             // ← grab raw text
-      console.log('STK Push raw response:', text);    // ← inspect it in Metro or Chrome debug
+      });
 
       if (!res.ok) {
-        throw new Error(`STK failed: ${res.status} ${text}`);
+        const errorText = await res.text();
+        console.error('STK Push failed with status:', res.status, 'and response:', errorText);
+        throw new Error(`STK Push failed. Please try again. Server response: ${errorText}`);
       }
 
+      const text = await res.text();
+      console.log('Raw response:', text);
       let json;
       try {
-        json = JSON.parse(text);                       // ← only parse if it’s valid JSON
+        json = JSON.parse(text);
       } catch (e) {
-        throw new Error(`Invalid JSON from STK Push: ${text}`);
+        throw new Error('Server did not return valid JSON: ' + text);
+      }
+      const { checkoutRequestId } = json;
+      if (!checkoutRequestId) {
+        throw new Error('No checkoutRequestId in response: ' + text);
       }
 
-      const { checkoutRequestId } = await res.json();
       // 3. Save checkoutRequestId to job
       await updateDoc(doc(db, 'jobs', jobRef.id), { checkoutRequestId });
 
