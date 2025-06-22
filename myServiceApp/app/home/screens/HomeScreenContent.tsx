@@ -1,7 +1,7 @@
 // app/(tabs)/home/screens/HomeScreenContent.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Platform, TouchableOpacity, Image } from 'react-native';
 import { auth, db } from '@/firebase-config';
 import { doc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
@@ -151,6 +151,11 @@ export default function HomeScreenContent() {
     setShowFilterModal(false);
   };
 
+  // Floating Ella chat button handler
+  const handleEllaChat = () => {
+    router.push('/home/screens/HelpSupportScreen');
+  };
+
   return (
     <View style={styles.container}>
       <StatusBarSpace />
@@ -213,6 +218,18 @@ export default function HomeScreenContent() {
       <FilterModal visible={showFilterModal} onClose={applyFilters} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
       <CategoryListModal visible={showCategoryListModal} onClose={() => setShowCategoryListModal(false)} selectedCategory={selectedCategory} services={services} />
       <LocationModal visible={showLocationModal} onClose={() => setShowLocationModal(false)} currentLocation={cities[0]} cities={cities} onLocationChange={() => {}} />
+
+      {/* Floating Ella Chat Button */}
+      <TouchableOpacity
+        style={styles.ellaFab}
+        activeOpacity={0.85}
+        onPress={handleEllaChat}
+      >
+        <Image
+          source={require('@/assets/images/Ella.jpg')}
+          style={styles.ellaFabAvatar}
+        />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -228,4 +245,27 @@ const createStyles = createThemedStyles(theme => ({
   noResultsContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30, marginHorizontal: 20 },
   noResultsText: { fontSize: 18, fontWeight: '600', color: theme.colors.text, marginTop: 15 },
   noResultsSubtext: { fontSize: 14, color: theme.colors.textLight, marginTop: 5 },
+  ellaFab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
+  ellaFabAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#eee',
+  },
 }));
