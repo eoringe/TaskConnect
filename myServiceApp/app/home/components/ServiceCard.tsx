@@ -17,14 +17,27 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
 
+  // Helper to handle both base64 and URL images
+  const getImageSource = (img: string | null | undefined) => {
+    if (!img) return undefined;
+    if (img.startsWith('data:image')) {
+      return { uri: img };
+    }
+    // Heuristic: if it's a long string and not a URL, treat as base64
+    if (!img.startsWith('http') && img.length > 100) {
+      return { uri: `data:image/jpeg;base64,${img}` };
+    }
+    return { uri: img };
+  };
+
   return (
     <View style={styles.serviceCard}>
       <View style={styles.serviceCardTop}>
         <View style={styles.serviceImageContainer}>
           {service.taskerProfileImage ? (
             <Image
-              source={{ uri: service.taskerProfileImage }}
-              style={{ width: 50, height: 50, borderRadius: 25 }}
+              source={getImageSource(service.taskerProfileImage)}
+              style={{ width: 60, height: 60, borderRadius: 30, alignSelf: 'center' }}
               resizeMode="cover"
             />
           ) : (
@@ -88,13 +101,14 @@ const createStyles = createThemedStyles(theme => ({
     alignItems: 'center',
   },
   serviceImageContainer: {
-    height: 65,
-    width: 65,
-    borderRadius: 20,
+    height: 60,
+    width: 60,
+    borderRadius: 30,
     backgroundColor: theme.dark ? 'rgba(92, 189, 106, 0.15)' : '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+    overflow: 'hidden',
   },
   serviceInfo: {
     flex: 1,
