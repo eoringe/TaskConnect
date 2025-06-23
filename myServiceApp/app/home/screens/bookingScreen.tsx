@@ -570,9 +570,9 @@ const BookingScreen = () => {
       // 3. Save checkoutRequestId to job
       await updateDoc(doc(db, 'jobs', jobRef.id), { checkoutRequestId });
 
-      // 4. Navigate to job status page (implement JobStatusScreen)
+      // 4. Navigate to job status page
       router.push({
-        pathname: '/jobStatus',
+        pathname: '/home/screens/JobStatusScreen',
         params: { jobId: jobRef.id }
       });
     } catch (error) {
