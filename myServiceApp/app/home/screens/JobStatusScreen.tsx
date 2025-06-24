@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase-config';
 import { useTheme } from '@/app/context/ThemeContext';
 import { createThemedStyles, useThemedStyles } from '@/app/hooks/useThemedStyles';
@@ -30,29 +30,30 @@ const JobStatusScreen = () => {
     const [approving, setApproving] = useState(false);
 
     useEffect(() => {
-        const fetchJob = async (initialLoad = false) => {
-            if (initialLoad) setLoading(true);
-            try {
-                const jobSnap = await getDoc(doc(db, 'jobs', jobId as string));
-                if (jobSnap.exists()) {
-                    setJob({ id: jobSnap.id, ...jobSnap.data() });
+        if (!jobId) return;
+
+        setLoading(true);
+        // Set up real-time listener
+        const unsubscribe = onSnapshot(
+            doc(db, 'jobs', jobId as string),
+            (docSnap) => {
+                if (docSnap.exists()) {
+                    setJob({ id: docSnap.id, ...docSnap.data() });
                     setError(null);
                 } else {
                     setError('Job not found');
                 }
-            } catch (e) {
-                console.error("Failed to fetch job:", e);
+                setLoading(false);
+            },
+            (error) => {
+                console.error("Error listening to job:", error);
                 setError('Failed to fetch job');
-            } finally {
-                if (initialLoad) setLoading(false);
+                setLoading(false);
             }
-        };
+        );
 
-        fetchJob(true); // First fetch with loading indicator
-
-        const interval = setInterval(() => fetchJob(), 5000); // Subsequent polls without loading indicator
-
-        return () => clearInterval(interval);
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
     }, [jobId]);
 
     const handleApprovePayment = async () => {
@@ -82,7 +83,6 @@ const JobStatusScreen = () => {
                 return;
             }
 
-            // NOTE: Remember to replace this with your actual backend URL
             const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -150,6 +150,52 @@ const JobStatusScreen = () => {
         }
     };
 
+    const renderRatingSection = () => {
+        if (!job) return null;
+
+        if (job.rating) {
+            return (
+                <View style={styles.ratingSection}>
+                    <Text style={styles.sectionTitle}>Your Rating</Text>
+                    <View style={styles.ratingContainer}>
+                        <View style={styles.starsContainer}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <Ionicons
+                                    key={star}
+                                    name={job.rating.stars >= star ? 'star' : 'star-outline'}
+                                    size={24}
+                                    color={theme.colors.warning}
+                                    style={styles.starIcon}
+                                />
+                            ))}
+                            <Text style={styles.ratingText}>{job.rating.stars}/5</Text>
+                        </View>
+                        {job.rating.comment && (
+                            <Text style={styles.reviewText}>{job.rating.comment}</Text>
+                        )}
+                    </View>
+                </View>
+            );
+        }
+
+        if (job.status === 'pending_payment' || job.status === 'paid') {
+            return (
+                <TouchableOpacity
+                    style={styles.rateButton}
+                    onPress={() => router.push({
+                        pathname: '/home/screens/RateTaskerScreen',
+                        params: { jobId: job.id }
+                    })}
+                >
+                    <Ionicons name="star-outline" size={20} color="#fff" style={styles.buttonIcon} />
+                    <Text style={styles.buttonText}>Rate Your Tasker</Text>
+                </TouchableOpacity>
+            );
+        }
+
+        return null;
+    };
+
     if (loading) {
         return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
     }
@@ -191,6 +237,8 @@ const JobStatusScreen = () => {
                             <Text style={styles.detailText}>{job.notes}</Text>
                         </View>
                     )}
+
+                    {renderRatingSection()}
                 </View>
             ) : (
                 <View style={styles.card}>
@@ -318,6 +366,54 @@ const createStyles = createThemedStyles(theme => ({
         color: theme.colors.error,
         fontSize: 16,
         textAlign: 'center',
+    },
+    ratingSection: {
+        marginTop: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 10,
+    },
+    ratingContainer: {
+        backgroundColor: theme.colors.card,
+        borderRadius: 12,
+        padding: 15,
+    },
+    starsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    starIcon: {
+        marginRight: 2,
+    },
+    ratingText: {
+        marginLeft: 8,
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+    },
+    reviewText: {
+        fontSize: 14,
+        color: theme.colors.text,
+        lineHeight: 20,
+    },
+    rateButton: {
+        backgroundColor: theme.colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        borderRadius: 12,
+        marginTop: 20,
+    },
+    buttonIcon: {
+        marginRight: 8,
     },
 }));
 
