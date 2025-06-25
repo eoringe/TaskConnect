@@ -24,6 +24,7 @@ interface Tasker {
   kraPin: string;
   onboardingStatus: string;
   services: any[];
+  email?: string;
 }
 
 interface ServiceCategory {
@@ -111,6 +112,11 @@ export default function AdminDashboard() {
   const handleEdit = (tasker: Tasker) => {
     setEditId(tasker.id);
     setEditData({ ...tasker });
+  };
+
+  const handleCancelEdit = () => {
+    setEditId(null);
+    setEditData({});
   };
 
   const handleEditChange = (field: keyof Tasker, value: any) => {
@@ -230,6 +236,7 @@ export default function AdminDashboard() {
         loading={loading}
         error={error}
         handleEdit={handleEdit}
+        handleCancelEdit={handleCancelEdit}
         handleEditChange={handleEditChange}
         handleEditSave={handleEditSave}
         handleDelete={handleDelete}

@@ -130,7 +130,7 @@ const HomeScreen = () => {
         tabBarActiveTintColor: theme.colors.primary, // Use the primary color (green) for active icons
         tabBarInactiveTintColor: theme.colors.tabBarInactiveTint,
         tabBarStyle: {
-         height: 56 + insets.bottom,
+          height: 56 + insets.bottom,
           paddingBottom: 8,
           paddingTop: 8,
           backgroundColor: theme.colors.card,
