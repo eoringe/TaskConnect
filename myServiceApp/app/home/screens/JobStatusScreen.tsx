@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase-config';
 import { useTheme } from '@/app/context/ThemeContext';
 import { createThemedStyles, useThemedStyles } from '@/app/hooks/useThemedStyles';
@@ -28,6 +28,8 @@ const JobStatusScreen = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [approving, setApproving] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
+    const [mpesaNumber, setMpesaNumber] = useState('');
 
     useEffect(() => {
         if (!jobId) return;
@@ -56,6 +58,52 @@ const JobStatusScreen = () => {
         return () => unsubscribe();
     }, [jobId]);
 
+    const handleInitiatePayment = async () => {
+        if (!mpesaNumber.trim()) {
+            Alert.alert('M-PESA Number Required', 'Please enter your M-PESA phone number to proceed with payment.');
+            return;
+        }
+        const mpesaRegex = /^(?:254|\\+254|0)?([71](?:(?:0[0-8])|(?:[12][0-9])|(?:9[0-9])|(?:4[0-3]))[0-9]{6})$/;
+        if (!mpesaRegex.test(mpesaNumber)) {
+            Alert.alert('Invalid Number', 'Please enter a valid M-PESA phone number.');
+            return;
+        }
+
+        setIsPaying(true);
+        try {
+
+            const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: job.amount,
+                    phoneNumber: mpesaNumber,
+                    accountReference: job.id,
+                    transactionDesc: `Payment for Job #${job.id}`,
+                }),
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`STK Push failed: ${errorText}`);
+            }
+
+            const json = await res.json();
+            await updateDoc(doc(db, 'jobs', job.id), { checkoutRequestId: json.checkoutRequestId });
+
+            Alert.alert(
+                'STK Push Sent',
+                'Please check your phone and enter your M-PESA PIN to authorize the payment.'
+            );
+            // The onSnapshot listener will automatically update the status once the callback is processed.
+        } catch (error: any) {
+            console.error('Payment initiation failed:', error);
+            Alert.alert('Payment Error', error.message || 'Failed to initiate payment. Please try again.');
+        } finally {
+            setIsPaying(false);
+        }
+    };
+
     const handleApprovePayment = async () => {
         setApproving(true);
         try {
@@ -65,23 +113,35 @@ const JobStatusScreen = () => {
                 return;
             }
 
+            console.log(`Fetching tasker details for ID: ${job.taskerId}`);
             const taskerDocRef = doc(db, 'taskers', job.taskerId);
             const taskerDocSnap = await getDoc(taskerDocRef);
 
             if (!taskerDocSnap.exists()) {
-                Alert.alert('Error', 'Tasker details not found.');
+                Alert.alert('Error', 'Tasker details not found in the database.');
+                console.error(`Tasker document with ID ${job.taskerId} does not exist.`);
                 setApproving(false);
                 return;
             }
 
             const taskerData = taskerDocSnap.data();
-            const taskerPhone = taskerData?.phoneNumber;
+            // Log the entire tasker object to see available fields in the console
+            console.log('Retrieved tasker data:', JSON.stringify(taskerData, null, 2));
+
+            // Make the phone number check more robust by checking common field names
+            const taskerPhone = taskerData?.phoneNumber || taskerData?.phone || taskerData?.mpesaNumber;
 
             if (!taskerPhone) {
-                Alert.alert('Error', 'Tasker phone number not found.');
+                Alert.alert(
+                    'Tasker Phone Number Not Found',
+                    'The tasker has not provided a valid phone number for payment. Please check logs for details.'
+                );
+                console.error('Tasker data does not contain a "phoneNumber", "phone", or "mpesaNumber" field.', taskerData);
                 setApproving(false);
                 return;
             }
+
+            console.log(`Found tasker phone number: ${taskerPhone}. Proceeding with B2C payment.`);
 
             const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c', {
                 method: 'POST',
@@ -101,11 +161,10 @@ const JobStatusScreen = () => {
             const data = await res.json();
 
             if (data.success) {
-                Alert.alert('Success', 'Payment approved and is being processed.');
-                // Optimistically update local state while waiting for backend webhook to update Firestore
-                setJob({ ...job, status: 'processing_payment' });
+                Alert.alert('Success', data.message || 'Payment to tasker has been initiated.');
+                // The onSnapshot listener will update the UI once the backend updates the status
             } else {
-                Alert.alert('Error', data.message || 'Failed to approve payment.');
+                Alert.alert('Error', data.message || 'Failed to initiate payment to tasker.');
             }
         } catch (e: any) {
             console.error('Payment approval error:', e);
@@ -178,7 +237,7 @@ const JobStatusScreen = () => {
             );
         }
 
-        if (job.status === 'pending_payment' || job.status === 'paid') {
+        if (job.status === 'completed') {
             return (
                 <TouchableOpacity
                     style={styles.rateButton}
@@ -194,6 +253,36 @@ const JobStatusScreen = () => {
         }
 
         return null;
+    };
+
+    const renderPaymentSection = () => {
+        if (job?.status !== 'in_progress') return null;
+
+        return (
+            <View style={styles.paymentContainer}>
+                <Text style={styles.sectionTitle}>Complete Your Payment</Text>
+                <Text style={styles.helperText}>The tasker has approved your request. Please pay now to confirm the booking.</Text>
+                <TextInput
+                    style={styles.input}
+                    value={mpesaNumber}
+                    onChangeText={setMpesaNumber}
+                    placeholder="Enter M-PESA phone number (e.g., 254...)"
+                    placeholderTextColor={theme.colors.textLight}
+                    keyboardType="phone-pad"
+                />
+                <TouchableOpacity
+                    style={[styles.button, isPaying && styles.buttonDisabled]}
+                    onPress={handleInitiatePayment}
+                    disabled={isPaying}
+                >
+                    {isPaying ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.buttonText}>Pay KES {job.amount}</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
     };
 
     if (loading) {
@@ -246,7 +335,9 @@ const JobStatusScreen = () => {
                 </View>
             )}
 
-            {jobStatus === 'in_escrow' && (
+            {renderPaymentSection()}
+
+            {job?.status === 'in_escrow' && (
                 <TouchableOpacity
                     style={[styles.button, approving && styles.buttonDisabled]}
                     onPress={handleApprovePayment}
@@ -414,6 +505,27 @@ const createStyles = createThemedStyles(theme => ({
     },
     buttonIcon: {
         marginRight: 8,
+    },
+    paymentContainer: {
+        backgroundColor: theme.colors.card,
+        borderRadius: 15,
+        padding: 20,
+        marginBottom: 20,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 15,
+        backgroundColor: theme.colors.background,
+        color: theme.colors.text,
+    },
+    helperText: {
+        fontSize: 14,
+        color: theme.colors.textLight,
+        textAlign: 'center',
+        marginBottom: 15,
     },
 }));
 

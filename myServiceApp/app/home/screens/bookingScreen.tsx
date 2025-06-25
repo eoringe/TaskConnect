@@ -86,6 +86,7 @@ const BookingScreen = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [bottomSheetHeight] = useState(new Animated.Value(0));
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -505,16 +506,24 @@ const BookingScreen = () => {
       alert('Please enter your address');
       return;
     }
-    if (!mpesaNumber.trim()) {
-      alert('Please enter your M-PESA phone number');
+
+    // Parse and validate the amount
+    let amount = 0;
+    try {
+      // Remove any currency symbols and non-numeric characters except decimal point
+      const priceString = tasker.price?.replace(/[^0-9.]/g, '');
+      amount = parseFloat(priceString || '0');
+
+      if (isNaN(amount) || amount <= 0) {
+        alert('Invalid price amount');
+        return;
+      }
+    } catch (error) {
+      console.error('Error parsing price:', error);
+      alert('Invalid price format');
       return;
     }
-    // Validate M-PESA number format (Kenya format)
-    const mpesaRegex = /^(?:254|\+254|0)?([71](?:(?:0[0-8])|(?:[12][0-9])|(?:9[0-9])|(?:4[0-3]))[0-9]{6})$/;
-    if (!mpesaRegex.test(mpesaNumber)) {
-      alert('Please enter a valid M-PESA phone number');
-      return;
-    }
+
     try {
       // Find the correct tasker UID
       const taskerUid = await findTaskerUidByCategoryAndName(tasker);
@@ -522,62 +531,22 @@ const BookingScreen = () => {
         alert('Could not find the tasker. Please try again.');
         return;
       }
-      // 1. Create job in Firestore
-      const jobRef = await addDoc(collection(db, 'jobs'), {
+      // Create job in Firestore with validated amount
+      await addDoc(collection(db, 'jobs'), {
         clientId: auth.currentUser?.uid,
         taskerId: taskerUid,
-        amount: parseFloat(tasker.price?.replace(/[^\d.]/g, '')),
+        amount: amount, // Use the validated amount
         date: date.toISOString(),
         address,
         notes,
-        status: 'pending_payment',
+        status: 'pending_approval',
         paymentStatus: 'pending',
         createdAt: serverTimestamp(),
       });
-
-      // 2. Call backend to initiate STK Push
-      // NOTE: Remember to replace this ngrok URL with your actual production URL when you deploy
-      const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: parseFloat(tasker.price.replace(/[^\d.]/g, '')),
-          phoneNumber: mpesaNumber,
-          accountReference: jobRef.id,
-          transactionDesc: `Service Booking for ${jobRef.id}`,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('STK Push failed with status:', res.status, 'and response:', errorText);
-        throw new Error(`STK Push failed. Please try again. Server response: ${errorText}`);
-      }
-
-      const text = await res.text();
-      console.log('Raw response:', text);
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Server did not return valid JSON: ' + text);
-      }
-      const { checkoutRequestId } = json;
-      if (!checkoutRequestId) {
-        throw new Error('No checkoutRequestId in response: ' + text);
-      }
-
-      // 3. Save checkoutRequestId to job
-      await updateDoc(doc(db, 'jobs', jobRef.id), { checkoutRequestId });
-
-      // 4. Navigate to job status page
-      router.push({
-        pathname: '/home/screens/JobStatusScreen',
-        params: { jobId: jobRef.id }
-      });
+      setRequestSubmitted(true);
     } catch (error) {
-      console.error('Booking or payment initiation failed:', error);
-      alert('Booking or payment initiation failed. Please try again.');
+      console.error('Booking request failed:', error);
+      alert('Booking request failed. Please try again.');
     }
   };
 
@@ -642,6 +611,18 @@ const BookingScreen = () => {
       Alert.alert('Error', 'Failed to open chat. Please try again.');
     }
   };
+
+  if (requestSubmitted) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <Ionicons name="hourglass-outline" size={48} color="#4A80F0" style={{ marginBottom: 20 }} />
+        <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10 }}>Request Submitted!</Text>
+        <Text style={{ fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 20 }}>
+          Your service request has been sent to the tasker. You will be notified once the tasker approves your request.
+        </Text>
+      </View>
+    );
+  }
 
   if (isLoadingLocation) {
     return (
