@@ -103,7 +103,7 @@ app.get('/oauth2callback', async (req, res) => {
     // Exchange the code for tokens
     const clientId = '249705110811-b5h6c9rb8i79uqug3tt5ficghcfk9o0d.apps.googleusercontent.com'; // Your Android client ID
     const clientSecret = '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'; // Your client secret
-    const redirectUri = ' https://653a-156-0-233-53.ngrok-free.app/oauth2callback';
+    const redirectUri = 'https://c200-197-237-175-62.ngrok-free.app/oauth2callback';
     
     console.log('Exchanging code for tokens with params:');
     console.log('- clientId:', clientId);
@@ -355,5 +355,5 @@ setInterval(() => {
 // Start server
 app.listen(PORT, () => {
   console.log(`OAuth callback server running on port ${PORT}`);
-  console.log(`Callback URL should be configured as: https://b591-197-237-175-62.ngrok-free.app/oauth2callback`);
+  console.log(`Callback URL should be configured as:  https://c200-197-237-175-62.ngrok-free.app/oauth2callback`);
 });
