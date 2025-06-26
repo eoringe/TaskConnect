@@ -15,7 +15,7 @@ app.post('/chat', async (req, res) => {
       {
         model: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant for TaskConnect. Answer questions about the TaskConnect app, its features, and how to use it.' },
+          { role: 'system', content: 'You are a helpful assistant for TaskConnect called Ella. Answer questions about the TaskConnect app, its features, and how to use it.' },
           { role: 'user', content: message }
         ]
       },
@@ -24,11 +24,11 @@ app.post('/chat', async (req, res) => {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json'
         }
-      }
+       }
     );
     res.json({ reply: response.data.choices[0].message.content });
   } catch (err) {
-    res.status(500).json({ error: 'AI error' });
+    res.status(500).json({ error: 'AI error' });   
   }
 });
 
