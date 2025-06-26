@@ -61,64 +61,72 @@ exports.initiateStkPush = async (req, res) => {
 // 2️⃣ STK Callback
 exports.handleStkCallback = async (req, res) => {
     console.log('🏦 STK Callback received');
+    console.log('Raw callback payload:', JSON.stringify(req.body, null, 2));
 
-    // Immediately acknowledge the request from Safaricom
+    // Acknowledge the request from Safaricom immediately to prevent timeouts
     res.sendStatus(200);
 
-    const callbackData = req.body;
-    if (!callbackData.Body || !callbackData.Body.stkCallback) {
-        console.error('Invalid STK callback format received.');
+    // Use optional chaining for safety
+    const stkCallback = req.body?.Body?.stkCallback;
+
+    // Validate callback structure
+    if (!stkCallback || !stkCallback.CheckoutRequestID) {
+        console.error('Invalid STK callback format or missing CheckoutRequestID:', req.body);
         return;
     }
 
-    const stkCallback = callbackData.Body.stkCallback;
-    const checkoutRequestId = stkCallback.CheckoutRequestID;
-    const resultCode = stkCallback.ResultCode;
+    const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
 
-    console.log(`Processing callback for CheckoutRequestID: ${checkoutRequestId}, ResultCode: ${resultCode}`);
+    console.log(`Processing callback for CheckoutRequestID: ${CheckoutRequestID}, ResultCode: ${ResultCode}`);
 
     try {
         const db = admin.firestore();
         const jobsRef = db.collection('jobs');
-        const querySnapshot = await jobsRef.where('checkoutRequestId', '==', checkoutRequestId).get();
+        const querySnapshot = await jobsRef.where('checkoutRequestId', '==', CheckoutRequestID).get();
 
         if (querySnapshot.empty) {
-            console.error(`No job found with checkoutRequestId: ${checkoutRequestId}`);
+            console.error(`No job found with checkoutRequestId: ${CheckoutRequestID}. This may happen if the callback arrives before the initial STK push function completes its Firestore write. Or it could be an unknown ID.`);
             return;
         }
 
         const jobDoc = querySnapshot.docs[0];
         const jobId = jobDoc.id;
 
-        if (resultCode === 0) {
+        console.log(`Found job: ${jobId}. Current status: ${jobDoc.data().status}`);
+
+        if (ResultCode === 0) {
+            // Payment was successful
             console.log(`Payment successful for job: ${jobId}`);
-            const metadata = stkCallback.CallbackMetadata.Item;
+
+            // Safely extract receipt number and other metadata
+            const metadata = CallbackMetadata?.Item || [];
             const mpesaReceiptNumber = metadata.find(item => item.Name === 'MpesaReceiptNumber')?.Value;
+            const amount = metadata.find(item => item.Name === 'Amount')?.Value;
+            const phoneNumber = metadata.find(item => item.Name === 'PhoneNumber')?.Value;
+
+            console.log(`Updating job ${jobId} with receipt: ${mpesaReceiptNumber}, amount: ${amount}`);
 
             await jobDoc.ref.update({
-                status: 'in_escrow',
+                status: 'in_escrow', // Update status to show payment is held
                 paymentStatus: 'paid',
-                mpesaReceipt: mpesaReceiptNumber,
-                paymentDetails: {
-                    ...stkCallback.CallbackMetadata,
-                    ResultCode: resultCode,
-                    ResultDesc: stkCallback.ResultDesc,
-                },
+                mpesaReceipt: mpesaReceiptNumber || null,
+                // Store the entire callback from Safaricom for auditing
+                paymentDetails: { ...stkCallback },
             });
             console.log(`Successfully updated job ${jobId} to 'in_escrow'.`);
         } else {
-            console.log(`Payment failed for job: ${jobId}. Reason: ${stkCallback.ResultDesc}`);
+            // Payment failed or was cancelled by the user
+            console.log(`Payment failed for job: ${jobId}. Reason: ${ResultDesc}`);
             await jobDoc.ref.update({
                 status: 'payment_failed',
                 paymentStatus: 'failed',
-                paymentDetails: {
-                    ResultCode: resultCode,
-                    ResultDesc: stkCallback.ResultDesc,
-                },
+                // Store the entire callback for debugging
+                paymentDetails: { ...stkCallback },
             });
+            console.log(`Successfully updated job ${jobId} to 'payment_failed'.`);
         }
     } catch (error) {
-        console.error(`Error processing STK callback for ${checkoutRequestId}:`, error);
+        console.error(`Error processing STK callback for ${CheckoutRequestID}:`, error);
     }
 };
 
@@ -153,9 +161,80 @@ exports.initiateB2C = async (req, res) => {
         });
 
         console.log(`B2C initiated for job ${jobId}. Response:`, data);
-        return res.json(data);
+
+        // Check if Safaricom accepted the request
+        if (data.ResponseCode === '0') {
+            // Update job status to 'processing_payment' immediately
+            await admin.firestore().collection('jobs').doc(jobId).update({
+                status: 'processing_payment',
+                b2cConversationId: data.ConversationID,
+                b2cOriginatorConversationId: data.OriginatorConversationID,
+            });
+            return res.status(200).json({ success: true, message: 'Payout to tasker initiated successfully.' });
+        } else {
+            // Safaricom rejected the request
+            return res.status(400).json({ success: false, message: data.ResponseDescription || 'The B2C request was rejected by the provider.' });
+        }
     } catch (err) {
         console.error('B2C failed', err.response?.data || err.message);
-        return res.status(500).send('B2C disbursement failed. Check function logs.');
+        // Add job status update here to reflect failure if needed
+        return res.status(500).json({ success: false, message: 'B2C disbursement failed. Check function logs.' });
+    }
+};
+
+/**
+ * Handles the B2C Result callback from Safaricom.
+ * This is where the final status of the payout is confirmed.
+ */
+exports.handleB2cResult = async (req, res) => {
+    console.log('✅ B2C Result Callback received');
+    console.log('Raw B2C result:', JSON.stringify(req.body, null, 2));
+    res.sendStatus(200);
+
+    const result = req.body?.Result;
+    if (!result) {
+        console.error('Invalid B2C result format. Missing "Result" object.');
+        return;
+    }
+
+    // Destructure for easier access and logging
+    const { ConversationID, ResultCode, ResultDesc, OriginatorConversationID } = result;
+    console.log(`Processing B2C Result for ConversationID: ${ConversationID}, ResultCode: ${ResultCode}, Desc: ${ResultDesc}`);
+
+    try {
+        const db = admin.firestore();
+        const jobsRef = db.collection('jobs');
+        // Find the job using the ConversationID we saved earlier
+        const q = jobsRef.where('b2cConversationId', '==', ConversationID);
+        const querySnapshot = await q.get();
+
+        if (querySnapshot.empty) {
+            console.error(`No job found for B2C ConversationID: ${ConversationID}. This might also be identified by OriginatorID: ${OriginatorConversationID}`);
+            return;
+        }
+
+        const jobDoc = querySnapshot.docs[0];
+        const jobId = jobDoc.id;
+        console.log(`Found job ${jobId} for B2C callback.`);
+
+        const updatePayload = {
+            b2cResult: { ...result } // Store the entire result for auditing
+        };
+
+        if (ResultCode === 0) {
+            console.log(`B2C payout SUCCESSFUL for job ${jobId}.`);
+            updatePayload.status = 'completed';
+            updatePayload.paymentStatus = 'completed';
+        } else {
+            console.error(`B2C payout FAILED for job ${jobId}. Reason: ${ResultDesc}`);
+            updatePayload.status = 'payout_failed';
+        }
+
+        console.log(`Updating job ${jobId} with payload:`, JSON.stringify(updatePayload, null, 2));
+        await jobDoc.ref.update(updatePayload);
+        console.log(`Job ${jobId} updated successfully with final B2C status.`);
+
+    } catch (error) {
+        console.error(`FATAL: Error processing B2C result for ${ConversationID}:`, error);
     }
 };

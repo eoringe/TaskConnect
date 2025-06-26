@@ -1,4 +1,6 @@
 const axios = require('axios');
+const admin = require('firebase-admin');
+
 
 exports.getDarajaToken = async () => {
   const { data } = await axios.get(
@@ -58,4 +60,62 @@ exports.b2c = async ({ amount, taskerPhone, jobId }) => {
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return data;
+};
+
+exports.handleStkCallback = async (req, res) => {
+  // Log the full raw callback payload
+  console.log('Raw callback payload:', JSON.stringify(req.body, null, 2));
+  // Acknowledge Safaricom immediately
+  res.sendStatus(200);
+
+  // Defensive: check structure
+  const stkCallback = req.body?.Body?.stkCallback;
+  if (!stkCallback) {
+    console.error('Invalid STK callback format:', req.body);
+    return;
+  }
+  const checkoutRequestId = stkCallback.CheckoutRequestID;
+  const resultCode = stkCallback.ResultCode;
+
+  // Find job by checkoutRequestId
+  const db = admin.firestore();
+  const jobsRef = db.collection('jobs');
+  const querySnapshot = await jobsRef.where('checkoutRequestId', '==', checkoutRequestId).get();
+
+  if (querySnapshot.empty) {
+    console.error('No job found for checkoutRequestId:', checkoutRequestId);
+    return;
+  }
+  const jobDoc = querySnapshot.docs[0];
+
+  // Extract mpesaReceiptNumber if available
+  let mpesaReceiptNumber = null;
+  if (stkCallback.CallbackMetadata && Array.isArray(stkCallback.CallbackMetadata.Item)) {
+    const receiptItem = stkCallback.CallbackMetadata.Item.find(item => item.Name === 'MpesaReceiptNumber');
+    mpesaReceiptNumber = receiptItem ? receiptItem.Value : null;
+  }
+
+  if (resultCode === 0) {
+    // Payment successful
+    await jobDoc.ref.update({
+      status: 'in_escrow',
+      paymentStatus: 'paid',
+      mpesaReceipt: mpesaReceiptNumber,
+      paymentDetails: {
+        ...stkCallback.CallbackMetadata,
+        ResultCode: resultCode,
+        ResultDesc: stkCallback.ResultDesc,
+      },
+    });
+  } else {
+    // Payment failed
+    await jobDoc.ref.update({
+      status: 'payment_failed',
+      paymentStatus: 'failed',
+      paymentDetails: {
+        ResultCode: resultCode,
+        ResultDesc: stkCallback.ResultDesc,
+      },
+    });
+  }
 };

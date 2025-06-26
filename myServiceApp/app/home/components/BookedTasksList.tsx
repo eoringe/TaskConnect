@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '@/firebase-config';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 
 interface TaskerInfo {
@@ -18,12 +18,18 @@ interface BookedJob {
     date: string;
     status: string;
     taskerInfo: TaskerInfo | null;
+    rating?: {
+        stars: number;
+        comment: string;
+    };
+    amount?: number;
 }
 
 const STATUS_META = [
     { key: 'in_escrow', label: 'In Escrow', color: 'primary', icon: 'hourglass-outline' },
     { key: 'processing_payment', label: 'Processing', color: 'primary', icon: 'sync-outline' },
     { key: 'paid', label: 'Paid', color: 'success', icon: 'checkmark-circle-outline' },
+    { key: 'completed', label: 'Completed', color: 'success', icon: 'checkmark-done-circle-outline' },
     { key: 'failed', label: 'Failed', color: 'error', icon: 'close-circle-outline' },
 ];
 
@@ -73,12 +79,15 @@ const BookedTasksList = () => {
                         date: job.date,
                         status: job.status,
                         taskerInfo,
+                        rating: job.rating,
+                        amount: job.amount,
                     });
                 }
                 // Sort by date descending
                 jobsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setJobs(jobsData);
             } catch (e) {
+                console.error('Error fetching jobs:', e);
                 setJobs([]);
             } finally {
                 setLoading(false);
@@ -128,6 +137,43 @@ const BookedTasksList = () => {
         </View>
     );
 
+    const handleDeleteBooking = async (jobId: string, status: string) => {
+        // Don't allow deletion of jobs that are in progress or completed
+        if (['in_escrow', 'processing_payment', 'paid', 'completed'].includes(status)) {
+            Alert.alert(
+                'Cannot Delete',
+                'Jobs that are in progress, paid, or completed cannot be deleted.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        Alert.alert(
+            'Delete Booking',
+            'Are you sure you want to delete this booking? This action cannot be undone.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, 'jobs', jobId));
+                            // Update the local state to remove the deleted job
+                            setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+                        } catch (error) {
+                            console.error('Error deleting booking:', error);
+                            Alert.alert('Error', 'Failed to delete the booking. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -157,12 +203,16 @@ const BookedTasksList = () => {
                         style={styles.card}
                         activeOpacity={0.85}
                         onPress={() => router.push({ pathname: '/home/screens/JobStatusScreen', params: { jobId: item.id } })}
+                        onLongPress={() => handleDeleteBooking(item.id, item.status)}
                     >
                         <View style={styles.cardTop}>
                             <View style={styles.imageContainer}>
                                 {item.taskerInfo?.image ? (
                                     <Image
-                                        source={item.taskerInfo.image.startsWith('data:image') ? { uri: item.taskerInfo.image } : { uri: `data:image/jpeg;base64,${item.taskerInfo.image}` }}
+                                        source={item.taskerInfo.image.startsWith('data:image') ?
+                                            { uri: item.taskerInfo.image } :
+                                            { uri: `data:image/jpeg;base64,${item.taskerInfo.image}` }
+                                        }
                                         style={styles.image}
                                         resizeMode="cover"
                                     />
@@ -174,6 +224,43 @@ const BookedTasksList = () => {
                                 <Text style={styles.taskerName}>{item.taskerInfo?.name || 'Tasker'}</Text>
                                 <Text style={styles.dateText}>{new Date(item.date).toLocaleString()}</Text>
                                 {getStatusBadge(item.status)}
+                                {item.amount && (
+                                    <Text style={styles.amountText}>Amount: KSh {item.amount.toLocaleString()}</Text>
+                                )}
+                                {item.status === 'pending_payment' && (
+                                    <TouchableOpacity
+                                        style={styles.deleteButton}
+                                        onPress={() => handleDeleteBooking(item.id, item.status)}
+                                    >
+                                        <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+                                        <Text style={styles.deleteButtonText}>Cancel Booking</Text>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* Show rating if exists */}
+                                {item.rating && (
+                                    <View style={styles.ratingContainer}>
+                                        <Ionicons name="star" size={16} color={theme.colors.warning} />
+                                        <Text style={styles.ratingText}>{item.rating.stars}/5</Text>
+                                    </View>
+                                )}
+
+                                {/* Show Rate Tasker button for paid jobs without rating */}
+                                {item.status === 'paid' && !item.rating && (
+                                    <TouchableOpacity
+                                        style={styles.rateButton}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            router.push({
+                                                pathname: '/home/screens/RateTaskerScreen',
+                                                params: { jobId: item.id }
+                                            });
+                                        }}
+                                    >
+                                        <Ionicons name="star-outline" size={16} color={theme.colors.primary} />
+                                        <Text style={styles.rateButtonText}>Rate Tasker</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                             <Ionicons name="chevron-forward" size={22} color={theme.colors.textLight} style={styles.chevron} />
                         </View>
@@ -309,6 +396,55 @@ const createStyles = createThemedStyles(theme => ({
     legendLabel: {
         fontSize: 13,
         fontWeight: '500',
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    ratingText: {
+        marginLeft: 4,
+        fontSize: 14,
+        color: theme.colors.text,
+        fontWeight: '600',
+    },
+    rateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: `${theme.colors.primary}15`,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginTop: 8,
+        alignSelf: 'flex-start',
+    },
+    rateButtonText: {
+        marginLeft: 6,
+        color: theme.colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: `${theme.colors.error}15`,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginTop: 8,
+        alignSelf: 'flex-start',
+    },
+    deleteButtonText: {
+        marginLeft: 6,
+        color: theme.colors.error,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    amountText: {
+        fontSize: 14,
+        color: theme.colors.text,
+        fontWeight: '500',
+        marginTop: 4,
     },
 }));
 
