@@ -299,6 +299,7 @@ export default function ProfileScreen() {
                 onboardingStatus: 'completed',
                 submissionDate: new Date().toISOString(),
             };
+            console.log('finalOnboardingData:', finalOnboardingData);
             try {
                 await setDoc(doc(db, 'taskers', currentUser.uid), finalOnboardingData);
                 if (finalOnboardingData.services && finalOnboardingData.services.length > 0) {
@@ -307,15 +308,30 @@ export default function ProfileScreen() {
                             ...service,
                             taskerId: currentUser.uid
                         };
+                        console.log('Processing service:', serviceWithTaskerId);
                         const categoryDocRef = doc(db, 'serviceCategories', service.category);
-                        await updateDoc(categoryDocRef, {
-                            services: arrayUnion(serviceWithTaskerId)
-                        });
+                        const categorySnap = await getDoc(categoryDocRef);
+                        console.log('Category exists:', categorySnap.exists());
+                        if (!categorySnap.exists()) {
+                            // Create the category document if it doesn't exist
+                            await setDoc(categoryDocRef, {
+                                name: service.category,
+                                icon: '', // Set a default or pass from elsewhere
+                                services: [serviceWithTaskerId]
+                            });
+                            console.log('Created new service category:', service.category);
+                        } else {
+                            await updateDoc(categoryDocRef, {
+                                services: arrayUnion(serviceWithTaskerId)
+                            });
+                            console.log('Updated existing service category:', service.category);
+                        }
                     }
                 }
                 router.replace('/'); // Switch to Home tab
                 // Do not set isSaving to false here; let navigation handle unmount
             } catch (error) {
+                console.error('Error in handleComplete:', error);
                 setIsSaving(false);
             }
         } else {

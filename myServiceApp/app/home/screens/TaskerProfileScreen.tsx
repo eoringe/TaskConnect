@@ -14,13 +14,15 @@ import {
   FlatList,
   Platform
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDocs, collection, writeBatch } from 'firebase/firestore';
 import { app } from '@/firebase-config'; // Adjust path as needed for your project structure
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 // Removed StatusBarSpace import as it was commented out in usage and not imported in your last provided code.
 
 // Initialize Firebase services
@@ -87,6 +89,7 @@ type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedF
 
 const TaskerProfileScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { theme } = useTheme();
   const styles = useThemedStyles(createTaskerProfileStyles);
 
@@ -101,6 +104,17 @@ const TaskerProfileScreen = () => {
   const [newServiceTitle, setNewServiceTitle] = useState('');
   const [newServiceRate, setNewServiceRate] = useState('');
   const [newServiceDescription, setNewServiceDescription] = useState('');
+
+  // Add to the component's state:
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [modalImageSource, setModalImageSource] = useState<{ uri: string } | null>(null);
+
+  // Add to component state:
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editBio, setEditBio] = useState('');
+  const [editProfileImageUri, setEditProfileImageUri] = useState<string | null>(null);
+  const [editProfileImageBase64, setEditProfileImageBase64] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     fetchTaskerData();
@@ -143,6 +157,12 @@ const TaskerProfileScreen = () => {
     if (!base64String) return undefined;
     // Add the data URI prefix if it's not already there
     return { uri: `data:image/jpeg;base64,${base64String}` };
+  };
+
+  const base64ToFileSource = (doc: SupportingDocument) => {
+    if (!doc.base64) return undefined;
+    // Use the mimeType from the document
+    return { uri: `data:${doc.mimeType};base64,${doc.base64}` };
   };
 
   const handleAddService = async () => {
@@ -291,6 +311,57 @@ const TaskerProfileScreen = () => {
     ]);
   };
 
+  // Add image picker logic (reuse from onboarding):
+  const pickEditProfileImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Please grant access to your photo library to select a profile photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setEditProfileImageUri(selectedUri);
+        const base64 = await FileSystem.readAsStringAsync(selectedUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setEditProfileImageBase64(base64);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', `Failed to pick image: ${error.message || 'Unknown error'}.`);
+    }
+  };
+
+  // Add save logic:
+  const handleSaveProfile = async () => {
+    if (!taskerData) return;
+    setIsSavingProfile(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const docRef = doc(db, 'taskers', currentUser.uid);
+      await updateDoc(docRef, {
+        bio: editBio,
+        profileImageBase64: editProfileImageBase64 || taskerData.profileImageBase64,
+      });
+      setTaskerData({ ...taskerData, bio: editBio, profileImageBase64: editProfileImageBase64 || taskerData.profileImageBase64 });
+      setIsEditingProfile(false);
+      setEditProfileImageUri(null);
+      setEditProfileImageBase64(null);
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update profile.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   // Content for the ListHeaderComponent - MUST be called unconditionally
   const renderHeaderContent = useMemo(() => {
     // Only render if taskerData is available
@@ -298,22 +369,41 @@ const TaskerProfileScreen = () => {
       return null;
     }
 
+    const isCurrentUser = auth.currentUser && taskerData && auth.currentUser.uid === (params?.taskerId || auth.currentUser.uid);
+
     return (
       <View style={styles.listHeaderContainer}>
         {/* Profile Image and Basic Info */}
         <View style={styles.profileSummary}>
-          {taskerData.profileImageBase64 ? (
-            <Image
-              source={base64ToImageSource(taskerData.profileImageBase64)}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.profileImagePlaceholder}>
-              <Text style={styles.profileImagePlaceholderText}>
-                {taskerData.firstName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            {taskerData.profileImageBase64 && !isEditingProfile ? (
+              <Image
+                source={base64ToImageSource(taskerData.profileImageBase64)}
+                style={styles.profileImage}
+              />
+            ) : isEditingProfile && (editProfileImageUri || taskerData.profileImageBase64) ? (
+              <TouchableOpacity onPress={pickEditProfileImage} disabled={isSavingProfile}>
+                <Image
+                  source={editProfileImageUri ? { uri: editProfileImageUri } : base64ToImageSource(taskerData.profileImageBase64)}
+                  style={styles.profileImage}
+                />
+                <View style={styles.editImageOverlay}>
+                  <Ionicons name="camera-outline" size={28} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={pickEditProfileImage} disabled={isSavingProfile} style={styles.profileImagePlaceholder}>
+                <Ionicons name="camera-outline" size={40} color="#666" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.editProfileButton} onPress={() => {
+              console.log('Edit button pressed');
+              setIsEditingProfile(true);
+              setEditBio(taskerData.bio || '');
+            }}>
+              <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.name}>{taskerData.firstName} {taskerData.lastName}</Text>
           <Text style={styles.email}>{taskerData.email}</Text>
           <Text style={styles.phone}>{taskerData.phone}</Text>
@@ -322,7 +412,38 @@ const TaskerProfileScreen = () => {
         {/* Professional Bio */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Bio</Text>
-          <Text style={styles.bioText}>{taskerData.bio || 'No bio provided yet.'}</Text>
+          {!isEditingProfile ? (
+            <Text style={styles.bioText}>{taskerData.bio || 'No bio provided yet.'}</Text>
+          ) : (
+            <TextInput
+              style={styles.bioInput}
+              value={editBio}
+              onChangeText={setEditBio}
+              placeholder="Write your bio here..."
+              multiline
+              textAlignVertical="top"
+              maxLength={200}
+              editable={!isSavingProfile}
+            />
+          )}
+          {isEditingProfile && (
+            <View style={{ flexDirection: 'row', marginTop: 12 }}>
+              <TouchableOpacity
+                style={[styles.button, { flex: 1, backgroundColor: theme.colors.primary, marginRight: 8 }]}
+                onPress={handleSaveProfile}
+                disabled={isSavingProfile}
+              >
+                {isSavingProfile ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.buttonText}>Save</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { flex: 1, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.border }]}
+                onPress={() => setIsEditingProfile(false)}
+                disabled={isSavingProfile}
+              >
+                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* ID Verification Details (ID photos removed) */}
@@ -349,7 +470,7 @@ const TaskerProfileScreen = () => {
         </View>
       </View>
     );
-  }, [taskerData, theme.colors]); // Added theme.colors to dependency array for style changes
+  }, [taskerData, theme.colors, isEditingProfile, editBio, editProfileImageUri, editProfileImageBase64, isSavingProfile]);
 
   // Combine data for the main FlatList (services and documents sections)
   const flatListData = useMemo(() => {
@@ -416,23 +537,70 @@ const TaskerProfileScreen = () => {
           </TouchableOpacity>
         );
       case 'documentsSection':
-        const supportingDocuments = item.documents as SupportingDocument[];
+        const documents = item.documents as SupportingDocument[];
         return (
           <View style={[styles.section, { marginHorizontal: 16 }]}>
             <Text style={styles.sectionHeader}>Supporting Documents</Text>
-            {supportingDocuments && supportingDocuments.length > 0 ? (
-              supportingDocuments.map(document => (
-                <View key={document.id} style={[styles.documentItem, { marginBottom: 10 }]}>
-                  <Ionicons name="document-text-outline" size={24} color={theme.colors.textSecondary} style={styles.documentIcon} />
-                  <View>
-                    <Text style={styles.documentName}>{document.name}</Text>
-                    <Text style={styles.documentDescription}>{document.description}</Text>
+            {documents && documents.length > 0 ? (
+              documents.map(doc => (
+                <View key={doc.id} style={styles.documentItem}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (doc.mimeType.startsWith('image/')) {
+                        const imgSrc = base64ToFileSource(doc);
+                        if (imgSrc) {
+                          setModalImageSource(imgSrc);
+                          setImageModalVisible(true);
+                        }
+                      }
+                    }}
+                    activeOpacity={doc.mimeType.startsWith('image/') ? 0.8 : 1}
+                    style={styles.documentImageTouchable}
+                  >
+                    {doc.mimeType.startsWith('image/') ? (
+                      <Image
+                        source={base64ToFileSource(doc)}
+                        style={styles.documentImage}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                  <View style={styles.documentTextBlock}>
+                    <Text style={styles.documentName}>{doc.name}</Text>
+                    <Text style={styles.documentDescription}>{doc.description}</Text>
                   </View>
+                  {!doc.mimeType.startsWith('image/') && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.alert('Open Document', 'File opening not implemented.');
+                      }}
+                      style={styles.documentDownloadButton}
+                    >
+                      <Ionicons name="document-outline" size={24} color={theme.colors.primary} />
+                      <Text style={styles.documentDownloadText}>Open Document</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))
             ) : (
-              <Text style={styles.noDocumentsText}>No supporting documents provided.</Text>
+              <Text style={styles.noDocumentsText}>No supporting documents uploaded.</Text>
             )}
+            {/* Full screen image modal */}
+            <Modal
+              visible={imageModalVisible}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setImageModalVisible(false)}
+            >
+              <View style={styles.fullScreenModalOverlay}>
+                <TouchableOpacity style={styles.fullScreenModalClose} onPress={() => setImageModalVisible(false)}>
+                  <Ionicons name="close-circle" size={36} color="#fff" />
+                </TouchableOpacity>
+                {modalImageSource && (
+                  <Image source={modalImageSource} style={styles.fullScreenImage} resizeMode="contain" />
+                )}
+              </View>
+            </Modal>
           </View>
         );
       default:
@@ -866,6 +1034,99 @@ const createTaskerProfileStyles = createThemedStyles(theme => StyleSheet.create(
     backgroundColor: theme.colors.textLight,
   },
   modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  documentImage: {
+    width: 120,
+    height: 120,
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  documentDownloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  documentDownloadText: {
+    marginLeft: 8,
+    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  documentImageTouchable: {
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  documentTextBlock: {
+    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  fullScreenModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '90%',
+    height: '80%',
+    borderRadius: 12,
+  },
+  fullScreenModalClose: {
+    position: 'absolute',
+    top: 40,
+    right: 24,
+    zIndex: 2,
+  },
+  editProfileButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  editImageOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+  },
+  bioInput: {
+    width: '100%',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    fontSize: 16,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.background,
+    marginBottom: 15,
+  },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
