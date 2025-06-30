@@ -531,6 +531,46 @@ const BookingScreen = () => {
         alert('Could not find the tasker. Please try again.');
         return;
       }
+
+      // // Check tasker availability for the selected date and time
+      // const selectedDate = new Date(date);
+      // const startOfDay = new Date(selectedDate);
+      // startOfDay.setHours(0, 0, 0, 0);
+      // const endOfDay = new Date(selectedDate);
+      // endOfDay.setHours(23, 59, 59, 999);
+
+      // // Query for existing jobs on the same date for this tasker
+      // const jobsRef = collection(db, 'jobs');
+      // const availabilityQuery = query(
+      //   jobsRef,
+      //   where('taskerId', '==', taskerUid),
+      //   where('date', '>=', startOfDay.toISOString()),
+      //   where('date', '<=', endOfDay.toISOString()),
+      //   where('status', 'in', ['pending_approval', 'in_progress', 'in_escrow', 'processing_payment'])
+      // );
+
+      // const availabilitySnapshot = await getDocs(availabilityQuery);
+
+      // if (!availabilitySnapshot.empty) {
+      //   // Check if any existing jobs overlap with the selected time
+      //   const selectedTime = selectedDate.getTime();
+      //   const timeWindow = 2 * 60 * 60 * 1000; // 2 hours window for overlap detection
+
+      //   const hasConflict = availabilitySnapshot.docs.some(doc => {
+      //     const jobData = doc.data();
+      //     const jobDate = new Date(jobData.date);
+      //     const jobTime = jobDate.getTime();
+
+      //     // Check if the times overlap (within 2 hours of each other)
+      //     return Math.abs(selectedTime - jobTime) < timeWindow;
+      //   });
+
+      //   if (hasConflict) {
+      //     alert('This tasker is not available at the selected time. Please choose a different time or date.');
+      //     return;
+      //   }
+      // }
+
       // Create job in Firestore with validated amount
       await addDoc(collection(db, 'jobs'), {
         clientId: auth.currentUser?.uid,
