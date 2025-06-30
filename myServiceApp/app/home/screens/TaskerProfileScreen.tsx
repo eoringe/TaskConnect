@@ -1,6 +1,6 @@
 // app/(tabs)/home/screens/TaskerProfileScreen.tsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
   Modal,
   FlatList,
   Platform,
-  Picker
+  Picker,
+  Keyboard
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,8 +25,10 @@ import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Picker as ReactNativePicker } from '@react-native-picker/picker';
-// Removed StatusBarSpace import as it was commented out in usage and not imported in your last provided code.
+import debounce from 'lodash.debounce';
+import DropDownPicker from 'react-native-dropdown-picker';
 
 // Initialize Firebase services
 const auth = getAuth(app);
@@ -88,6 +91,8 @@ type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedF
   submissionDate?: string;
 };
 
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZW1tYW51ZWxvcmluZ2UiLCJhIjoiY21ib3Y0amEzMXRndjJsc2RhdzdvMGRtOSJ9.dmRs4J8gMykWqHuK2kb5jA';
+const MAPBOX_API_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 
 const TaskerProfileScreen = () => {
   const router = useRouter();
@@ -124,6 +129,103 @@ const TaskerProfileScreen = () => {
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
+  const [isOpeningDocument, setIsOpeningDocument] = useState(false);
+
+  const [isEditingAreas, setIsEditingAreas] = useState(false);
+  const [areasServedEdit, setAreasServedEdit] = useState<string[]>(taskerData?.areasServed || []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [areasError, setAreasError] = useState<string | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownValue, setDropdownValue] = useState<string | null>(null);
+
+  const fetchMapboxResults = useCallback(async (text: string) => {
+    if (!MAPBOX_ACCESS_TOKEN) {
+      setAreasError('Mapbox Access Token is not configured.');
+      setLoadingSearch(false);
+      return;
+    }
+    if (text.trim().length < 3) {
+      setSearchResults([]);
+      setLoadingSearch(false);
+      return;
+    }
+    setLoadingSearch(true);
+    setAreasError(null);
+    try {
+      const encodedQuery = encodeURIComponent(text.trim());
+      const url = `${MAPBOX_API_URL}/${encodedQuery}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=ke&types=place,locality,neighborhood,poi&limit=10&language=en`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        setAreasError('Search failed.');
+        setSearchResults([]);
+        return;
+      }
+      const data = await response.json();
+      const uniqueResults = Array.from(new Set<string>(data.features.map((item: any) => {
+        if (typeof item.place_name === 'string') {
+          return item.place_name.trim();
+        }
+        return '';
+      }))).filter((r: string) => r.length > 0);
+      setSearchResults(uniqueResults);
+    } catch (err: any) {
+      setAreasError('A network error occurred during search.');
+      setSearchResults([]);
+    } finally {
+      setLoadingSearch(false);
+    }
+  }, []);
+
+  const debouncedSearch = useRef(debounce(fetchMapboxResults, 500)).current;
+
+  useEffect(() => {
+    if (searchQuery.trim().length > 0 && isInputFocused && isEditingAreas) {
+      debouncedSearch(searchQuery);
+    } else {
+      debouncedSearch.cancel();
+      setSearchResults([]);
+      setLoadingSearch(false);
+    }
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchQuery, debouncedSearch, isInputFocused, isEditingAreas]);
+
+  const toggleArea = (area: string) => {
+    setAreasServedEdit(prev => {
+      if (prev.includes(area)) {
+        return prev.filter(a => a !== area);
+      }
+      return [...prev, area];
+    });
+    setAreasError(null);
+    setSearchQuery('');
+    setSearchResults([]);
+    Keyboard.dismiss();
+  };
+
+  const handleSaveAreas = async () => {
+    if (areasServedEdit.length === 0) {
+      setAreasError('Please select at least one area.');
+      return;
+    }
+    setIsEditingAreas(false);
+    setTaskerData(prev => prev ? { ...prev, areasServed: areasServedEdit } : prev);
+    // Save to Firestore
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const docRef = doc(db, 'taskers', currentUser.uid);
+        await updateDoc(docRef, { areasServed: areasServedEdit });
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save areas served.');
+    }
+  };
 
   useEffect(() => {
     fetchTaskerData();
@@ -195,7 +297,7 @@ const TaskerProfileScreen = () => {
   };
 
   const handleAddService = async () => {
-    if (!newServiceCategory.trim() || !newServiceTitle.trim() || !newServiceRate.trim()) {
+    if (!dropdownValue || !newServiceTitle.trim() || !newServiceRate.trim()) {
       Alert.alert('Missing Information', 'Please fill in category, title, and rate for the new service.');
       return;
     }
@@ -207,16 +309,9 @@ const TaskerProfileScreen = () => {
     }
 
     setIsUpdatingServices(true);
-    // Find the selected category object
-    const selectedCategoryObj = availableCategories.find(cat => cat.id === newServiceCategory);
-    if (!selectedCategoryObj) {
-      Alert.alert('Error', 'Selected category not found.');
-      setIsUpdatingServices(false);
-      return;
-    }
     const newService: Service = {
       id: Date.now().toString(), // Simple unique ID
-      category: selectedCategoryObj.name, // Use the category name for the service
+      category: availableCategories.find(cat => cat.id === dropdownValue)?.name || '',
       title: newServiceTitle.trim(),
       rate: newServiceRate.trim(),
       description: newServiceDescription.trim(),
@@ -232,7 +327,7 @@ const TaskerProfileScreen = () => {
       });
 
       // 2. Update the 'serviceCategories' collection using the document ID
-      const categoryDocRef = doc(db, 'serviceCategories', newServiceCategory);
+      const categoryDocRef = doc(db, 'serviceCategories', dropdownValue);
       await updateDoc(categoryDocRef, {
         services: arrayUnion(newService)
       });
@@ -244,7 +339,7 @@ const TaskerProfileScreen = () => {
 
       Alert.alert('Success', 'Service added successfully!');
       setIsAddServiceModalVisible(false);
-      setNewServiceCategory('');
+      setDropdownValue(null);
       setNewServiceTitle('');
       setNewServiceRate('');
       setNewServiceDescription('');
@@ -399,653 +494,19 @@ const TaskerProfileScreen = () => {
     }
   };
 
-  // Content for the ListHeaderComponent - MUST be called unconditionally
-  const renderHeaderContent = useMemo(() => {
-    // Only render if taskerData is available
-    if (!taskerData) {
-      return null;
-    }
-
-    const isCurrentUser = auth.currentUser && taskerData && auth.currentUser.uid === (params?.taskerId || auth.currentUser.uid);
-
-    return (
-      <View style={styles.listHeaderContainer}>
-        {/* Profile Image and Basic Info */}
-        <View style={styles.profileSummary}>
-          <View style={{ position: 'relative' }}>
-            {taskerData.profileImageBase64 && !isEditingProfile ? (
-              <Image
-                source={base64ToImageSource(taskerData.profileImageBase64)}
-                style={styles.profileImage}
-              />
-            ) : isEditingProfile && (editProfileImageUri || taskerData.profileImageBase64) ? (
-              <TouchableOpacity onPress={pickEditProfileImage} disabled={isSavingProfile}>
-                <Image
-                  source={editProfileImageUri ? { uri: editProfileImageUri } : base64ToImageSource(taskerData.profileImageBase64)}
-                  style={styles.profileImage}
-                />
-                <View style={styles.editImageOverlay}>
-                  <Ionicons name="camera-outline" size={28} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={pickEditProfileImage} disabled={isSavingProfile} style={styles.profileImagePlaceholder}>
-                <Ionicons name="camera-outline" size={40} color="#666" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.editProfileButton} onPress={() => {
-              console.log('Edit button pressed');
-              setIsEditingProfile(true);
-              setEditBio(taskerData.bio || '');
-            }}>
-              <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.name}>{taskerData.firstName} {taskerData.lastName}</Text>
-          <Text style={styles.email}>{taskerData.email}</Text>
-          <Text style={styles.phone}>{taskerData.phone}</Text>
-        </View>
-
-        {/* Professional Bio */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Bio</Text>
-          {!isEditingProfile ? (
-            <Text style={styles.bioText}>{taskerData.bio || 'No bio provided yet.'}</Text>
-          ) : (
-            <TextInput
-              style={styles.bioInput}
-              value={editBio}
-              onChangeText={setEditBio}
-              placeholder="Write your bio here..."
-              multiline
-              textAlignVertical="top"
-              maxLength={200}
-              editable={!isSavingProfile}
-            />
-          )}
-          {isEditingProfile && (
-            <View style={{ flexDirection: 'row', marginTop: 12 }}>
-              <TouchableOpacity
-                style={[styles.button, { flex: 1, backgroundColor: theme.colors.primary, marginRight: 8 }]}
-                onPress={handleSaveProfile}
-                disabled={isSavingProfile}
-              >
-                {isSavingProfile ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.buttonText}>Save</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, { flex: 1, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.border }]}
-                onPress={() => setIsEditingProfile(false)}
-                disabled={isSavingProfile}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* ID Verification Details (ID photos removed) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>ID Verification</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>KRA PIN:</Text>
-            <Text style={styles.detailValue}>{taskerData.kraPin || 'N/A'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>ID Number:</Text>
-            <Text style={styles.detailValue}>{taskerData.idNumber || 'N/A'}</Text>
-          </View>
-        </View>
-
-        {/* Areas Served */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Areas Served</Text>
-          <Text style={styles.areasServedText}>
-            {taskerData.areasServed && taskerData.areasServed.length > 0
-              ? taskerData.areasServed.join(', ')
-              : 'No areas specified.'}
-          </Text>
-        </View>
-      </View>
-    );
-  }, [taskerData, theme.colors, isEditingProfile, editBio, editProfileImageUri, editProfileImageBase64, isSavingProfile]);
-
-  // Combine data for the main FlatList (services and documents sections)
-  const flatListData = useMemo(() => {
-    const data: Array<{ type: string, id: string, item?: any, documents?: SupportingDocument[] }> = [];
-
-    // Only add service/document related items if taskerData is available
-    if (taskerData) {
-      // Services Section
-      data.push({ type: 'servicesSection', id: 'servicesSection', item: taskerData.services });
-      data.push({ type: 'addServiceButton', id: 'addServiceButton' });
-
-      // Documents Section (now grouped)
-      data.push({ type: 'documentsSection', id: 'documentsSection', documents: taskerData.supportingDocuments });
-    }
-
-    return data;
-  }, [taskerData]); // Re-compute if taskerData changes
-
-  const renderItem = ({ item }: { item: { type: string, item?: any, id: string, documents?: SupportingDocument[] } }) => {
-    switch (item.type) {
-      case 'servicesSection':
-        const services = item.item as Service[];
-        return (
-          <View style={[styles.section, { marginHorizontal: 16 }]}>
-            <Text style={styles.sectionHeader}>Your Services</Text>
-            {services && services.length > 0 ? (
-              services.map(service => (
-                <View key={service.id} style={[styles.serviceItem, { marginBottom: 10 }]}>
-                  <View style={styles.serviceItemContent}>
-                    <Text style={styles.serviceTitle}>{service.title}</Text>
-                    <Text style={styles.serviceCategory}>Category: {service.category}</Text>
-                    <Text style={styles.serviceRate}>Rate: {service.rate}</Text>
-                    {service.description && (
-                      <Text style={styles.serviceDescription}>{service.description}</Text>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteService(service)}
-                    style={styles.deleteServiceButton}
-                    disabled={isUpdatingServices}
-                  >
-                    {isUpdatingServices ? (
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
-                    ) : (
-                      <Ionicons name="trash-outline" size={24} color={theme.colors.error} />
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noServicesText}>No services added yet.</Text>
-            )}
-          </View>
-        );
-      case 'addServiceButton':
-        return (
-          <TouchableOpacity
-            style={[styles.addServiceButton, { marginHorizontal: 16 }]}
-            onPress={() => setIsAddServiceModalVisible(true)}
-            disabled={isUpdatingServices}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#fff" />
-            <Text style={styles.addServiceButtonText}>Add New Service</Text>
-          </TouchableOpacity>
-        );
-      case 'documentsSection':
-        const documents = item.documents as SupportingDocument[];
-        return (
-          <View style={[styles.section, { marginHorizontal: 16 }]}>
-            <Text style={styles.sectionHeader}>Supporting Documents</Text>
-            {documents && documents.length > 0 ? (
-              documents.map(doc => (
-                <View key={doc.id} style={styles.documentItem}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (doc.mimeType.startsWith('image/')) {
-                        const imgSrc = base64ToFileSource(doc);
-                        if (imgSrc) {
-                          setModalImageSource(imgSrc);
-                          setImageModalVisible(true);
-                        }
-                      }
-                    }}
-                    activeOpacity={doc.mimeType.startsWith('image/') ? 0.8 : 1}
-                    style={styles.documentImageTouchable}
-                  >
-                    {doc.mimeType.startsWith('image/') ? (
-                      <Image
-                        source={base64ToFileSource(doc)}
-                        style={styles.documentImage}
-                        resizeMode="cover"
-                      />
-                    ) : null}
-                  </TouchableOpacity>
-                  <View style={styles.documentTextBlock}>
-                    <Text style={styles.documentName}>{doc.name}</Text>
-                    <Text style={styles.documentDescription}>{doc.description}</Text>
-                  </View>
-                  {!doc.mimeType.startsWith('image/') && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert('Open Document', 'File opening not implemented.');
-                      }}
-                      style={styles.documentDownloadButton}
-                    >
-                      <Ionicons name="document-outline" size={24} color={theme.colors.primary} />
-                      <Text style={styles.documentDownloadText}>Open Document</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noDocumentsText}>No supporting documents uploaded.</Text>
-            )}
-            {/* Full screen image modal */}
-            <Modal
-              visible={imageModalVisible}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setImageModalVisible(false)}
-            >
-              <View style={styles.fullScreenModalOverlay}>
-                <TouchableOpacity style={styles.fullScreenModalClose} onPress={() => setImageModalVisible(false)}>
-                  <Ionicons name="close-circle" size={36} color="#fff" />
-                </TouchableOpacity>
-                {modalImageSource && (
-                  <Image source={modalImageSource} style={styles.fullScreenImage} resizeMode="contain" />
-                )}
-              </View>
-            </Modal>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        {/* <StatusBarSpace /> */}
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>{isDeletingProfile ? 'Deleting Tasker Profile...' : 'Loading Tasker Profile...'}</Text>
-      </View>
-// app/(tabs)/home/screens/TaskerProfileScreen.tsx
-
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  Alert,
-  ActivityIndicator,
-  Modal,
-  FlatList,
-  Platform,
-  Picker
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDocs, collection, writeBatch } from 'firebase/firestore';
-import { app } from '@/firebase-config'; // Adjust path as needed for your project structure
-import { useTheme } from '@/app/context/ThemeContext';
-import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { Picker as ReactNativePicker } from '@react-native-picker/picker';
-// Removed StatusBarSpace import as it was commented out in usage and not imported in your last provided code.
-
-// Initialize Firebase services
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Re-using types from your previous onboarding screens
-type PersonalDetails = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-};
-
-type IDVerificationFormData = {
-  kraPin: string;
-  idNumber: string;
-  idFrontImage: string | null;
-  idBackImage: string | null;
-  idFrontImageBase64: string;
-  idBackImageBase64: string;
-};
-
-type AreasServedFormData = {
-  areasServed: string[];
-};
-
-type Service = {
-  id: string; // Unique ID for the service, maybe a UUID
-  category: string;
-  title: string;
-  rate: string;
-  description: string;
-  isCustom?: boolean;
-  taskerId?: string; // Added to include UID in serviceCategory
-};
-
-type ServicesData = {
-  services: Service[];
-};
-
-type SupportingDocument = {
-  id: string;
-  uri: string; // This might be a local URI from image picker, or a base64 string
-  name: string;
-  description: string;
-  mimeType: string;
-  base64: string; // Crucial for storing the actual document data
-};
-
-type ProfileFormData = {
-  profileImageBase64: string | null;
-  bio: string;
-};
-
-type AllOnboardingData = PersonalDetails & IDVerificationFormData & AreasServedFormData & ServicesData & {
-  supportingDocuments: SupportingDocument[];
-  profileImageBase64: string | null;
-  bio: string;
-  onboardingStatus: 'pendingVerification' | 'completed';
-  submissionDate?: string;
-};
-
-
-const TaskerProfileScreen = () => {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const { theme } = useTheme();
-  const styles = useThemedStyles(createTaskerProfileStyles);
-
-  const [taskerData, setTaskerData] = useState<AllOnboardingData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isUpdatingServices, setIsUpdatingServices] = useState(false);
-
-  // State for adding new service
-  const [isAddServiceModalVisible, setIsAddServiceModalVisible] = useState(false);
-  const [newServiceCategory, setNewServiceCategory] = useState('');
-  const [newServiceTitle, setNewServiceTitle] = useState('');
-  const [newServiceRate, setNewServiceRate] = useState('');
-  const [newServiceDescription, setNewServiceDescription] = useState('');
-
-  // Add to the component's state:
-  const [imageModalVisible, setImageModalVisible] = useState(false);
-  const [modalImageSource, setModalImageSource] = useState<{ uri: string } | null>(null);
-
-  // Add to component state:
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editBio, setEditBio] = useState('');
-  const [editProfileImageUri, setEditProfileImageUri] = useState<string | null>(null);
-  const [editProfileImageBase64, setEditProfileImageBase64] = useState<string | null>(null);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  // Add to component's state:
-  const [availableCategories, setAvailableCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchTaskerData();
-    const fetchServiceCategories = async () => {
-      try {
-        setCategoriesLoading(true);
-        const querySnapshot = await getDocs(collection(db, 'serviceCategories'));
-        const categories: { id: string; name: string; icon: string }[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          // Exclude the category named "All"
-          if (data.name !== 'All') {
-            categories.push({ id: doc.id, name: data.name, icon: data.icon });
-          }
-        });
-        setAvailableCategories(categories);
-      } catch (error) {
-        setCategoriesError('Failed to load categories.');
-      } finally {
-        setCategoriesLoading(false);
-      }
-    };
-    fetchServiceCategories();
-  }, [db]);
-
-  const fetchTaskerData = async () => {
-    setLoading(true);
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      setError('User not logged in.');
-      setLoading(false);
-      Alert.alert('Authentication Required', 'Please log in to view your tasker profile.', [
-        { text: 'OK', onPress: () => router.replace('/auth/Login') }
-      ]);
-      return;
-    }
-
+  const handleOpenDocument = async (doc: SupportingDocument) => {
     try {
-      const docRef = doc(db, 'taskers', currentUser.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        setTaskerData(docSnap.data() as AllOnboardingData);
-      } else {
-        setError('Tasker profile not found. Please complete the onboarding process.');
-        Alert.alert('Profile Missing', 'Your tasker profile was not found. Please complete the onboarding process.', [
-          { text: 'Go to Onboarding', onPress: () => router.replace('/tasker-onboarding/personal-details') }
-        ]);
-      }
-    } catch (err: any) {
-      console.error("Error fetching tasker data:", err);
-      setError(`Failed to load profile: ${err.message || 'Unknown error'}`);
-      Alert.alert('Error', `Failed to load profile: ${err.message || 'Please try again later.'}`);
+      setIsOpeningDocument(true);
+      // Create a file path in the cache directory
+      const fileUri = `${FileSystem.cacheDirectory}${doc.name}`;
+      // Write the base64 data to the file
+      await FileSystem.writeAsStringAsync(fileUri, doc.base64, { encoding: FileSystem.EncodingType.Base64 });
+      // Open the file with the system viewer
+      await Sharing.shareAsync(fileUri, { mimeType: doc.mimeType });
+    } catch (error) {
+      Alert.alert('Error', 'Could not open document.');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const base64ToImageSource = (base64String: string | null) => {
-    if (!base64String) return undefined;
-    // Add the data URI prefix if it's not already there
-    return { uri: `data:image/jpeg;base64,${base64String}` };
-  };
-
-  const base64ToFileSource = (doc: SupportingDocument) => {
-    if (!doc.base64) return undefined;
-    // Use the mimeType from the document
-    return { uri: `data:${doc.mimeType};base64,${doc.base64}` };
-  };
-
-  const handleAddService = async () => {
-    if (!newServiceCategory.trim() || !newServiceTitle.trim() || !newServiceRate.trim()) {
-      Alert.alert('Missing Information', 'Please fill in category, title, and rate for the new service.');
-      return;
-    }
-
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Authentication Error', 'You must be logged in to add services.');
-      return;
-    }
-
-    setIsUpdatingServices(true);
-    // Find the selected category object
-    const selectedCategoryObj = availableCategories.find(cat => cat.id === newServiceCategory);
-    if (!selectedCategoryObj) {
-      Alert.alert('Error', 'Selected category not found.');
-      setIsUpdatingServices(false);
-      return;
-    }
-    const newService: Service = {
-      id: Date.now().toString(), // Simple unique ID
-      category: selectedCategoryObj.name, // Use the category name for the service
-      title: newServiceTitle.trim(),
-      rate: newServiceRate.trim(),
-      description: newServiceDescription.trim(),
-      taskerId: currentUser.uid, // Crucial for identifying the tasker
-      isCustom: true, // Mark as custom if added by the tasker later
-    };
-
-    try {
-      // 1. Update the 'taskers' document with the new service
-      const taskerDocRef = doc(db, 'taskers', currentUser.uid);
-      await updateDoc(taskerDocRef, {
-        services: arrayUnion(newService)
-      });
-
-      // 2. Update the 'serviceCategories' collection using the document ID
-      const categoryDocRef = doc(db, 'serviceCategories', newServiceCategory);
-      await updateDoc(categoryDocRef, {
-        services: arrayUnion(newService)
-      });
-
-      setTaskerData(prevData => ({
-        ...(prevData as AllOnboardingData),
-        services: [...((prevData?.services || [])), newService]
-      }));
-
-      Alert.alert('Success', 'Service added successfully!');
-      setIsAddServiceModalVisible(false);
-      setNewServiceCategory('');
-      setNewServiceTitle('');
-      setNewServiceRate('');
-      setNewServiceDescription('');
-    } catch (err: any) {
-      console.error("Error adding service:", err);
-      Alert.alert('Error', `Failed to add service: ${err.message || 'Please try again.'}`);
-    } finally {
-      setIsUpdatingServices(false);
-    }
-  };
-
-  const handleDeleteService = async (serviceToDelete: Service) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Authentication Error', 'You must be logged in to delete services.');
-      return;
-    }
-
-    Alert.alert(
-      'Confirm Deletion',
-      `Are you sure you want to delete the service "${serviceToDelete.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsUpdatingServices(true);
-            try {
-              // 1. Remove from 'taskers' document
-              const taskerDocRef = doc(db, 'taskers', currentUser.uid);
-              await updateDoc(taskerDocRef, {
-                services: arrayRemove(serviceToDelete)
-              });
-
-              // 2. Remove from 'serviceCategories' collection
-              const categoryDocRef = doc(db, 'serviceCategories', serviceToDelete.category);
-              await updateDoc(categoryDocRef, {
-                services: arrayRemove(serviceToDelete)
-              });
-
-              setTaskerData(prevData => ({
-                ...(prevData as AllOnboardingData),
-                services: (prevData?.services || []).filter(s => s.id !== serviceToDelete.id)
-              }));
-
-              Alert.alert('Success', 'Service deleted successfully!');
-            } catch (err: any) {
-              console.error("Error deleting service:", err);
-              Alert.alert('Error', `Failed to delete service: ${err.message || 'Please try again.'}`);
-            } finally {
-              setIsUpdatingServices(false);
-            }
-          }
-        },
-      ]
-    );
-  };
-
-  const handleDeleteProfile = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Authentication Error', 'You must be logged in to delete your profile.');
-      return;
-    }
-    Alert.alert('Delete Profile', 'Are you sure you want to delete your tasker profile? This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          setLoading(true);
-          try {
-            console.log('Attempting to delete tasker profile for UID:', currentUser.uid);
-            // 1. Delete the tasker document
-            await deleteDoc(doc(db, 'taskers', currentUser.uid));
-            console.log('Deleted tasker document for UID:', currentUser.uid);
-            // 2. Remove all services by this tasker from serviceCategories
-            if (taskerData?.services && taskerData.services.length > 0) {
-              const batch = writeBatch(db);
-              for (const service of taskerData.services) {
-                const categoryDocRef = doc(db, 'serviceCategories', service.category);
-                console.log('Removing service from category:', service.category, service);
-                batch.update(categoryDocRef, {
-                  services: arrayRemove(service)
-                });
-              }
-              await batch.commit();
-              console.log('Batch update committed for serviceCategories.');
-            }
-            Alert.alert('Profile Deleted', 'Your tasker profile has been deleted.');
-            router.replace('/home?tab=home');
-          } catch (err) {
-            console.error('Failed to delete tasker profile:', err);
-            Alert.alert('Error', 'Failed to delete profile. Please try again.');
-          } finally {
-            setLoading(false);
-          }
-        }
-      }
-    ]);
-  };
-
-  // Add image picker logic (reuse from onboarding):
-  const pickEditProfileImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant access to your photo library to select a profile photo.');
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedUri = result.assets[0].uri;
-        setEditProfileImageUri(selectedUri);
-        const base64 = await FileSystem.readAsStringAsync(selectedUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        setEditProfileImageBase64(base64);
-      }
-    } catch (error: any) {
-      Alert.alert('Error', `Failed to pick image: ${error.message || 'Unknown error'}.`);
-    }
-  };
-
-  // Add save logic:
-  const handleSaveProfile = async () => {
-    if (!taskerData) return;
-    setIsSavingProfile(true);
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not authenticated');
-      const docRef = doc(db, 'taskers', currentUser.uid);
-      await updateDoc(docRef, {
-        bio: editBio,
-        profileImageBase64: editProfileImageBase64 || taskerData.profileImageBase64,
-      });
-      setTaskerData({ ...taskerData, bio: editBio, profileImageBase64: editProfileImageBase64 || taskerData.profileImageBase64 });
-      setIsEditingProfile(false);
-      setEditProfileImageUri(null);
-      setEditProfileImageBase64(null);
-      Alert.alert('Success', 'Profile updated successfully!');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update profile.');
-    } finally {
-      setIsSavingProfile(false);
+      setIsOpeningDocument(false);
     }
   };
 
@@ -1148,16 +609,108 @@ const TaskerProfileScreen = () => {
 
         {/* Areas Served */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Areas Served</Text>
-          <Text style={styles.areasServedText}>
-            {taskerData.areasServed && taskerData.areasServed.length > 0
-              ? taskerData.areasServed.join(', ')
-              : 'No areas specified.'}
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.sectionHeader}>Areas Served</Text>
+            <TouchableOpacity onPress={() => {
+              setAreasServedEdit(taskerData.areasServed || []);
+              setIsEditingAreas(true);
+            }}>
+              <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
+          {!isEditingAreas ? (
+            taskerData.areasServed && taskerData.areasServed.length > 0 ? (
+              <View style={{ marginTop: 4 }}>
+                {taskerData.areasServed.map((area) => (
+                  <Text key={area} style={styles.areasServedText}>{area}</Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.areasServedText}>No areas specified.</Text>
+            )
+          ) : (
+            <>
+              <View style={styles.searchSection}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search for a location (e.g., Kilimani, Ruiru)"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => {
+                    setTimeout(() => setIsInputFocused(false), 200);
+                  }}
+                  autoCapitalize="words"
+                  returnKeyType="search"
+                  onSubmitEditing={() => {
+                    if (searchQuery.trim().length >= 3) {
+                      fetchMapboxResults(searchQuery);
+                    }
+                  }}
+                  placeholderTextColor={theme.colors.textLight}
+                />
+                {loadingSearch && <ActivityIndicator size="small" color={theme.colors.primary} style={styles.searchLoadingIndicator} />}
+                {searchQuery.length > 0 && !loadingSearch && (
+                  <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }} style={styles.clearSearchButton}>
+                    <Ionicons name="close-circle" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {isInputFocused && searchResults.length > 0 && (
+                <View style={styles.searchResultsContainer}>
+                  <Text style={styles.searchResultsTitle}>Suggestions</Text>
+                  {searchResults.map((area, index) => (
+                    <TouchableOpacity
+                      key={area + index}
+                      style={styles.searchResultItem}
+                      onPress={() => toggleArea(area)}
+                    >
+                      <Text style={styles.searchResultText}>{area}</Text>
+                      {areasServedEdit.includes(area) && (
+                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {areasServedEdit.length > 0 && (
+                <View style={styles.selectedAreasContainer}>
+                  <Text style={styles.sectionTitle}>Your Selected Service Areas</Text>
+                  <View style={styles.selectedAreasList}>
+                    {areasServedEdit.map((area) => (
+                      <View key={area} style={styles.selectedAreaTag}>
+                        <Text style={styles.selectedAreaText}>{area}</Text>
+                        <TouchableOpacity onPress={() => toggleArea(area)}>
+                          <Ionicons name="close-circle" size={20} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {areasError && (
+                <Text style={styles.errorText}>{areasError}</Text>
+              )}
+              <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[styles.button, { flex: 1, marginRight: 8 }]}
+                  onPress={handleSaveAreas}
+                >
+                  <Text style={styles.buttonText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, { flex: 1, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.border }]}
+                  onPress={() => setIsEditingAreas(false)}
+                >
+                  <Text style={[styles.buttonText, { color: theme.colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
     );
-  }, [taskerData, theme.colors, isEditingProfile, editBio, editProfileImageUri, editProfileImageBase64, isSavingProfile]);
+  }, [taskerData, theme.colors, isEditingProfile, editBio, editProfileImageUri, editProfileImageBase64, isSavingProfile, isEditingAreas, areasServedEdit, searchQuery, searchResults, loadingSearch, areasError, isInputFocused]);
 
   // Combine data for the main FlatList (services and documents sections)
   const flatListData = useMemo(() => {
@@ -1258,9 +811,7 @@ const TaskerProfileScreen = () => {
                   </View>
                   {!doc.mimeType.startsWith('image/') && (
                     <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert('Open Document', 'File opening not implemented.');
-                      }}
+                      onPress={() => handleOpenDocument(doc)}
                       style={styles.documentDownloadButton}
                     >
                       <Ionicons name="document-outline" size={24} color={theme.colors.primary} />
@@ -1295,12 +846,18 @@ const TaskerProfileScreen = () => {
     }
   };
 
-  if (loading) {
+  if (loading || isOpeningDocument) {
     return (
       <View style={[styles.container, styles.centered]}>
         {/* <StatusBarSpace /> */}
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Loading Tasker Profile...</Text>
+        <Text style={styles.loadingText}>
+          {isOpeningDocument
+            ? 'Opening Document...'
+            : isDeletingProfile
+              ? 'Deleting Tasker Profile...'
+              : 'Loading Tasker Profile...'}
+        </Text>
       </View>
     );
   }
@@ -1368,17 +925,19 @@ const TaskerProfileScreen = () => {
             ) : categoriesError ? (
               <Text style={styles.errorText}>{categoriesError}</Text>
             ) : (
-              <ReactNativePicker
-                selectedValue={newServiceCategory}
-                onValueChange={setNewServiceCategory}
-                enabled={!isUpdatingServices}
-                style={{ marginBottom: 16 }}
-              >
-                <ReactNativePicker.Item label="Select Category" value="" />
-                {availableCategories.map((cat) => (
-                  <ReactNativePicker.Item key={cat.id} label={cat.name} value={cat.id} />
-                ))}
-              </ReactNativePicker>
+              <DropDownPicker
+                open={dropdownOpen}
+                value={dropdownValue}
+                items={availableCategories.map(cat => ({ label: cat.name, value: cat.id }))}
+                setOpen={setDropdownOpen}
+                setValue={setDropdownValue}
+                placeholder="Select Category"
+                style={{ marginBottom: 16, backgroundColor: '#222', borderColor: theme.colors.border, zIndex: 1000 }}
+                textStyle={{ color: '#fff' }}
+                dropDownContainerStyle={{ backgroundColor: '#222', borderColor: theme.colors.border, zIndex: 1000 }}
+                listItemLabelStyle={{ color: '#fff' }}
+                zIndex={1000}
+              />
             )}
             <TextInput
               style={styles.modalInput}
@@ -1855,6 +1414,81 @@ const createTaskerProfileStyles = createThemedStyles(theme => StyleSheet.create(
   },
   headerSpacer: {
     width: 40, // Same width as back button for centering
+  },
+  searchSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 10,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  searchLoadingIndicator: {
+    marginLeft: 10,
+  },
+  clearSearchButton: {
+    padding: 10,
+  },
+  searchResultsContainer: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  searchResultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 10,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 5,
+  },
+  searchResultText: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  selectedAreasContainer: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 10,
+  },
+  selectedAreasList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 8,
+    columnGap: 12,
+  },
+  selectedAreaTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  selectedAreaText: {
+    fontSize: 16,
+    color: theme.colors.text,
   },
 }));
 
