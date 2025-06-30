@@ -154,6 +154,49 @@ const NotificationsScreen = () => {
     }
   };
 
+  const handleRejectJob = async (job: Job) => {
+    Alert.alert(
+      'Reject Booking',
+      'Please select a reason for rejecting this booking:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unavailable',
+          onPress: () => rejectJobWithReason(job.id, 'unavailable', 'I am not available at this time')
+        },
+        {
+          text: 'Location Too Far',
+          onPress: () => rejectJobWithReason(job.id, 'location', 'The location is too far from my service area')
+        },
+        {
+          text: 'Insufficient Details',
+          onPress: () => rejectJobWithReason(job.id, 'details', 'I need more details about the job requirements')
+        },
+        {
+          text: 'Other',
+          onPress: () => rejectJobWithReason(job.id, 'other', 'Other reason')
+        }
+      ]
+    );
+  };
+
+  const rejectJobWithReason = async (jobId: string, reason: string, reasonText: string) => {
+    try {
+      const jobRef = doc(db, 'jobs', jobId);
+      await updateDoc(jobRef, {
+        status: 'rejected',
+        rejectionReason: reason,
+        rejectionReasonText: reasonText,
+        rejectedAt: new Date()
+      });
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      Alert.alert('Success', 'Booking has been rejected.');
+    } catch (error) {
+      console.error('Error rejecting booking:', error);
+      Alert.alert('Error', 'Failed to reject the booking. Please try again.');
+    }
+  };
+
   const renderActionButton = (job: Job) => {
     // Show next action based on status
     if (job.status === 'pending_approval') {
@@ -251,28 +294,76 @@ const NotificationsScreen = () => {
         data={jobs}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.taskerName}>{item.clientInfo?.name || 'A Client'}</Text>
-              <Text style={styles.dateText}>{new Date(item.date).toLocaleString()}</Text>
-              {item.amount && (
-                <Text style={styles.detailText}>Amount: KSh {item.amount.toLocaleString()}</Text>
-              )}
-              {item.notes && <Text style={styles.detailText}>Notes: {item.notes}</Text>}
-            </View>
-            {item.status === 'pending_approval' && (
-              <View style={styles.taskerActionContainer}>
-                <TouchableOpacity style={[styles.taskerButton, styles.approveButton]} onPress={() => handleUpdateRequest(item.id, 'in_progress')}>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.taskerButtonText}>Approve</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.taskerButton, styles.rejectButton]} onPress={() => handleUpdateRequest(item.id, 'rejected')}>
-                  <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.taskerButtonText}>Reject</Text>
-                </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => router.push({
+              pathname: '/home/screens/JobStatusScreen',
+              params: {
+                jobId: item.id,
+                viewMode: 'tasker' // Add view mode to distinguish tasker view
+              }
+            })}
+          >
+            <View style={styles.taskerCardContent}>
+              <View style={styles.clientInfoSection}>
+                <View style={styles.clientHeader}>
+                  <View style={styles.clientAvatar}>
+                    <Ionicons name="person" size={24} color={theme.colors.primary} />
+                  </View>
+                  <View style={styles.clientDetails}>
+                    <Text style={styles.clientName}>{item.clientInfo?.name || 'A Client'}</Text>
+                    <Text style={styles.clientLocation}>
+                      <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
+                      {' '}{item.address || 'Location not specified'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.jobDetails}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar-outline" size={16} color={theme.colors.textLight} />
+                    <Text style={styles.detailText}>
+                      {new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+
+                  {item.amount && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="pricetag-outline" size={16} color={theme.colors.textLight} />
+                      <Text style={styles.amountText}>KSh {item.amount.toLocaleString()}</Text>
+                    </View>
+                  )}
+
+                  {item.notes && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="document-text-outline" size={16} color={theme.colors.textLight} />
+                      <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            )}
-          </View>
+
+              {item.status === 'pending_approval' && (
+                <View style={styles.taskerActionContainer}>
+                  <TouchableOpacity
+                    style={[styles.taskerButton, styles.approveButton]}
+                    onPress={() => handleUpdateRequest(item.id, 'in_progress')}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.taskerButtonText}>Approve</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.taskerButton, styles.rejectButton]}
+                    onPress={() => handleRejectJob(item)}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.taskerButtonText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={(
           <View style={styles.emptyContainer}>
@@ -531,6 +622,56 @@ const createStyles = createThemedStyles(theme => ({
     color: theme.colors.text,
     fontWeight: '500',
     marginTop: 4,
+  },
+  taskerCardContent: {
+    flex: 1,
+  },
+  clientInfoSection: {
+    flex: 1,
+  },
+  clientHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  clientAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  clientDetails: {
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  clientLocation: {
+    fontSize: 13,
+    color: theme.colors.textLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  jobDetails: {
+    marginLeft: 60, // Align with client name
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  notesText: {
+    fontSize: 13,
+    color: theme.colors.textLight,
+    marginLeft: 8,
+    flex: 1,
+    fontStyle: 'italic',
   },
 }));
 
