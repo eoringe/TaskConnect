@@ -25,12 +25,14 @@ import BiometricHelper from '../utils/BiometricHelper'; // Ensure this path is c
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/firebase-config';
 import * as FileSystem from 'expo-file-system';
+import { useNavigation } from '@react-navigation/native';
 
 const db = getFirestore(app);
 
 const ProfileScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const styles = useThemedStyles(createProfileStyles);
+  const navigation = useNavigation();
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -199,6 +201,9 @@ const ProfileScreen = () => {
         break;
       case 'TaskerProfileScreen':
         router.push('/home/screens/TaskerProfileScreen');
+        break;
+      case 'notifications':
+        navigation.navigate('Notifications');
         break;
       case 'helpSupport':
         router.push('/home/screens/HelpSupportScreen');
