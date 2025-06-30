@@ -296,7 +296,7 @@ export default function ProfileScreen() {
                 ...receivedOnboardingData as AllOnboardingData,
                 profileImageBase64: profileImageBase64,
                 bio: bio.trim(),
-                onboardingStatus: 'completed',
+                onboardingStatus: 'pendingVerification',
                 submissionDate: new Date().toISOString(),
             };
             console.log('finalOnboardingData:', finalOnboardingData);
