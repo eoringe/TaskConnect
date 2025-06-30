@@ -36,33 +36,6 @@ const HelpSupportScreen = () => {
   const [inputHeight, setInputHeight] = useState(50);
   const keyboardAnimValue = useRef(new Animated.Value(0)).current;
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: () => (
-        <View style={styles.headerContainer}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={require('@/assets/images/Ella.jpg')}
-              style={styles.avatar}
-            />
-            <View style={styles.onlineIndicator} />
-          </View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Ella</Text>
-            <Text style={styles.headerSubtitle}>Online • Typically replies instantly</Text>
-          </View>
-        </View>
-      ),
-      headerStyle: {
-        backgroundColor: theme.colors.card,
-        elevation: 0,
-        shadowOpacity: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-      },
-    });
-  }, [navigation, theme, styles]);
-
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
       setKeyboardHeight(e.endCoordinates.height);
@@ -160,91 +133,114 @@ const HelpSupportScreen = () => {
     </View>
   );
 
+  // Custom navigation bar at the top
+  const CustomHeader = () => (
+    <View style={styles.customHeader}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+      </TouchableOpacity>
+      <View style={styles.avatarContainer}>
+        <Image
+          source={require('@/assets/images/Ella.jpg')}
+          style={styles.avatar}
+        />
+        <View style={styles.onlineIndicator} />
+      </View>
+      <View style={styles.headerTextContainer}>
+        <Text style={styles.headerTitle}>Ella</Text>
+        <Text style={styles.headerSubtitle}>Online • Typically replies instantly</Text>
+      </View>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.chatWrapper}>
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.chatContainer}
-          contentContainerStyle={[styles.chatContent, { paddingBottom: 16 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((msg, idx) => (
-            <View key={idx} style={[styles.messageRow, msg.from === 'user' ? styles.userRow : styles.botRow]}>
-              {msg.from === 'bot' && (
-                <View style={styles.botAvatarContainer}>
-                  <Image
-                    source={require('@/assets/images/Ella.jpg')}
-                    style={styles.botAvatar}
-                  />
-                </View>
-              )}
-              <View style={styles.messageContainer}>
-                <View style={[styles.messageBubble, msg.from === 'user' ? styles.userBubble : styles.botBubble]}>
-                  <Text style={[styles.messageText, msg.from === 'user' ? styles.userMessageText : styles.botMessageText]}>
-                    {msg.text}
+    <>
+      <CustomHeader />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.chatWrapper}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.chatContainer}
+            contentContainerStyle={[styles.chatContent, { paddingBottom: 16 }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.map((msg, idx) => (
+              <View key={idx} style={[styles.messageRow, msg.from === 'user' ? styles.userRow : styles.botRow]}>
+                {msg.from === 'bot' && (
+                  <View style={styles.botAvatarContainer}>
+                    <Image
+                      source={require('@/assets/images/Ella.jpg')}
+                      style={styles.botAvatar}
+                    />
+                  </View>
+                )}
+                <View style={styles.messageContainer}>
+                  <View style={[styles.messageBubble, msg.from === 'user' ? styles.userBubble : styles.botBubble]}>
+                    <Text style={[styles.messageText, msg.from === 'user' ? styles.userMessageText : styles.botMessageText]}>
+                      {msg.text}
+                    </Text>
+                  </View>
+                  <Text style={[styles.timestamp, msg.from === 'user' ? styles.userTimestamp : styles.botTimestamp]}>
+                    {formatTime(msg.timestamp)}
                   </Text>
                 </View>
-                <Text style={[styles.timestamp, msg.from === 'user' ? styles.userTimestamp : styles.botTimestamp]}>
-                  {formatTime(msg.timestamp)}
-                </Text>
               </View>
+            ))}
+
+            {loading && <TypingIndicator />}
+
+            <Animated.View style={{ height: keyboardAnimValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [80, keyboardHeight + 80],
+            }) }} />
+          </ScrollView>
+
+          <Animated.View 
+            style={[
+              styles.inputContainer,
+              {
+                transform: [{
+                  translateY: keyboardAnimValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -keyboardHeight -10],
+                  }),
+                }],
+              }
+            ]}
+          >
+            <View style={[styles.inputWrapper, { minHeight: Math.max(50, inputHeight) }]}>
+              <TextInput
+                ref={inputRef}
+                style={[styles.textInput, { height: Math.max(42, inputHeight - 8) }]}
+                value={input}
+                onChangeText={setInput}
+                onContentSizeChange={(e) => {
+                  const newHeight = Math.min(120, Math.max(50, e.nativeEvent.contentSize.height + 16));
+                  setInputHeight(newHeight);
+                }}
+                placeholder="Type a message..."
+                placeholderTextColor={theme.colors.textLight}
+                multiline
+                maxLength={1000}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit={false}
+                textAlignVertical="top"
+              />
+              <TouchableOpacity 
+                style={[styles.sendButton, { opacity: input.trim() ? 1 : 0.5 }]} 
+                onPress={handleSend} 
+                disabled={loading || !input.trim()}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="send" size={20} color="#fff" />
+              </TouchableOpacity>
             </View>
-          ))}
-
-          {loading && <TypingIndicator />}
-
-          <Animated.View style={{ height: keyboardAnimValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [80, keyboardHeight + 80],
-          }) }} />
-        </ScrollView>
-
-        <Animated.View 
-          style={[
-            styles.inputContainer,
-            {
-              transform: [{
-                translateY: keyboardAnimValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -keyboardHeight -10],
-                }),
-              }],
-            }
-          ]}
-        >
-          <View style={[styles.inputWrapper, { minHeight: Math.max(50, inputHeight) }]}>
-            <TextInput
-              ref={inputRef}
-              style={[styles.textInput, { height: Math.max(42, inputHeight - 8) }]}
-              value={input}
-              onChangeText={setInput}
-              onContentSizeChange={(e) => {
-                const newHeight = Math.min(120, Math.max(50, e.nativeEvent.contentSize.height + 16));
-                setInputHeight(newHeight);
-              }}
-              placeholder="Type a message..."
-              placeholderTextColor={theme.colors.textLight}
-              multiline
-              maxLength={1000}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              blurOnSubmit={false}
-              textAlignVertical="top"
-            />
-            <TouchableOpacity 
-              style={[styles.sendButton, { opacity: input.trim() ? 1 : 0.5 }]} 
-              onPress={handleSend} 
-              disabled={loading || !input.trim()}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="send" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    </SafeAreaView>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    </>
   );
 };
 
@@ -257,10 +253,20 @@ const createStyles = createThemedStyles(theme => ({
     flex: 1,
     position: 'relative',
   },
-  headerContainer: {
+  customHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: theme.colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   avatarContainer: {
     position: 'relative',

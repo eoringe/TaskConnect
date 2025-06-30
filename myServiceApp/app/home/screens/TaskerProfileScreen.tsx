@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
-  Platform
+  Platform,
+  Picker
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { Picker as ReactNativePicker } from '@react-native-picker/picker';
 // Removed StatusBarSpace import as it was commented out in usage and not imported in your last provided code.
 
 // Initialize Firebase services
@@ -116,9 +118,34 @@ const TaskerProfileScreen = () => {
   const [editProfileImageBase64, setEditProfileImageBase64] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Add to component's state:
+  const [availableCategories, setAvailableCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchTaskerData();
-  }, []);
+    const fetchServiceCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        const querySnapshot = await getDocs(collection(db, 'serviceCategories'));
+        const categories: { id: string; name: string; icon: string }[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Exclude the category named "All"
+          if (data.name !== 'All') {
+            categories.push({ id: doc.id, name: data.name, icon: data.icon });
+          }
+        });
+        setAvailableCategories(categories);
+      } catch (error) {
+        setCategoriesError('Failed to load categories.');
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+    fetchServiceCategories();
+  }, [db]);
 
   const fetchTaskerData = async () => {
     setLoading(true);
@@ -178,9 +205,16 @@ const TaskerProfileScreen = () => {
     }
 
     setIsUpdatingServices(true);
+    // Find the selected category object
+    const selectedCategoryObj = availableCategories.find(cat => cat.id === newServiceCategory);
+    if (!selectedCategoryObj) {
+      Alert.alert('Error', 'Selected category not found.');
+      setIsUpdatingServices(false);
+      return;
+    }
     const newService: Service = {
       id: Date.now().toString(), // Simple unique ID
-      category: newServiceCategory.trim(),
+      category: selectedCategoryObj.name, // Use the category name for the service
       title: newServiceTitle.trim(),
       rate: newServiceRate.trim(),
       description: newServiceDescription.trim(),
@@ -195,12 +229,11 @@ const TaskerProfileScreen = () => {
         services: arrayUnion(newService)
       });
 
-      // 2. Update the 'serviceCategories' collection
-      const categoryDocRef = doc(db, 'serviceCategories', newService.category);
+      // 2. Update the 'serviceCategories' collection using the document ID
+      const categoryDocRef = doc(db, 'serviceCategories', newServiceCategory);
       await updateDoc(categoryDocRef, {
         services: arrayUnion(newService)
       });
-
 
       setTaskerData(prevData => ({
         ...(prevData as AllOnboardingData),
@@ -645,6 +678,16 @@ const TaskerProfileScreen = () => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Tasker Profile</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <FlatList
         data={flatListData}
         // Ensure unique keys for FlatList items using the 'id' property we added
@@ -666,14 +709,23 @@ const TaskerProfileScreen = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add New Service</Text>
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Category (e.g., Plumbing, Cleaning)"
-              placeholderTextColor={theme.colors.textLight}
-              value={newServiceCategory}
-              onChangeText={setNewServiceCategory}
-              editable={!isUpdatingServices}
-            />
+            {categoriesLoading ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : categoriesError ? (
+              <Text style={styles.errorText}>{categoriesError}</Text>
+            ) : (
+              <ReactNativePicker
+                selectedValue={newServiceCategory}
+                onValueChange={setNewServiceCategory}
+                enabled={!isUpdatingServices}
+                style={{ marginBottom: 16 }}
+              >
+                <ReactNativePicker.Item label="Select Category" value="" />
+                {availableCategories.map((cat) => (
+                  <ReactNativePicker.Item key={cat.id} label={cat.name} value={cat.id} />
+                ))}
+              </ReactNativePicker>
+            )}
             <TextInput
               style={styles.modalInput}
               placeholder="Service Title (e.g., Fix leaky faucet)"
@@ -1130,6 +1182,25 @@ const createTaskerProfileStyles = createThemedStyles(theme => StyleSheet.create(
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingVertical: 30,
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  headerSpacer: {
+    width: 40, // Same width as back button for centering
   },
 }));
 
