@@ -6,6 +6,21 @@ import { db } from '@/firebase-config';
 import { useTheme } from '@/app/context/ThemeContext';
 import { createThemedStyles, useThemedStyles } from '@/app/hooks/useThemedStyles';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '@/firebase-config';
+
+interface JobData {
+    id: string;
+    clientId: string;
+    taskerId: string;
+    amount: number;
+    date: string;
+    address: string;
+    notes?: string;
+    status: string;
+    paymentStatus: string;
+    createdAt: any;
+    [key: string]: any;
+}
 
 /**
  * JobStatusScreen is a React component that displays the status and details of a specific job.
@@ -20,16 +35,34 @@ import { Ionicons } from '@expo/vector-icons';
  * @returns {JSX.Element} The rendered job status screen.
  */
 const JobStatusScreen = () => {
-    const { jobId } = useLocalSearchParams();
+    const { jobId, viewMode } = useLocalSearchParams();
     const router = useRouter();
     const { theme } = useTheme();
     const styles = useThemedStyles(createStyles);
-    const [job, setJob] = useState<any>(null);
+    const [job, setJob] = useState<JobData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [approving, setApproving] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [mpesaNumber, setMpesaNumber] = useState('');
+    const [clientInfo, setClientInfo] = useState<any>(null);
+    const [taskerInfo, setTaskerInfo] = useState<any>(null);
+    const [isTasker, setIsTasker] = useState(false);
+
+    useEffect(() => {
+        // Determine if current user is tasker or client
+        const checkUserRole = async () => {
+            const user = auth.currentUser;
+            if (user && job) {
+                if (job.taskerId === user.uid) {
+                    setIsTasker(true);
+                } else if (job.clientId === user.uid) {
+                    setIsTasker(false);
+                }
+            }
+        };
+        checkUserRole();
+    }, [job]);
 
     useEffect(() => {
         if (!jobId) return;
@@ -38,9 +71,29 @@ const JobStatusScreen = () => {
         // Set up real-time listener
         const unsubscribe = onSnapshot(
             doc(db, 'jobs', jobId as string),
-            (docSnap) => {
+            async (docSnap) => {
                 if (docSnap.exists()) {
-                    setJob({ id: docSnap.id, ...docSnap.data() });
+                    const jobData = { id: docSnap.id, ...docSnap.data() } as JobData;
+                    setJob(jobData);
+
+                    // Fetch additional user information
+                    try {
+                        if (jobData.clientId) {
+                            const clientDoc = await getDoc(doc(db, 'users', jobData.clientId));
+                            if (clientDoc.exists()) {
+                                setClientInfo(clientDoc.data());
+                            }
+                        }
+                        if (jobData.taskerId) {
+                            const taskerDoc = await getDoc(doc(db, 'taskers', jobData.taskerId));
+                            if (taskerDoc.exists()) {
+                                setTaskerInfo(taskerDoc.data());
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user info:', error);
+                    }
+
                     setError(null);
                 } else {
                     setError('Job not found');
@@ -59,6 +112,8 @@ const JobStatusScreen = () => {
     }, [jobId]);
 
     const handleInitiatePayment = async () => {
+        if (!job) return;
+
         if (!mpesaNumber.trim()) {
             Alert.alert('M-PESA Number Required', 'Please enter your M-PESA phone number to proceed with payment.');
             return;
@@ -71,6 +126,12 @@ const JobStatusScreen = () => {
 
         setIsPaying(true);
         try {
+            console.log('Initiating STK push with:', {
+                amount: job.amount,
+                phoneNumber: mpesaNumber,
+                accountReference: job.id,
+                transactionDesc: `Payment for Job #${job.id}`,
+            });
 
             const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
                 method: 'POST',
@@ -83,12 +144,25 @@ const JobStatusScreen = () => {
                 }),
             });
 
+            console.log('STK push response status:', res.status);
+
             if (!res.ok) {
                 const errorText = await res.text();
+                console.error('STK push failed with status:', res.status, 'Error:', errorText);
                 throw new Error(`STK Push failed: ${errorText}`);
             }
 
             const json = await res.json();
+            console.log('STK push response:', json);
+
+            if (json.error) {
+                throw new Error(json.error + (json.responseDescription ? `: ${json.responseDescription}` : ''));
+            }
+
+            if (!json.checkoutRequestId) {
+                throw new Error('No checkout request ID received from server');
+            }
+
             await updateDoc(doc(db, 'jobs', job.id), { checkoutRequestId: json.checkoutRequestId });
 
             Alert.alert(
@@ -105,6 +179,8 @@ const JobStatusScreen = () => {
     };
 
     const handleApprovePayment = async () => {
+        if (!job) return;
+
         setApproving(true);
         try {
             if (!job?.taskerId) {
@@ -134,7 +210,7 @@ const JobStatusScreen = () => {
             if (!taskerPhone) {
                 Alert.alert(
                     'Tasker Phone Number Not Found',
-                    'The tasker has not provided a valid phone number for payment. Please check logs for details.'
+                    'The tasker has not provided a valid phone number for payment. Please contact support.'
                 );
                 console.error('Tasker data does not contain a "phoneNumber", "phone", or "mpesaNumber" field.', taskerData);
                 setApproving(false);
@@ -161,14 +237,32 @@ const JobStatusScreen = () => {
             const data = await res.json();
 
             if (data.success) {
-                Alert.alert('Success', data.message || 'Payment to tasker has been initiated.');
+                const message = data.phoneUsed && data.phoneUsed !== taskerPhone
+                    ? `Payment to tasker has been initiated. (Note: Used sandbox test number: ${data.phoneUsed})`
+                    : (data.message || 'Payment to tasker has been initiated.');
+
+                Alert.alert('Success', message);
                 // The onSnapshot listener will update the UI once the backend updates the status
             } else {
                 Alert.alert('Error', data.message || 'Failed to initiate payment to tasker.');
             }
         } catch (e: any) {
             console.error('Payment approval error:', e);
-            Alert.alert('Error', e.message || 'An error occurred while approving payment.');
+
+            // Provide more specific error messages
+            let errorMessage = e.message || 'An error occurred while approving payment.';
+
+            if (e.message?.includes('Credit Party customer type')) {
+                errorMessage = 'The tasker\'s phone number is not registered for M-PESA payments. Please contact support.';
+            } else if (e.message?.includes('sandbox')) {
+                errorMessage = 'Sandbox environment issue. Please try again or contact support.';
+            } else if (e.message?.includes('initiator information is invalid') || e.message?.includes('2001')) {
+                errorMessage = 'B2C configuration issue. Please contact support to verify M-PESA settings.';
+            } else if (e.message?.includes('SecurityCredential')) {
+                errorMessage = 'M-PESA security configuration error. Please contact support.';
+            }
+
+            Alert.alert('Error', errorMessage);
         } finally {
             setApproving(false);
         }
@@ -176,29 +270,59 @@ const JobStatusScreen = () => {
 
     const getStatusStyle = (status: string) => {
         switch (status) {
+            case 'pending_approval':
+                return {
+                    container: styles.statusBadgeWarning,
+                    text: styles.statusText,
+                    icon: 'time-outline' as const
+                };
+            case 'in_progress':
+                return {
+                    container: styles.statusBadgeInfo,
+                    text: styles.statusText,
+                    icon: 'play-circle-outline' as const
+                };
             case 'in_escrow':
                 return {
                     container: styles.statusBadgeWarning,
                     text: styles.statusText,
                     icon: 'hourglass-outline' as const
                 };
-            case 'paid':
-                return {
-                    container: styles.statusBadgeSuccess,
-                    text: styles.statusText,
-                    icon: 'checkmark-circle-outline' as const
-                };
-            case 'failed':
-                return {
-                    container: styles.statusBadgeError,
-                    text: styles.statusText,
-                    icon: 'close-circle-outline' as const
-                };
             case 'processing_payment':
                 return {
                     container: styles.statusBadgeInfo,
                     text: styles.statusText,
                     icon: 'sync-outline' as const
+                };
+            case 'completed':
+                return {
+                    container: styles.statusBadgeSuccess,
+                    text: styles.statusText,
+                    icon: 'checkmark-circle-outline' as const
+                };
+            case 'payment_failed':
+                return {
+                    container: styles.statusBadgeError,
+                    text: styles.statusText,
+                    icon: 'close-circle-outline' as const
+                };
+            case 'payout_failed':
+                return {
+                    container: styles.statusBadgeError,
+                    text: styles.statusText,
+                    icon: 'alert-circle-outline' as const
+                };
+            case 'cancelled':
+                return {
+                    container: styles.statusBadgeError,
+                    text: styles.statusText,
+                    icon: 'close-circle-outline' as const
+                };
+            case 'rejected':
+                return {
+                    container: styles.statusBadgeError,
+                    text: styles.statusText,
+                    icon: 'close-circle-outline' as const
                 };
             default:
                 return {
@@ -285,6 +409,168 @@ const JobStatusScreen = () => {
         );
     };
 
+    const renderRetryPaymentSection = () => {
+        if (job?.status !== 'payment_failed') return null;
+
+        return (
+            <View style={styles.paymentContainer}>
+                <Text style={styles.sectionTitle}>Payment Failed</Text>
+                <Text style={styles.helperText}>Your previous payment attempt failed. Please try again with a different phone number or check your M-PESA balance.</Text>
+                <TextInput
+                    style={styles.input}
+                    value={mpesaNumber}
+                    onChangeText={setMpesaNumber}
+                    placeholder="Enter M-PESA phone number (e.g., 254...)"
+                    placeholderTextColor={theme.colors.textLight}
+                    keyboardType="phone-pad"
+                />
+                <TouchableOpacity
+                    style={[styles.button, isPaying && styles.buttonDisabled]}
+                    onPress={handleInitiatePayment}
+                    disabled={isPaying}
+                >
+                    {isPaying ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.buttonText}>Retry Payment KES {job.amount}</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
+    const renderRetryBookingSection = () => {
+        if (job?.status !== 'pending_approval') return null;
+
+        return (
+            <View style={styles.paymentContainer}>
+                <Text style={styles.sectionTitle}>Booking Pending</Text>
+                <Text style={styles.helperText}>Your booking request is waiting for the tasker's approval. You can cancel and try booking with a different tasker if needed.</Text>
+                <TouchableOpacity
+                    style={[styles.button, styles.secondaryButton]}
+                    onPress={() => {
+                        Alert.alert(
+                            'Cancel Booking',
+                            'Are you sure you want to cancel this booking?',
+                            [
+                                { text: 'No', style: 'cancel' },
+                                {
+                                    text: 'Yes',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            await updateDoc(doc(db, 'jobs', job.id), {
+                                                status: 'cancelled',
+                                                cancelledAt: serverTimestamp()
+                                            });
+                                            Alert.alert('Success', 'Booking cancelled successfully');
+                                        } catch (error) {
+                                            console.error('Error cancelling booking:', error);
+                                            Alert.alert('Error', 'Failed to cancel booking');
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }}
+                >
+                    <Text style={[styles.buttonText, styles.secondaryButtonText]}>Cancel Booking</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
+    const renderRetryPayoutSection = () => {
+        if (job?.status !== 'payout_failed') return null;
+
+        return (
+            <View style={styles.paymentContainer}>
+                <Text style={styles.sectionTitle}>Payout Failed</Text>
+                <Text style={styles.helperText}>The payment to the tasker failed. You can retry the payout or contact support for assistance.</Text>
+                <TouchableOpacity
+                    style={[styles.button, approving && styles.buttonDisabled]}
+                    onPress={handleApprovePayment}
+                    disabled={approving}
+                >
+                    {approving ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.buttonText}>Retry Payout to Tasker</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
+    const renderTaskerView = () => {
+        if (!job || !clientInfo) return null;
+
+        return (
+            <View style={styles.taskerInfoCard}>
+                <Text style={styles.sectionTitle}>Client Information</Text>
+
+                <View style={styles.clientCard}>
+                    <View style={styles.clientHeader}>
+                        <View style={styles.clientAvatar}>
+                            <Ionicons name="person" size={24} color={theme.colors.primary} />
+                        </View>
+                        <View style={styles.clientDetails}>
+                            <Text style={styles.clientName}>
+                                {clientInfo.firstName && clientInfo.lastName
+                                    ? `${clientInfo.firstName} ${clientInfo.lastName}`.trim()
+                                    : clientInfo.displayName || 'Client'
+                                }
+                            </Text>
+                            <Text style={styles.clientEmail}>{clientInfo.email || 'No email provided'}</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.jobLocationSection}>
+                        <Text style={styles.locationTitle}>Job Location</Text>
+                        <View style={styles.locationRow}>
+                            <Ionicons name="location-outline" size={16} color={theme.colors.textLight} />
+                            <Text style={styles.locationText}>{job.address}</Text>
+                        </View>
+                    </View>
+
+                    {job.notes && (
+                        <View style={styles.notesSection}>
+                            <Text style={styles.notesTitle}>Client Notes</Text>
+                            <Text style={styles.notesText}>{job.notes}</Text>
+                        </View>
+                    )}
+                </View>
+            </View>
+        );
+    };
+
+    const renderClientView = () => {
+        if (!job || !taskerInfo) return null;
+
+        return (
+            <View style={styles.taskerInfoCard}>
+                <Text style={styles.sectionTitle}>Tasker Information</Text>
+
+                <View style={styles.taskerCard}>
+                    <View style={styles.taskerHeader}>
+                        <View style={styles.taskerAvatar}>
+                            <Ionicons name="person" size={24} color={theme.colors.primary} />
+                        </View>
+                        <View style={styles.taskerDetails}>
+                            <Text style={styles.taskerName}>
+                                {taskerInfo.firstName && taskerInfo.lastName
+                                    ? `${taskerInfo.firstName} ${taskerInfo.lastName}`.trim()
+                                    : 'Tasker'
+                                }
+                            </Text>
+                            <Text style={styles.taskerPhone}>{taskerInfo.phoneNumber || taskerInfo.phone || 'No phone provided'}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     if (loading) {
         return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
     }
@@ -335,20 +621,42 @@ const JobStatusScreen = () => {
                 </View>
             )}
 
+            {/* Show appropriate view based on user role */}
+            {isTasker ? renderTaskerView() : renderClientView()}
+
             {renderPaymentSection()}
+            {renderRetryPaymentSection()}
+
+            {renderRetryBookingSection()}
+            {renderRetryPayoutSection()}
 
             {job?.status === 'in_escrow' && (
-                <TouchableOpacity
-                    style={[styles.button, approving && styles.buttonDisabled]}
-                    onPress={handleApprovePayment}
-                    disabled={approving}
-                >
-                    {approving ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.buttonText}>Approve Payment to Tasker</Text>
-                    )}
-                </TouchableOpacity>
+                <View style={styles.paymentContainer}>
+                    <Text style={styles.sectionTitle}>Payment in Escrow</Text>
+                    <Text style={styles.helperText}>Your payment has been received and is being held securely. Click below to release the payment to the tasker.</Text>
+                    <TouchableOpacity
+                        style={[styles.button, approving && styles.buttonDisabled]}
+                        onPress={handleApprovePayment}
+                        disabled={approving}
+                    >
+                        {approving ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Approve Payment to Tasker</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {job?.status === 'processing_payment' && (
+                <View style={styles.paymentContainer}>
+                    <Text style={styles.sectionTitle}>Processing Payment</Text>
+                    <Text style={styles.helperText}>Payment to the tasker is being processed. This may take a few minutes. You'll be notified once it's complete.</Text>
+                    <View style={styles.processingContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={styles.processingText}>Processing...</Text>
+                    </View>
+                </View>
             )}
 
             <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => router.replace('/home')}>
@@ -526,6 +834,111 @@ const createStyles = createThemedStyles(theme => ({
         color: theme.colors.textLight,
         textAlign: 'center',
         marginBottom: 15,
+    },
+    processingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+    },
+    processingText: {
+        marginLeft: 10,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    taskerInfoCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: 15,
+        padding: 20,
+        marginBottom: 20,
+    },
+    clientCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: 12,
+        padding: 15,
+    },
+    clientHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    clientAvatar: {
+        backgroundColor: theme.colors.primary,
+        borderRadius: 20,
+        padding: 5,
+        marginRight: 10,
+    },
+    clientDetails: {
+        flex: 1,
+    },
+    clientName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    clientEmail: {
+        fontSize: 14,
+        color: theme.colors.textLight,
+    },
+    jobLocationSection: {
+        marginBottom: 10,
+    },
+    locationTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    locationText: {
+        flex: 1,
+        fontSize: 16,
+        color: theme.colors.text,
+        lineHeight: 22,
+    },
+    notesSection: {
+        marginTop: 10,
+    },
+    notesTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    notesText: {
+        fontSize: 16,
+        color: theme.colors.text,
+        lineHeight: 22,
+    },
+    taskerCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: 12,
+        padding: 15,
+    },
+    taskerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    taskerAvatar: {
+        backgroundColor: theme.colors.primary,
+        borderRadius: 20,
+        padding: 5,
+        marginRight: 10,
+    },
+    taskerDetails: {
+        flex: 1,
+    },
+    taskerName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    taskerPhone: {
+        fontSize: 14,
+        color: theme.colors.textLight,
     },
 }));
 
