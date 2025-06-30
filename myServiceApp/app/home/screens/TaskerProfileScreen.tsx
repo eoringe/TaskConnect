@@ -29,6 +29,7 @@ import * as Sharing from 'expo-sharing';
 import { Picker as ReactNativePicker } from '@react-native-picker/picker';
 import debounce from 'lodash.debounce';
 import DropDownPicker from 'react-native-dropdown-picker';
+import BottomBarSpace from '@/app/components/BottomBarSpace';
 
 // Initialize Firebase services
 const auth = getAuth(app);
@@ -995,6 +996,7 @@ const TaskerProfileScreen = () => {
           <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete Tasker Profile</Text>
         </TouchableOpacity>
       )}
+      <BottomBarSpace />
     </View>
   );
 };
