@@ -39,7 +39,8 @@ import {
   Keyboard,
   Animated,
   StatusBar,
-  Dimensions
+  Dimensions,
+  SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/app/context/ThemeContext';
@@ -79,6 +80,9 @@ const ChatRoomScreen: React.FC = () => {
   const [messageText, setMessageText] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [inputHeight, setInputHeight] = useState(50);
+  const keyboardAnimValue = useRef(new Animated.Value(0)).current;
+  const inputRef = useRef<TextInput>(null);
   const flatListRef = useRef<FlatList<StaticMessage>>(null);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [messages, setMessages] = useState<any[]>([]);
@@ -105,15 +109,11 @@ const ChatRoomScreen: React.FC = () => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
       setKeyboardHeight(e.endCoordinates.height);
       setIsKeyboardVisible(true);
-      
-      // Animate the input container
-      Animated.timing(animatedValue, {
+      Animated.timing(keyboardAnimValue, {
         toValue: 1,
         duration: 250,
         useNativeDriver: false,
       }).start();
-
-      // Scroll to end when keyboard appears
       setTimeout(() => {
         if (messages.length > 0) {
           flatListRef.current?.scrollToEnd({ animated: true });
@@ -124,9 +124,7 @@ const ChatRoomScreen: React.FC = () => {
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
       setKeyboardHeight(0);
       setIsKeyboardVisible(false);
-      
-      // Animate back to original position
-      Animated.timing(animatedValue, {
+      Animated.timing(keyboardAnimValue, {
         toValue: 0,
         duration: 250,
         useNativeDriver: false,
@@ -272,12 +270,8 @@ const ChatRoomScreen: React.FC = () => {
   console.log('Keyboard:', isKeyboardVisible, 'paddingBottom:', inputPaddingBottom, 'marginBottom:', inputMarginBottom);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
-    >
-      <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.chatWrapper}>
         <StatusBar 
           barStyle={theme.dark ? 'light-content' : 'dark-content'} 
           backgroundColor={theme.colors.card}
@@ -324,7 +318,13 @@ const ChatRoomScreen: React.FC = () => {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
-          contentContainerStyle={styles.messagesListContainer}
+          contentContainerStyle={[styles.messagesListContainer, { paddingBottom: 16 }]}
+          ListFooterComponent={
+            <Animated.View style={{ height: keyboardAnimValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [80 + insets.bottom, keyboardHeight + 80 + insets.bottom],
+            }) }} />
+          }
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => {
             if (messages.length > 0) {
@@ -339,20 +339,30 @@ const ChatRoomScreen: React.FC = () => {
           style={{ flex: 1 }}
         />
         {/* Enhanced Input Container */}
-        <View
+        <Animated.View
           style={[
             styles.inputContainer,
-            { paddingBottom: inputPaddingBottom, marginBottom: inputMarginBottom }
+            {
+              paddingBottom: 12 + insets.bottom,
+              transform: [{
+                translateY: keyboardAnimValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -keyboardHeight - 10],
+                }),
+              }],
+            },
           ]}
         >
-          <View style={styles.inputWrapper}>
-            <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-              <Ionicons name="add" size={24} color={theme.colors.textLight} />
-            </TouchableOpacity>
+          <View style={[styles.inputWrapper, { minHeight: Math.max(50, inputHeight) }]}> 
             <TextInput
-              style={styles.textInput}
+              ref={inputRef}
+              style={[styles.textInput, { height: Math.max(42, inputHeight - 8) }]}
               value={messageText}
               onChangeText={setMessageText}
+              onContentSizeChange={(e) => {
+                const newHeight = Math.min(120, Math.max(50, e.nativeEvent.contentSize.height + 16));
+                setInputHeight(newHeight);
+              }}
               placeholder="Type a message..."
               placeholderTextColor={theme.colors.textLight}
               multiline
@@ -360,24 +370,20 @@ const ChatRoomScreen: React.FC = () => {
               returnKeyType="send"
               onSubmitEditing={handleSendMessage}
               blurOnSubmit={false}
+              textAlignVertical="top"
             />
-            {messageText.trim() ? (
-              <TouchableOpacity
-                style={styles.sendButton}
-                onPress={handleSendMessage}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="send" size={20} color="#fff" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
-                <Ionicons name="mic" size={22} color={theme.colors.primary} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity 
+              style={[styles.sendButton, { opacity: messageText.trim() ? 1 : 0.5 }]} 
+              onPress={handleSendMessage} 
+              disabled={!messageText.trim()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="send" size={20} color="#fff" />
+            </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </View>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -529,23 +535,31 @@ const createStyles = createThemedStyles(theme => ({
     marginLeft: 4,
   },
   inputContainer: {
-    backgroundColor: theme.colors.card,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    paddingTop: 12,
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 12,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.card,
     borderRadius: 25,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minHeight: 50,
+    shadowColor: theme.colors.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   attachButton: {
     width: 42,
@@ -561,21 +575,21 @@ const createStyles = createThemedStyles(theme => ({
     paddingVertical: 12,
     fontSize: 16,
     color: theme.colors.text,
-    maxHeight: 120,
-    minHeight: 42,
+    maxHeight: 100,
   },
   sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
+    marginLeft: 8,
     shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    elevation: 3,
   },
   micButton: {
     width: 42,
@@ -584,6 +598,10 @@ const createStyles = createThemedStyles(theme => ({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+  },
+  chatWrapper: {
+    flex: 1,
+    position: 'relative',
   },
 }));
 

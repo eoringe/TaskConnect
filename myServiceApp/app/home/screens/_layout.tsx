@@ -69,9 +69,15 @@ export default function ScreensLayout() {
       <Stack.Screen
         name="HelpSupportScreen"
         options={{
-          headerShown: true,
-          title: "Help & Support",
-          headerBackTitle: "Back"
+          headerShown: false,
+          title: "Help & Support"
+        }}
+      />
+      <Stack.Screen
+        name="TaskerProfileScreen"
+        options={{
+          headerShown: false,
+          title: "Tasker Profile"
         }}
       />
     </Stack>

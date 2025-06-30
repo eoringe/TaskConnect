@@ -34,8 +34,7 @@ const PersonalInfoScreen = () => {
     lastName: '',
     displayName: '',
     email: '',
-    phoneNumber: '',
-    userType: ''
+    phoneNumber: ''
   });
   
   const [editMode, setEditMode] = useState(false);
@@ -68,8 +67,7 @@ const PersonalInfoScreen = () => {
         lastName,
         displayName: userProfile?.displayName || user.displayName || '',
         email: userProfile?.email || user.email || '',
-        phoneNumber: userProfile?.phoneNumber || user.phoneNumber || '',
-        userType: userProfile?.userType || ''
+        phoneNumber: userProfile?.phoneNumber || user.phoneNumber || ''
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to load user data. Please try again.');
@@ -94,7 +92,6 @@ const PersonalInfoScreen = () => {
         firstName: userData.firstName,
         lastName: userData.lastName,
         phoneNumber: userData.phoneNumber,
-        userType: userData.userType,
       });
       
       Alert.alert('Success', 'Profile updated successfully');
@@ -244,21 +241,6 @@ const PersonalInfoScreen = () => {
               />
             ) : (
               <Text style={styles.infoValue}>{userData.phoneNumber || 'Not set'}</Text>
-            )}
-          </View>
-          
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>User Type</Text>
-            {editMode ? (
-              <TextInput
-                style={styles.infoInput}
-                value={userData.userType}
-                onChangeText={(text) => setUserData({...userData, userType: text})}
-                placeholder="Enter user type"
-                placeholderTextColor={theme.colors.textLight}
-              />
-            ) : (
-              <Text style={styles.infoValue}>{userData.userType || 'Not set'}</Text>
             )}
           </View>
         </View>
