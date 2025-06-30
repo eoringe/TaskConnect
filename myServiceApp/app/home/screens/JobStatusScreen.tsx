@@ -621,9 +621,6 @@ const JobStatusScreen = () => {
                 </View>
             )}
 
-            {/* Show appropriate view based on user role */}
-            {isTasker ? renderTaskerView() : renderClientView()}
-
             {renderPaymentSection()}
             {renderRetryPaymentSection()}
 
@@ -658,6 +655,9 @@ const JobStatusScreen = () => {
                     </View>
                 </View>
             )}
+
+            {renderTaskerView()}
+            {renderClientView()}
 
             <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => router.replace('/home')}>
                 <Text style={[styles.buttonText, styles.secondaryButtonText]}>Back to Home</Text>
