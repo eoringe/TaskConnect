@@ -12,20 +12,12 @@ import * as IonIcons from "react-icons/io5";
 import DashboardOverview from './components/DashboardOverview';
 import DashboardAnalytics from './components/DashboardAnalytics';
 import DashboardTaskers from './components/DashboardTaskers';
+import type { Tasker } from './components/DashboardTaskers';
 import DashboardCategories from './components/DashboardCategories';
 import DashboardUsers from './components/DashboardUsers';
-
-interface Tasker {
-  id: string;
-  firstName: string;
-  lastName: string;
-  profileImageBase64?: string;
-  idNumber: string;
-  kraPin: string;
-  onboardingStatus: string;
-  services: any[];
-  email?: string;
-}
+import { getAuth, onAuthStateChanged, User, signOut } from "firebase/auth";
+import LoginForm from './components/LoginForm';
+import Modal from 'react-modal';
 
 interface ServiceCategory {
   id: string;
@@ -47,8 +39,9 @@ function getIonIconComponent(iconName: string | undefined) {
   return (IonIcons as any)[compName] || null;
 }
 
-
 export default function AdminDashboard() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [taskers, setTaskers] = useState<Tasker[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
@@ -60,6 +53,25 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Only fetch data if user is authenticated
+  useEffect(() => {
+    if (user) {
+      fetchTaskers();
+      fetchCategories();
+      fetchUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchTaskers = async () => {
     setLoading(true);
@@ -103,12 +115,6 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchTaskers();
-    fetchCategories();
-    fetchUsers();
-  }, []);
-
   const handleEdit = (tasker: Tasker) => {
     setEditId(tasker.id);
     setEditData({ ...tasker });
@@ -149,7 +155,6 @@ export default function AdminDashboard() {
     const taskerIds = new Set((category.services || []).map((svc: any) => svc.taskerId));
     return taskers.filter((t) => taskerIds.has(t.id));
   };
-
 
   // Analytics Data Preparation
   const categoryTaskerCounts = categories.map(cat => ({
@@ -240,7 +245,6 @@ export default function AdminDashboard() {
         handleEditChange={handleEditChange}
         handleEditSave={handleEditSave}
         handleDelete={handleDelete}
-        base64ToImageSrc={base64ToImageSrc}
       />
     </div>
   );
@@ -255,11 +259,9 @@ export default function AdminDashboard() {
     />
   );
 
-
   const renderUsers = () => (
     <DashboardUsers users={users} taskers={taskers} />
   );
-
 
   const renderContent = () => {
     switch (activeSection) {
@@ -276,12 +278,103 @@ export default function AdminDashboard() {
     }
   };
 
+  const renderCategoryModal = () => {
+    if (!showCategoryModal || !selectedCategory) return null;
+    const taskersForCategory = getTaskersForCategory(selectedCategory);
+    return (
+      <Modal
+        isOpen={showCategoryModal}
+        onRequestClose={() => setShowCategoryModal(false)}
+        contentLabel="Category Taskers"
+        ariaHideApp={false}
+        style={{
+          overlay: { backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 1000 },
+          content: {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            transform: 'translate(-50%, -50%)',
+            maxWidth: 900,
+            width: '90%',
+            borderRadius: 12,
+            padding: 0,
+            margin: 'auto',
+            background: '#fff',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
+          }
+        }}
+      >
+        <div style={{ padding: 32, position: 'relative' }}>
+          <button
+            onClick={() => setShowCategoryModal(false)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#6b7280' }}
+            aria-label="Close"
+          >
+            &times;
+          </button>
+          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>
+            Taskers for {selectedCategory.name}
+          </h2>
+          <DashboardTaskers
+            taskers={taskersForCategory}
+            editId={editId}
+            editData={editData}
+            loading={loading}
+            error={error}
+            handleEdit={handleEdit}
+            handleCancelEdit={handleCancelEdit}
+            handleEditChange={handleEditChange}
+            handleEditSave={handleEditSave}
+            handleDelete={handleDelete}
+          />
+        </div>
+      </Modal>
+    );
+  };
+
+  if (authLoading) {
+    return <div style={{ textAlign: 'center', marginTop: 40 }}>Loading...</div>;
+  }
+
+  if (!user) {
+    return <LoginForm onLogin={() => {
+      const auth = getAuth();
+      setUser(auth.currentUser);
+    }} />;
+  }
+
   return (
     <div className="admin-dashboard">
       <div className="admin-layout">
         {renderSidebar()}
         <main className="admin-main-content">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 24 }}>
+            <button
+              onClick={() => {
+                const auth = getAuth();
+                signOut(auth);
+                setUser(null);
+              }}
+              style={{
+                background: 'linear-gradient(90deg, #ef4444 0%, #f59e0b 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '10px 24px',
+                fontWeight: 700,
+                fontSize: 16,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(239,68,68,0.08)',
+                transition: 'background 0.2s',
+              }}
+            >
+              Logout
+            </button>
+          </div>
           {renderContent()}
+          {renderCategoryModal()}
         </main>
       </div>
       <style jsx global>{`

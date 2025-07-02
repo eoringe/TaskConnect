@@ -48,6 +48,7 @@
     "expo-system-ui": "~5.0.8",
     "expo-web-browser": "~14.1.6",
     "firebase": "^11.9.0",
+    "firebase-admin": "^13.4.0",
     "hi-base32": "^0.5.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -66,6 +67,7 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/react-modal": "^3.16.3",
     "jest-expo": "~52.0.6",
     "react-test-renderer": "19.0.0",
     "typescript": "~5.3.3"
