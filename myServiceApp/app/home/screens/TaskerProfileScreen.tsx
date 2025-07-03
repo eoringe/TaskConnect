@@ -13,7 +13,6 @@ import {
   Modal,
   FlatList,
   Platform,
-  Picker,
   Keyboard
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';

@@ -1,7 +1,7 @@
 // app/(tabs)/home/screens/NotificationsScreen.tsx
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
@@ -57,6 +57,47 @@ const STATUS_ICONS = {
   rejected: 'close-circle-outline',
 };
 
+// Utility to safely render values inside <Text>
+function safeText(val: any) {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string' || typeof val === 'number') return val;
+  return JSON.stringify(val);
+}
+
+// Add a utility to get the status badge (reuse from BookedTasksList)
+function getStatusBadge(status: string, theme: any) {
+  let color = theme.colors.primary;
+  let bg = theme.colors.primaryLight;
+  let icon = 'hourglass-outline';
+  if (status === 'paid') {
+    color = theme.colors.success;
+    bg = theme.dark ? theme.colors.success : 'rgba(46, 184, 92, 0.15)';
+    icon = 'checkmark-circle-outline';
+  } else if (status === 'failed' || status === 'payment_failed' || status === 'rejected') {
+    color = theme.colors.error;
+    bg = theme.dark ? theme.colors.error : 'rgba(220, 53, 69, 0.15)';
+    icon = 'close-circle-outline';
+  } else if (status === 'processing_payment') {
+    color = theme.colors.primary;
+    bg = theme.colors.primaryLight;
+    icon = 'sync-outline';
+  } else if (status === 'in_progress') {
+    color = theme.colors.primary;
+    bg = theme.colors.primaryLight;
+    icon = 'play-circle-outline';
+  } else if (status === 'in_escrow') {
+    color = theme.colors.primary;
+    bg = theme.colors.primaryLight;
+    icon = 'lock-closed-outline';
+  }
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: bg, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
+      <Ionicons name={icon as any} size={16} color={color} />
+      <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: 'bold', color }}>{safeText(status.replace(/_/g, ' ').toUpperCase())}</Text>
+    </View>
+  );
+}
+
 const NotificationsScreen = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -65,6 +106,9 @@ const NotificationsScreen = () => {
   const [activeView, setActiveView] = useState<'client' | 'tasker'>('client');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [jobToReject, setJobToReject] = useState<Job | null>(null);
 
   // This effect checks if the user has a tasker profile
   useEffect(() => {
@@ -143,6 +187,7 @@ const NotificationsScreen = () => {
   }, [activeView]);
 
   const handleUpdateRequest = async (jobId: string, newStatus: 'in_progress' | 'rejected') => {
+    setActionLoading(jobId + '-' + newStatus);
     try {
       const jobRef = doc(db, 'jobs', jobId);
       await updateDoc(jobRef, { status: newStatus });
@@ -151,36 +196,18 @@ const NotificationsScreen = () => {
     } catch (error) {
       console.error(`Error updating booking status:`, error);
       Alert.alert('Error', 'Failed to update the booking. Please try again.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleRejectJob = async (job: Job) => {
-    Alert.alert(
-      'Reject Booking',
-      'Please select a reason for rejecting this booking:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unavailable',
-          onPress: () => rejectJobWithReason(job.id, 'unavailable', 'I am not available at this time')
-        },
-        {
-          text: 'Location Too Far',
-          onPress: () => rejectJobWithReason(job.id, 'location', 'The location is too far from my service area')
-        },
-        {
-          text: 'Insufficient Details',
-          onPress: () => rejectJobWithReason(job.id, 'details', 'I need more details about the job requirements')
-        },
-        {
-          text: 'Other',
-          onPress: () => rejectJobWithReason(job.id, 'other', 'Other reason')
-        }
-      ]
-    );
+  const handleRejectJob = (job: Job) => {
+    setJobToReject(job);
+    setRejectModalVisible(true);
   };
 
   const rejectJobWithReason = async (jobId: string, reason: string, reasonText: string) => {
+    setActionLoading(jobId + '-rejected');
     try {
       const jobRef = doc(db, 'jobs', jobId);
       await updateDoc(jobRef, {
@@ -194,6 +221,10 @@ const NotificationsScreen = () => {
     } catch (error) {
       console.error('Error rejecting booking:', error);
       Alert.alert('Error', 'Failed to reject the booking. Please try again.');
+    } finally {
+      setActionLoading(null);
+      setRejectModalVisible(false);
+      setJobToReject(null);
     }
   };
 
@@ -301,7 +332,7 @@ const NotificationsScreen = () => {
               pathname: '/home/screens/JobStatusScreen',
               params: {
                 jobId: item.id,
-                viewMode: 'tasker' // Add view mode to distinguish tasker view
+                viewMode: 'tasker'
               }
             })}
           >
@@ -312,53 +343,54 @@ const NotificationsScreen = () => {
                     <Ionicons name="person" size={24} color={theme.colors.primary} />
                   </View>
                   <View style={styles.clientDetails}>
-                    <Text style={styles.clientName}>{item.clientInfo?.name || 'A Client'}</Text>
-                    <Text style={styles.clientLocation}>
+                    <Text style={styles.clientName}>{safeText(item.clientInfo?.name || 'A Client')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
-                      {' '}{item.address || 'Location not specified'}
-                    </Text>
+                      <Text style={styles.clientLocation}>
+                        {safeText(item.address || 'Location not specified')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-
                 <View style={styles.jobDetails}>
                   <View style={styles.detailRow}>
                     <Ionicons name="calendar-outline" size={16} color={theme.colors.textLight} />
                     <Text style={styles.detailText}>
-                      {new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {safeText(new Date(item.date).toLocaleDateString())} at {safeText(new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
                     </Text>
                   </View>
-
                   {item.amount && (
                     <View style={styles.detailRow}>
                       <Ionicons name="pricetag-outline" size={16} color={theme.colors.textLight} />
-                      <Text style={styles.amountText}>KSh {item.amount.toLocaleString()}</Text>
+                      <Text style={styles.amountText}>KSh {safeText(item.amount.toLocaleString())}</Text>
                     </View>
                   )}
-
                   {item.notes && (
                     <View style={styles.detailRow}>
                       <Ionicons name="document-text-outline" size={16} color={theme.colors.textLight} />
-                      <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
+                      <Text style={styles.notesText} numberOfLines={2}>{safeText(item.notes)}</Text>
                     </View>
                   )}
                 </View>
               </View>
-
+              {/* Action Area */}
               {item.status === 'pending_approval' && (
-                <View style={styles.taskerActionContainer}>
+                <View style={styles.actionArea}>
                   <TouchableOpacity
-                    style={[styles.taskerButton, styles.approveButton]}
+                    style={[styles.actionButtonBig, styles.approveButtonBig, actionLoading === item.id + '-in_progress' && styles.actionButtonDisabled]}
                     onPress={() => handleUpdateRequest(item.id, 'in_progress')}
+                    disabled={actionLoading === item.id + '-in_progress'}
                   >
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.taskerButtonText}>Approve</Text>
+                    <Ionicons name="checkmark-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionButtonBigText}>Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.taskerButton, styles.rejectButton]}
+                    style={[styles.actionButtonBig, styles.rejectButtonBig, actionLoading === item.id + '-rejected' && styles.actionButtonDisabled]}
                     onPress={() => handleRejectJob(item)}
+                    disabled={actionLoading === item.id + '-rejected'}
                   >
-                    <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.taskerButtonText}>Reject</Text>
+                    <Ionicons name="close-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionButtonBigText}>Reject</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -372,6 +404,35 @@ const NotificationsScreen = () => {
           </View>
         )}
       />
+      {/* Reject Modal */}
+      <Modal
+        visible={rejectModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRejectModalVisible(false)}
+      >
+        <View style={styles.rejectModalOverlay}>
+          <View style={styles.rejectModalContent}>
+            <Text style={styles.rejectModalTitle}>Reject Booking</Text>
+            <Text style={styles.rejectModalSubtitle}>Please select a reason for rejecting this booking:</Text>
+            <TouchableOpacity style={styles.rejectReasonBtn} onPress={() => jobToReject && rejectJobWithReason(jobToReject.id, 'unavailable', 'I am not available at this time')}>
+              <Text style={styles.rejectReasonText}>Unavailable</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectReasonBtn} onPress={() => jobToReject && rejectJobWithReason(jobToReject.id, 'location', 'The location is too far from my service area')}>
+              <Text style={styles.rejectReasonText}>Location Too Far</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectReasonBtn} onPress={() => jobToReject && rejectJobWithReason(jobToReject.id, 'details', 'I need more details about the job requirements')}>
+              <Text style={styles.rejectReasonText}>Insufficient Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectReasonBtn} onPress={() => jobToReject && rejectJobWithReason(jobToReject.id, 'other', 'Other reason')}>
+              <Text style={styles.rejectReasonText}>Other</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectModalCancelBtn} onPress={() => setRejectModalVisible(false)}>
+              <Text style={styles.rejectModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 
@@ -397,14 +458,13 @@ const NotificationsScreen = () => {
             >
               <View style={styles.cardTop}>
                 <View style={styles.infoContainer}>
-                  <Text style={styles.taskerName}>{item.taskerInfo?.name || 'Tasker'}</Text>
-                  <Text style={styles.dateText}>{new Date(item.date).toLocaleString()}</Text>
+                  <Text style={styles.taskerName}>{safeText(item.taskerInfo?.name || 'Tasker')}</Text>
+                  <Text style={styles.dateText}>{safeText(new Date(item.date).toLocaleString())}</Text>
                   <View style={styles.statusRow}>
-                    <Ionicons name={STATUS_ICONS[item.status as keyof typeof STATUS_ICONS] as any || 'help-circle-outline'} size={16} color={theme.colors.primary} />
-                    <Text style={styles.statusText}>{STATUS_LABELS[item.status as keyof typeof STATUS_LABELS] || item.status}</Text>
+                    {getStatusBadge(item.status, theme)}
                   </View>
                   {item.amount && (
-                    <Text style={styles.amountText}>Amount: KSh {item.amount.toLocaleString()}</Text>
+                    <Text style={styles.amountText}>Amount: KSh {safeText(item.amount.toLocaleString())}</Text>
                   )}
                 </View>
                 <View style={styles.actionContainer}>{renderActionButton(item)}</View>
@@ -672,6 +732,87 @@ const createStyles = createThemedStyles(theme => ({
     marginLeft: 8,
     flex: 1,
     fontStyle: 'italic',
+  },
+  actionArea: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    gap: 12,
+  },
+  actionButtonBig: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginHorizontal: 4,
+  },
+  approveButtonBig: {
+    backgroundColor: theme.colors.success,
+  },
+  rejectButtonBig: {
+    backgroundColor: theme.colors.error,
+  },
+  actionButtonBigText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  rejectModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectModalContent: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 16,
+    padding: 28,
+    width: '85%',
+    alignItems: 'center',
+  },
+  rejectModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.error,
+    marginBottom: 10,
+  },
+  rejectModalSubtitle: {
+    fontSize: 15,
+    color: theme.colors.text,
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  rejectReasonBtn: {
+    width: '100%',
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  rejectReasonText: {
+    color: theme.colors.text,
+    fontSize: 16,
+  },
+  rejectModalCancelBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  rejectModalCancelText: {
+    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }));
 

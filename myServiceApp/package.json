@@ -71,6 +71,7 @@
     "undefined": "\\"
   },
   "devDependencies": {
+    "@types/lodash.debounce": "^4.0.9",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "jest-expo": "~52.0.6",

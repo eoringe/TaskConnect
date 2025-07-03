@@ -102,48 +102,48 @@ export default function HomeScreenContent() {
       );
     })
     .filter(s => s.rating >= filterOptions.minRating)
-    .filter(s => parseInt(s.price.replace('Ksh','')) <= filterOptions.maxPrice)
+    .filter(s => parseInt(s.price.replace('Ksh', '')) <= filterOptions.maxPrice)
     .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
-    .sort((a,b) => filterOptions.sortBy === 'rating'
+    .sort((a, b) => filterOptions.sortBy === 'rating'
       ? b.rating - a.rating
       : filterOptions.sortBy === 'price'
-      ? parseInt(a.price.replace('Ksh','')) - parseInt(b.price.replace('Ksh',''))
-      : parseFloat(a.location) - parseFloat(b.location)
+        ? parseInt(a.price.replace('Ksh', '')) - parseInt(b.price.replace('Ksh', ''))
+        : parseFloat(a.location) - parseFloat(b.location)
     );
 
   // Prepare dropdown results for SearchBar
   const searchResults = searchQuery.trim()
     ? services
-        .filter(s => {
-          const q = searchQuery.trim().toLowerCase();
-          return (
-            (s.title && s.title.toLowerCase().includes(q)) ||
-            (s.name && s.name.toLowerCase().includes(q)) ||
-            (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
-            (s.category && s.category.toLowerCase().includes(q))
-          );
-        })
-        .slice(0, 8) // limit results
-        .map(s => ({
-          id: s.id,
-          title: s.title || s.name,
-          subtitle: `${s.taskerName || s.name} • ${s.category}`,
-          onPress: async () => {
-            setIsBookingLoading(true);
-            try {
-              await router.push({
-                pathname: "/home/screens/bookingScreen",
-                params: { tasker: JSON.stringify(s) }
-              });
-            } catch (error) {
-              console.error('Error navigating to booking screen:', error);
-              alert('Unable to proceed with booking. Please try again.');
-            } finally {
-              setIsBookingLoading(false);
-            }
-          },
-          profileImage: s.taskerProfileImage || null,
-        }))
+      .filter(s => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          (s.title && s.title.toLowerCase().includes(q)) ||
+          (s.name && s.name.toLowerCase().includes(q)) ||
+          (s.taskerName && s.taskerName.toLowerCase().includes(q)) ||
+          (s.category && s.category.toLowerCase().includes(q))
+        );
+      })
+      .slice(0, 8) // limit results
+      .map(s => ({
+        id: s.id,
+        title: s.title || s.name,
+        subtitle: `${s.taskerName || s.name} • ${s.category}`,
+        onPress: async () => {
+          setIsBookingLoading(true);
+          try {
+            await router.push({
+              pathname: "/home/screens/bookingScreen",
+              params: { tasker: JSON.stringify(s) }
+            });
+          } catch (error) {
+            console.error('Error navigating to booking screen:', error);
+            alert('Unable to proceed with booking. Please try again.');
+          } finally {
+            setIsBookingLoading(false);
+          }
+        },
+        profileImage: s.taskerProfileImage || null,
+      }))
     : [];
 
   // Just close the modal on apply
@@ -204,7 +204,7 @@ export default function HomeScreenContent() {
         </View>
 
         {filteredServices.length > 0 ? (
-          filteredServices.map(s => <ServiceCard key={s.id} service={s} />)
+          filteredServices.map((s, idx) => <ServiceCard key={s.id + '-' + idx} service={s} />)
         ) : (
           <View style={styles.noResultsContainer}>
             <Ionicons name="search-outline" size={50} color={theme.colors.textLight} />
@@ -217,7 +217,7 @@ export default function HomeScreenContent() {
       <ProfileModal visible={showProfileModal} onClose={() => setShowProfileModal(false)} userName={userName} />
       <FilterModal visible={showFilterModal} onClose={applyFilters} filterOptions={filterOptions} setFilterOptions={setFilterOptions} onApply={applyFilters} />
       <CategoryListModal visible={showCategoryListModal} onClose={() => setShowCategoryListModal(false)} selectedCategory={selectedCategory} services={services} />
-      <LocationModal visible={showLocationModal} onClose={() => setShowLocationModal(false)} currentLocation={cities[0]} cities={cities} onLocationChange={() => {}} />
+      <LocationModal visible={showLocationModal} onClose={() => setShowLocationModal(false)} currentLocation={cities[0]} cities={cities} onLocationChange={() => { }} />
 
       {/* Floating Ella Chat Button */}
       <TouchableOpacity
