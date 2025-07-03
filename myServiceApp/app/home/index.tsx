@@ -16,6 +16,7 @@ import NotificationsScreen from './screens/NotificationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChatListScreen from './screens/ChatListScreen';
 import TaskerProfileScreen from './screens/TaskerProfileScreen';
+import VerifyAccountScreen from './screens/VerifyAccountScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -26,6 +27,7 @@ const HomeScreen = () => {
 
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [unreadChats, setUnreadChats] = useState(0);
+  const [isVerified, setIsVerified] = useState(false);
 
   // Check authentication state when component mounts
   useEffect(() => {
@@ -33,10 +35,15 @@ const HomeScreen = () => {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("User is authenticated in Tab Navigator:", user.email);
-        setIsAuthChecking(false);
+        if (user.emailVerified) {
+          setIsVerified(true);
+          setIsAuthChecking(false);
+        } else {
+          setIsVerified(false);
+          setIsAuthChecking(false);
+        }
       } else {
-        console.log("No authenticated user found in Tab Navigator, redirecting to login");
+        setIsAuthChecking(false);
         router.replace('/auth/Login');
       }
     });
@@ -85,6 +92,10 @@ const HomeScreen = () => {
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
+  }
+
+  if (!isVerified) {
+    return <VerifyAccountScreen />;
   }
 
   return (

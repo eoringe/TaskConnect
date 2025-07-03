@@ -38,5 +38,6 @@ export {
   db,
   app,
   GoogleAuthProvider,
-  signInWithCredential
+  signInWithCredential,
+  firebaseConfig
 };
