@@ -81,8 +81,6 @@ const BookingScreen = () => {
     country: 'Kenya',
     isDefault: false
   });
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('mpesa');
-  const [mpesaNumber, setMpesaNumber] = useState('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [bottomSheetHeight] = useState(new Animated.Value(0));
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
@@ -404,6 +402,9 @@ const BookingScreen = () => {
     </Animated.View>
   );
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -415,10 +416,15 @@ const BookingScreen = () => {
     return new Date(year, month + 1, 0).getDate();
   };
 
+  // Only allow days from today onwards if the selected month/year is current or in the past
   const days = Array.from(
     { length: getDaysInMonth(selectedMonth, selectedYear) },
     (_, i) => i + 1
-  );
+  ).filter(day => {
+    const candidate = new Date(selectedYear, selectedMonth, day);
+    candidate.setHours(0, 0, 0, 0);
+    return candidate >= today;
+  });
 
   const hours = Array.from({ length: 12 }, (_, i) => i === 0 ? 12 : i);
   const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
@@ -429,6 +435,13 @@ const BookingScreen = () => {
     newDate.setFullYear(selectedYear);
     newDate.setMonth(selectedMonth);
     newDate.setDate(selectedDay);
+    // Prevent selecting a date before today
+    const candidate = new Date(selectedYear, selectedMonth, selectedDay);
+    candidate.setHours(0, 0, 0, 0);
+    if (candidate < today) {
+      Alert.alert('Invalid Date', 'You cannot select a past date.');
+      return;
+    }
     setDate(newDate);
     setShowDateModal(false);
   };
@@ -654,12 +667,18 @@ const BookingScreen = () => {
 
   if (requestSubmitted) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <Ionicons name="hourglass-outline" size={48} color="#4A80F0" style={{ marginBottom: 20 }} />
-        <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10 }}>Request Submitted!</Text>
-        <Text style={{ fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 20 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <Ionicons name="hourglass-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 20 }} />
+        <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10, color: theme.colors.text }}>Request Submitted!</Text>
+        <Text style={{ fontSize: 16, color: theme.colors.textLight, textAlign: 'center', marginBottom: 20 }}>
           Your service request has been sent to the tasker. You will be notified once the tasker approves your request.
         </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: theme.colors.primary, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10, marginTop: 10 }}
+          onPress={() => router.replace('/home')}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Back to Home</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -776,30 +795,6 @@ const BookingScreen = () => {
           placeholder="Enter your address"
           placeholderTextColor={theme.colors.textLight}
         />
-      </View>
-
-      <View style={styles.paymentSection}>
-        <Text style={styles.sectionTitle}>Payment Method</Text>
-        <View style={styles.paymentMethodContainer}>
-          <View style={styles.paymentMethodContent}>
-            <Ionicons name="phone-portrait-outline" size={24} color={theme.colors.primary} />
-            <Text style={styles.paymentMethodText}>M-PESA</Text>
-          </View>
-        </View>
-
-        <Text style={styles.label}>M-PESA Phone Number</Text>
-        <TextInput
-          style={styles.input}
-          value={mpesaNumber}
-          onChangeText={setMpesaNumber}
-          placeholder="Enter your M-PESA phone number"
-          placeholderTextColor={theme.colors.textLight}
-          keyboardType="phone-pad"
-          maxLength={13}
-        />
-        <Text style={styles.helperText}>
-          Enter the phone number registered with your M-PESA account
-        </Text>
       </View>
 
       <Text style={styles.label}>Additional Notes</Text>
@@ -1368,33 +1363,6 @@ const createStyles = createThemedStyles(theme => ({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  paymentSection: {
-    marginBottom: 20,
-  },
-  paymentMethodContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 15,
-  },
-  paymentMethodContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  paymentMethodText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  helperText: {
-    fontSize: 12,
-    color: theme.colors.textLight,
-    marginTop: 5,
-    marginBottom: 15,
   },
   bottomSheet: {
     position: 'absolute',
