@@ -5,7 +5,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
