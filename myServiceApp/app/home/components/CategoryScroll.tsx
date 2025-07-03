@@ -67,9 +67,9 @@ const CategoryScroll: React.FC<CategoryScrollProps> = ({ selectedCategory, onCat
       style={styles.horizontalScroll}
       contentContainerStyle={styles.categoryContainer}
     >
-      {categories.map(cat => (
+      {categories.map((cat, idx) => (
         <TouchableOpacity
-          key={cat.name}
+          key={cat.name + '-' + idx}
           onPress={() => onCategorySelect(cat.name)}
           style={[
             styles.categoryItem,

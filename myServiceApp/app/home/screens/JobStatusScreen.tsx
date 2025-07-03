@@ -133,7 +133,7 @@ const JobStatusScreen = () => {
                 transactionDesc: `Payment for Job #${job.id}`,
             });
 
-            const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
+            const res = await fetch('https://1dca-156-0-233-52.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/stkpush', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -164,6 +164,13 @@ const JobStatusScreen = () => {
             }
 
             await updateDoc(doc(db, 'jobs', job.id), { checkoutRequestId: json.checkoutRequestId });
+
+            // DEMO: Immediately update status to 'in_escrow' and paymentStatus to 'paid' (bypassing callback)
+            await updateDoc(doc(db, 'jobs', job.id), {
+                status: 'in_escrow',
+                paymentStatus: 'paid',
+                paymentDetails: { demoBypass: true, message: 'Status updated without callback for demo.' }
+            });
 
             Alert.alert(
                 'STK Push Sent',
@@ -219,7 +226,7 @@ const JobStatusScreen = () => {
 
             console.log(`Found tasker phone number: ${taskerPhone}. Proceeding with B2C payment.`);
 
-            const res = await fetch('https://7cd5-41-80-114-234.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c', {
+            const res = await fetch('https://1dca-156-0-233-52.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
