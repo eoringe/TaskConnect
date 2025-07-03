@@ -899,15 +899,27 @@ const TaskerProfileScreen = () => {
         <Text style={styles.headerTitle}>Tasker Profile</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <FlatList
-        data={flatListData}
-        // Ensure unique keys for FlatList items using the 'id' property we added
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListHeaderComponent={renderHeaderContent}
-        contentContainerStyle={styles.flatListContentContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      {taskerData.onboardingStatus === 'pendingVerification' ? (
+        <View style={[styles.centered, { justifyContent: 'flex-start', paddingTop: 230 }]}> 
+          <Ionicons name="time-outline" size={64} color={theme.colors.primary} style={{ marginBottom: 20 }} />
+          <Text style={{ fontSize: 20, color: theme.colors.textSecondary, textAlign: 'center' }}>Waiting for verification</Text>
+        </View>
+      ) : (
+        <>
+          <FlatList
+            data={flatListData}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListHeaderComponent={renderHeaderContent}
+            contentContainerStyle={styles.flatListContentContainer}
+            showsVerticalScrollIndicator={false}
+          />
+          <TouchableOpacity style={{ margin: 20, backgroundColor: theme.colors.error, padding: 14, borderRadius: 8, alignItems: 'center' }} onPress={handleDeleteProfile}>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete Tasker Profile</Text>
+          </TouchableOpacity>
+          <BottomBarSpace />
+        </>
+      )}
 
       {/* Add Service Modal */}
       <Modal
@@ -989,13 +1001,6 @@ const TaskerProfileScreen = () => {
           </View>
         </View>
       </Modal>
-
-      {taskerData && (
-        <TouchableOpacity style={{ margin: 20, backgroundColor: theme.colors.error, padding: 14, borderRadius: 8, alignItems: 'center' }} onPress={handleDeleteProfile}>
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete Tasker Profile</Text>
-        </TouchableOpacity>
-      )}
-      <BottomBarSpace />
     </View>
   );
 };

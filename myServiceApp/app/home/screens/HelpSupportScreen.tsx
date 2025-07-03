@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from 'expo-router';
 
 const BOT_NAME = 'Ella';
-const BACKEND_URL = 'https://6c7f-156-0-233-53.ngrok-free.app/chat';
+const BACKEND_URL = 'https://f7b4-197-237-175-62.ngrok-free.app/chat';
 
 const cannedResponses = [
   { q: /your name|who are you|what is your name|who is this|who am i chatting with/i, a: 'My name is Ella, the official TaskConnect chat bot.' },
