@@ -53,6 +53,8 @@ const ProfileScreen = () => {
   // NEW: Tasker Information Section
   const taskerInfo = [
     { icon: 'briefcase-outline', title: 'Tasker Profile', destination: 'TaskerProfileScreen' },
+    { icon: 'speedometer-outline', title: 'Tasker Dashboard', destination: 'TaskerDashboard' },
+    { icon: 'star-outline', title: 'My Ratings', destination: 'TaskerRatingsScreen' },
     // Add more tasker-specific items here if needed in the future
   ];
 
@@ -201,6 +203,12 @@ const ProfileScreen = () => {
         break;
       case 'TaskerProfileScreen':
         router.push('/home/screens/TaskerProfileScreen');
+        break;
+      case 'TaskerDashboard':
+        router.push('/home/screens/TaskerDashboard');
+        break;
+      case 'TaskerRatingsScreen':
+        router.push('/home/screens/TaskerRatingsScreen');
         break;
       case 'notifications':
         navigation.navigate('Notifications');
