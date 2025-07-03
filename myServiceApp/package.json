@@ -35,6 +35,7 @@
     "expo-dev-client": "~5.2.0",
     "expo-device": "^7.1.4",
     "expo-document-picker": "~13.0.3",
+    "expo-file-system": "~18.1.10",
     "expo-font": "~13.3.1",
     "expo-google-app-auth": "~8.3.0",
     "expo-google-sign-in": "^10.2.0",
@@ -47,6 +48,7 @@
     "expo-notifications": "^0.31.3",
     "expo-random": "^14.0.1",
     "expo-router": "~5.0.7",
+    "expo-sharing": "~13.1.5",
     "expo-splash-screen": "~0.30.9",
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.8",
@@ -64,11 +66,10 @@
     "react-native-screens": "~4.11.1",
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
-    "undefined": "\\",
-    "expo-file-system": "~18.1.10",
-    "expo-sharing": "~13.1.5"
+    "undefined": "\\"
   },
   "devDependencies": {
+    "@types/lodash.debounce": "^4.0.9",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "jest-expo": "~52.0.6",
