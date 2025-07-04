@@ -21,6 +21,8 @@ import { createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, send
 import { auth } from '../../firebase-config';
 import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { firebaseConfig } from '../../firebase-config';
+import { useTheme } from '../context/ThemeContext';
+import { useThemedStyles, createThemedStyles } from '../hooks/useThemedStyles';
 
 const SignUpScreen = () => {
   const [firstName, setFirstName] = useState('');
@@ -44,7 +46,6 @@ const SignUpScreen = () => {
   const [signupError, setSignupError] = useState('');
   
   const [showOtpMethodModal, setShowOtpMethodModal] = useState(false);
-  const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false);
   const [showPhoneOtpModal, setShowPhoneOtpModal] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -62,6 +63,9 @@ const SignUpScreen = () => {
   ];
   
   const recaptchaVerifier = useRef(null);
+  
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
   
   const validateForm = () => {
     let isValid = true;
@@ -131,9 +135,6 @@ const SignUpScreen = () => {
         displayName: `${firstName} ${lastName}`,
         phoneNumber: phone
       });
-      // Send email verification
-      await sendEmailVerification(userCredential.user);
-      setShowEmailVerifyModal(true);
     } catch (error) {
       let errorMessage = 'Failed to create account. Please try again.';
       if (error && error.code === 'auth/email-already-in-use') {
@@ -152,35 +153,6 @@ const SignUpScreen = () => {
 
   const handleGoToLogin = () => { 
     router.push('/auth/Login');
-  };
-
-  const handleEmailVerification = async () => {
-    setShowOtpMethodModal(false);
-    setShowEmailVerifyModal(true);
-    try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to send verification email.');
-      setShowEmailVerifyModal(false);
-    }
-  };
-
-  const handleContinueAfterEmail = async () => {
-    setIsVerifying(true);
-    try {
-      await auth.currentUser.reload();
-      if (auth.currentUser.emailVerified) {
-        setShowEmailVerifyModal(false);
-        router.replace('/home');
-      } else {
-        Alert.alert('Not Verified', 'Your email is not verified yet. Please check your inbox.');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Could not verify email.');
-    }
-    setIsVerifying(false);
   };
 
   const handlePhoneVerification = async () => {
@@ -272,7 +244,7 @@ const SignUpScreen = () => {
               <TextInput
                 style={styles.input}
                 placeholder="First Name"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 value={firstName}
                 onChangeText={(text) => {
                   setFirstName(text);
@@ -290,7 +262,7 @@ const SignUpScreen = () => {
               <TextInput
                 style={styles.input}
                 placeholder="Last Name"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 value={lastName}
                 onChangeText={(text) => {
                   setLastName(text);
@@ -341,7 +313,7 @@ const SignUpScreen = () => {
                 <TextInput
                   style={styles.input}
                   placeholder="Phone Number"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                   value={phone}
                   onChangeText={(text) => {
                     setPhone(text);
@@ -363,7 +335,7 @@ const SignUpScreen = () => {
               <TextInput
                 style={styles.input}
                 placeholder="Email Address"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -385,7 +357,7 @@ const SignUpScreen = () => {
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -418,7 +390,7 @@ const SignUpScreen = () => {
               <TextInput
                 style={styles.input}
                 placeholder="Confirm Password"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
@@ -491,12 +463,6 @@ const SignUpScreen = () => {
               Where should we send your verification code?
             </Text>
             <TouchableOpacity
-              style={{ backgroundColor: '#5CBD6A', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, marginBottom: 16, width: '100%' }}
-              onPress={handleEmailVerification}
-            >
-              <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>Send to Email ({email})</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={{ backgroundColor: '#3C9D4E', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, marginBottom: 16, width: '100%' }}
               onPress={handlePhoneVerification}
             >
@@ -505,36 +471,6 @@ const SignUpScreen = () => {
             <TouchableOpacity
               style={{ marginTop: 8 }}
               onPress={() => setShowOtpMethodModal(false)}
-            >
-              <Text style={{ color: '#888', fontSize: 15 }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Email Verification Modal */}
-      <Modal
-        visible={showEmailVerifyModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowEmailVerifyModal(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '80%', alignItems: 'center' }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#222' }}>Verify Your Email</Text>
-            <Text style={{ fontSize: 16, color: '#444', marginBottom: 24, textAlign: 'center' }}>
-              We sent a verification link to {email}. Please check your inbox and click the link to verify your email.
-            </Text>
-            <TouchableOpacity
-              style={{ backgroundColor: '#5CBD6A', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, marginBottom: 8, width: '100%' }}
-              onPress={handleContinueAfterEmail}
-              disabled={isVerifying}
-            >
-              <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>{isVerifying ? 'Checking...' : 'Continue'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ marginTop: 8 }}
-              onPress={() => setShowEmailVerifyModal(false)}
             >
               <Text style={{ color: '#888', fontSize: 15 }}>Cancel</Text>
             </TouchableOpacity>
@@ -590,14 +526,15 @@ const SignUpScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: theme.dark ? theme.colors.background : '#fff',
   },
   safeArea: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? 30 : 10,
+    backgroundColor: theme.dark ? theme.colors.background : '#fff',
   },
   scrollContent: {
     flexGrow: 1,
@@ -617,9 +554,9 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: theme.colors.shadowOpacity,
     shadowRadius: 5,
     elevation: 6,
   },
@@ -638,12 +575,12 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   subHeaderText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textLight,
   },
   formContainer: {
     paddingHorizontal: 30,
@@ -652,17 +589,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: theme.dark ? theme.colors.border : '#000',
     paddingHorizontal: 15,
   },
   inputError: {
-    borderColor: '#ff6b6b',
+    borderColor: theme.colors.error,
   },
   errorText: {
-    color: '#ff6b6b',
+    color: theme.colors.error,
     fontSize: 12,
     marginBottom: 12,
     marginLeft: 5,
@@ -674,11 +611,12 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 10,
+    color: theme.colors.textLight,
   },
   input: {
     flex: 1,
     height: 55,
-    color: '#fff',
+    color: theme.dark ? theme.colors.text : '#000',
     fontSize: 16,
   },
   passwordToggle: {
@@ -687,9 +625,9 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 15,
     marginBottom: 25,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: theme.colors.shadowOpacity,
     shadowRadius: 5,
     elevation: 5,
   },
@@ -710,14 +648,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   signInText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textLight,
     fontSize: 15,
   },
   signInLink: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontSize: 15,
     fontWeight: 'bold',
   },
-});
+}));
 
 export default SignUpScreen;

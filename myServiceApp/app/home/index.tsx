@@ -35,13 +35,8 @@ const HomeScreen = () => {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        if (user.emailVerified) {
-          setIsVerified(true);
-          setIsAuthChecking(false);
-        } else {
-          setIsVerified(false);
-          setIsAuthChecking(false);
-        }
+        setIsVerified(true);
+        setIsAuthChecking(false);
       } else {
         setIsAuthChecking(false);
         router.replace('/auth/Login');
@@ -92,10 +87,6 @@ const HomeScreen = () => {
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
-  }
-
-  if (!isVerified) {
-    return <VerifyAccountScreen />;
   }
 
   return (
