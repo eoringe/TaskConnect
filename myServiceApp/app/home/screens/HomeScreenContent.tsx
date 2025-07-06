@@ -52,6 +52,9 @@ export default function HomeScreenContent() {
   const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Get current user UID
+  const currentUserUid = auth.currentUser?.uid;
+
   // fetch profile & tasker status once
   useEffect(() => {
     (async () => {
@@ -113,6 +116,9 @@ export default function HomeScreenContent() {
   // Combined search and filter logic
   const filteredServices = services
     .filter(s => {
+      // Exclude services belonging to the logged-in user
+      const serviceTaskerId = (s as any).taskerFirestoreId || (s as any).taskerIdString || (s as any).taskerId;
+      if (currentUserUid && serviceTaskerId && serviceTaskerId === currentUserUid) return false;
       // Search filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.trim().toLowerCase();
@@ -137,6 +143,9 @@ export default function HomeScreenContent() {
   const searchResults = searchQuery.trim()
     ? services
       .filter(s => {
+        // Exclude services belonging to the logged-in user
+        const serviceTaskerId = (s as any).taskerFirestoreId || (s as any).taskerIdString || (s as any).taskerId;
+        if (currentUserUid && serviceTaskerId && serviceTaskerId === currentUserUid) return false;
         const q = searchQuery.trim().toLowerCase();
         return (
           (s.title && s.title.toLowerCase().includes(q)) ||
