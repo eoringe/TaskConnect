@@ -140,8 +140,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 12,
         padding: 15,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     inputError: {
         borderColor: theme.colors.error,
@@ -391,6 +391,7 @@ export default function ProfileScreen() {
                             textAlignVertical="top"
                             maxLength={200}
                             editable={!isSaving}
+                            placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                         />
                         <Text style={styles.charCount}>
                             {bio.length}/200 characters (minimum 50)

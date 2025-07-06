@@ -413,23 +413,38 @@ const TaskerProfileScreen = () => {
           setLoading(true);
           try {
             console.log('Attempting to delete tasker profile for UID:', currentUser.uid);
-            // 1. Delete the tasker document
+            
+            // 1. First, get all service categories and remove all services by this tasker
+            const batch = writeBatch(db);
+            const serviceCategoriesSnapshot = await getDocs(collection(db, 'serviceCategories'));
+            
+            for (const categoryDoc of serviceCategoriesSnapshot.docs) {
+              const categoryData = categoryDoc.data();
+              if (categoryData.services && Array.isArray(categoryData.services)) {
+                // Filter out all services that belong to this tasker
+                const servicesToRemove = categoryData.services.filter((service: any) => 
+                  service.taskerId === currentUser.uid
+                );
+                
+                // Remove each service that belongs to this tasker
+                for (const serviceToRemove of servicesToRemove) {
+                  console.log('Removing service from category:', categoryDoc.id, serviceToRemove);
+                  batch.update(categoryDoc.ref, {
+                    services: arrayRemove(serviceToRemove)
+                  });
+                }
+              }
+            }
+            
+            // 2. Delete the tasker document
             await deleteDoc(doc(db, 'taskers', currentUser.uid));
             console.log('Deleted tasker document for UID:', currentUser.uid);
-            // 2. Remove all services by this tasker from serviceCategories
-            if (taskerData?.services && taskerData.services.length > 0) {
-              const batch = writeBatch(db);
-              for (const service of taskerData.services) {
-                const categoryDocRef = doc(db, 'serviceCategories', service.category);
-                console.log('Removing service from category:', service.category, service);
-                batch.update(categoryDocRef, {
-                  services: arrayRemove(service)
-                });
-              }
-              await batch.commit();
-              console.log('Batch update committed for serviceCategories.');
-            }
-            Alert.alert('Profile Deleted', 'Your tasker profile has been deleted.');
+            
+            // 3. Commit all the service removals
+            await batch.commit();
+            console.log('Batch update committed for serviceCategories.');
+            
+            Alert.alert('Profile Deleted', 'Your tasker profile and all associated services have been deleted.');
             router.replace('/home?tab=home');
           } catch (err) {
             console.error('Failed to delete tasker profile:', err);

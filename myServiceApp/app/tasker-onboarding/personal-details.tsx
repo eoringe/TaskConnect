@@ -57,15 +57,15 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 12,
         padding: 15,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     inputError: {
         borderColor: theme.colors.error,
     },
     uneditableInput: {
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     errorText: {
         color: theme.colors.error,
@@ -214,7 +214,7 @@ export default function PersonalDetailsScreen() {
                                 }}
                                 placeholder="Enter your first name"
                                 editable={!isProcessing}
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.firstName && (
                                 <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -234,7 +234,7 @@ export default function PersonalDetailsScreen() {
                                 }}
                                 placeholder="Enter your last name"
                                 editable={!isProcessing}
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.lastName && (
                                 <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -250,7 +250,7 @@ export default function PersonalDetailsScreen() {
                                 placeholder="Email will be prefilled"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                         </View>
 
@@ -263,7 +263,7 @@ export default function PersonalDetailsScreen() {
                                 placeholder="Enter your phone number"
                                 keyboardType="phone-pad"
                                 editable={!isProcessing}
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                         </View>
                     </View>

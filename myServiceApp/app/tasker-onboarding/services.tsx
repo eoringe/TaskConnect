@@ -135,8 +135,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     rateUnit: {
         fontSize: 16,
@@ -149,8 +149,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
         minHeight: 80,
         textAlignVertical: 'top',
         marginBottom: 5,
@@ -180,8 +180,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
         marginBottom: 15,
     },
     saveButton: {
@@ -497,7 +497,7 @@ export default function ServicesScreen() {
                     }
                 }}
                 placeholder="Enter a title for your service"
-                placeholderTextColor={theme.colors.textLight}
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
             />
             {errors[service.id + '_title'] && (
                 <Text style={styles.errorText}>{errors[service.id + '_title']}</Text>
@@ -517,7 +517,7 @@ export default function ServicesScreen() {
                     }}
                     placeholder="e.g., 5000 or 5000-6000"
                     keyboardType="default"
-                    placeholderTextColor={theme.colors.textLight}
+                    placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                 />
                 <Text style={styles.rateUnit}>/task</Text>
             </View>
@@ -532,7 +532,7 @@ export default function ServicesScreen() {
                 onChangeText={(text) => setEditingService({ ...service, description: text })}
                 placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
                 multiline
-                placeholderTextColor={theme.colors.textLight}
+                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
             />
             {errors[service.id + '_description'] && (
                 <Text style={styles.errorText}>{errors[service.id + '_description']}</Text>
@@ -642,7 +642,7 @@ export default function ServicesScreen() {
                                             }
                                         }}
                                         placeholder="e.g., 'Personal Assistant for Errands'"
-                                        placeholderTextColor={theme.colors.textLight}
+                                        placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                                     />
                                     {errors.customTitle && (
                                         <Text style={styles.errorText}>{errors.customTitle}</Text>
@@ -662,7 +662,7 @@ export default function ServicesScreen() {
                                             }}
                                             placeholder="e.g., 5000 or 5000-6000"
                                             keyboardType="default"
-                                            placeholderTextColor={theme.colors.textLight}
+                                            placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                                         />
                                         <Text style={styles.rateUnit}>/task</Text>
                                     </View>
@@ -677,7 +677,7 @@ export default function ServicesScreen() {
                                         onChangeText={(text) => setCustomService({ ...customService, description: text })}
                                         placeholder="Add details about your service (e.g., 'deep cleaning for apartments')"
                                         multiline
-                                        placeholderTextColor={theme.colors.textLight}
+                                        placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                                     />
                                     {errors.customDescription && (
                                         <Text style={styles.errorText}>{errors.customDescription}</Text>

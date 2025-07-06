@@ -58,7 +58,29 @@ export default function HomeScreenContent() {
       setIsLoading(true);
       const user = auth.currentUser;
       if (user) {
-        user.displayName && setUserName(user.displayName.split(' ')[0]);
+        // Try to get firstName from users collection first
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData.firstName) {
+              setUserName(userData.firstName);
+            } else if (user.displayName) {
+              // Fallback to first part of displayName if firstName not available
+              setUserName(user.displayName.split(' ')[0]);
+            }
+          } else if (user.displayName) {
+            // Fallback to first part of displayName if no user document
+            setUserName(user.displayName.split(' ')[0]);
+          }
+        } catch (error) {
+          // Fallback to first part of displayName if error occurs
+          if (user.displayName) {
+            setUserName(user.displayName.split(' ')[0]);
+          }
+        }
+        
         user.photoURL && setUserPhoto(user.photoURL);
         try {
           const snap = await getDoc(doc(db, 'taskers', user.uid));
