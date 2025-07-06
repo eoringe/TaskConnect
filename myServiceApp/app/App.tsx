@@ -5,6 +5,9 @@ import { Stack } from 'expo-router';
 import { ThemeProvider } from '@/app/context/ThemeContext';
 import AppWrapper from './AppWrapper';
 import { StatusBar } from 'expo-status-bar';
+import { LogBox } from 'react-native';
+
+LogBox.ignoreAllLogs(); // This will hide all warnings and errors
 
 // Import any other providers your app needs
 // import { AuthProvider } from '@/app/context/AuthContext';

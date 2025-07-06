@@ -1,14 +1,50 @@
 // app/(tabs)/home/screens/NotificationsScreen.tsx
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '@/firebase-config';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, onSnapshot, orderBy, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
+
+// Performance monitoring hook
+const usePerformanceMonitor = () => {
+  const renderCount = useRef(0);
+  const lastRenderTime = useRef(Date.now());
+
+  useEffect(() => {
+    renderCount.current += 1;
+    const now = Date.now();
+    const timeSinceLastRender = now - lastRenderTime.current;
+    lastRenderTime.current = now;
+
+    if (__DEV__) {
+      console.log(`NotificationsScreen render #${renderCount.current} (${timeSinceLastRender}ms)`);
+    }
+  });
+
+  return { renderCount: renderCount.current };
+};
+
+// Debounce hook for search/filtering
+const useDebounce = (value: any, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 // Define Job type
 interface TaskerInfo {
@@ -32,6 +68,15 @@ interface Job {
   paymentStatus?: string;
   taskerInfo?: TaskerInfo | null;
   clientInfo?: ClientInfo | null;
+  // Embedded data for performance
+  embeddedTaskerInfo?: {
+    name: string;
+    image: string | null;
+  };
+  embeddedClientInfo?: {
+    name: string;
+    image: string | null;
+  };
   [key: string]: any;
 }
 
@@ -98,10 +143,53 @@ function getStatusBadge(status: string, theme: any) {
   );
 }
 
+// Cache for user data to avoid repeated Firestore reads
+const userCache = new Map<string, { name: string; image: string | null }>();
+
+// LRU Cache for jobs with size limit
+class LRUCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, V>;
+
+  constructor(capacity: number) {
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+
+    const value = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const jobsCache = new LRUCache<string, Job>(100);
+
 const NotificationsScreen = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const router = useRouter();
+  const performanceMonitor = usePerformanceMonitor();
+
   const [isTasker, setIsTasker] = useState(false);
   const [activeView, setActiveView] = useState<'client' | 'tasker'>('client');
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -110,104 +198,274 @@ const NotificationsScreen = () => {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [jobToReject, setJobToReject] = useState<Job | null>(null);
 
-  // This effect checks if the user has a tasker profile
-  useEffect(() => {
-    const checkUserRole = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const taskerDocRef = doc(db, 'taskers', user.uid);
-        const taskerDocSnap = await getDoc(taskerDocRef);
-        if (taskerDocSnap.exists()) {
-          setIsTasker(true);
-        }
-      }
-    };
-    checkUserRole();
+  // Pagination state
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Search/filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Refs for optimization
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const jobsCacheRef = useRef<Map<string, Job>>(new Map());
+
+  // Debounced search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Memoized filtered jobs
+  const filteredJobs = useMemo(() => {
+    let filtered = jobs;
+
+    // Apply search filter
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.taskerInfo?.name?.toLowerCase().includes(query) ||
+        job.clientInfo?.name?.toLowerCase().includes(query) ||
+        job.notes?.toLowerCase().includes(query) ||
+        job.address?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(job => job.status === statusFilter);
+    }
+
+    return filtered;
+  }, [jobs, debouncedSearchQuery, statusFilter]);
+
+  // Memoized user role check
+  const checkUserRole = useCallback(async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const taskerDocRef = doc(db, 'taskers', user.uid);
+      const taskerDocSnap = await getDoc(taskerDocRef);
+      setIsTasker(taskerDocSnap.exists());
+    }
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    const user = auth.currentUser;
-    if (!user) {
-      setJobs([]);
-      setLoading(false);
-      return;
+  // Memoized cached user data fetch
+  const getCachedUserData = useCallback(async (userId: string, collection: 'users' | 'taskers'): Promise<{ name: string; image: string | null }> => {
+    const cacheKey = `${collection}_${userId}`;
+
+    if (userCache.has(cacheKey)) {
+      return userCache.get(cacheKey)!;
     }
 
-    let q;
-    if (activeView === 'tasker') {
-      q = query(
+    try {
+      const userDocSnap = await getDoc(doc(db, collection, userId));
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        const userData = {
+          name: collection === 'users'
+            ? `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.displayName || 'User'
+            : `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+          image: collection === 'users' ? data.photoURL : (data.profileImageBase64 || data.profileImage)
+        };
+
+        userCache.set(cacheKey, userData);
+        return userData;
+      }
+    } catch (error) {
+      console.error(`Error fetching ${collection} data:`, error);
+    }
+
+    return { name: collection === 'users' ? 'User' : 'Tasker', image: null };
+  }, []);
+
+  // Optimized job data processing
+  const processJobData = useCallback(async (jobDoc: any, isTaskerView: boolean): Promise<Job> => {
+    const job = jobDoc.data() as Job;
+    const jobId = jobDoc.id;
+
+    // Check LRU cache first
+    const cachedJob = jobsCache.get(jobId);
+    if (cachedJob) {
+      return cachedJob;
+    }
+
+    let taskerInfo = null;
+    let clientInfo = null;
+
+    // Use embedded data if available (faster)
+    if (job.embeddedTaskerInfo) {
+      taskerInfo = job.embeddedTaskerInfo;
+    } else if (isTaskerView && job.clientId) {
+      clientInfo = await getCachedUserData(job.clientId, 'users');
+    } else if (!isTaskerView && job.taskerId) {
+      taskerInfo = await getCachedUserData(job.taskerId, 'taskers');
+    }
+
+    const processedJob = {
+      ...job,
+      id: jobId,
+      taskerInfo,
+      clientInfo
+    };
+
+    // Cache the processed job
+    jobsCache.set(jobId, processedJob);
+
+    return processedJob;
+  }, [getCachedUserData]);
+
+  // Memoized query builder
+  const buildQuery = useCallback((userId: string, isTaskerView: boolean) => {
+    if (isTaskerView) {
+      return query(
         collection(db, 'jobs'),
-        where('taskerId', '==', user.uid),
-        where('status', 'in', ['pending_approval', 'in_escrow', 'processing_payment'])
+        where('taskerId', '==', userId),
+        where('status', 'in', ['pending_approval', 'in_escrow', 'processing_payment']),
+        orderBy('date', 'desc'),
+        limit(20)
       );
     } else {
-      q = query(
+      return query(
         collection(db, 'jobs'),
-        where('clientId', '==', user.uid)
+        where('clientId', '==', userId),
+        orderBy('date', 'desc'),
+        limit(20)
       );
     }
+  }, []);
 
-    const unsubscribe = onSnapshot(q, async (jobsSnap) => {
-      let jobsData: Job[] = [];
-      for (const jobDoc of jobsSnap.docs) {
-        const job = jobDoc.data() as Job;
-        let taskerInfo = null;
-        let clientInfo = null;
-        if (activeView === 'tasker' && job.clientId) {
-          const clientDocSnap = await getDoc(doc(db, 'users', job.clientId));
-          if (clientDocSnap.exists()) {
-            const c = clientDocSnap.data();
-            clientInfo = {
-              name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.displayName || 'Client',
-              image: c.photoURL || null,
-            };
-          }
-        }
-        if (activeView === 'client' && job.taskerId) {
-          const taskerSnap = await getDoc(doc(db, 'taskers', job.taskerId));
-          if (taskerSnap.exists()) {
-            const t = taskerSnap.data();
-            taskerInfo = { name: `${t.firstName || ''} ${t.lastName || ''}`.trim(), image: t.profileImageBase64 || t.profileImage || null };
-          }
-        }
-        jobsData.push({ ...job, id: jobDoc.id, taskerInfo, clientInfo });
+  // Optimized data fetching with pagination
+  const fetchJobs = useCallback(async (userId: string, isTaskerView: boolean, isLoadMore = false) => {
+    if (!isLoadMore) {
+      setLoading(true);
+      setLastDoc(null);
+      setHasMore(true);
+      jobsCache.clear();
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      let q = buildQuery(userId, isTaskerView);
+
+      if (isLoadMore && lastDoc) {
+        q = query(q, startAfter(lastDoc));
       }
-      jobsData = jobsData.filter(j => !!j.date);
-      jobsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setJobs(jobsData);
+
+      const jobsSnap = await getDocs(q);
+
+      if (jobsSnap.empty) {
+        if (isLoadMore) {
+          setHasMore(false);
+        } else {
+          setJobs([]);
+        }
+        return;
+      }
+
+      const jobsData: Job[] = [];
+      const promises = jobsSnap.docs.map(doc => processJobData(doc, isTaskerView));
+
+      const processedJobs = await Promise.all(promises);
+
+      // Filter and sort
+      const validJobs = processedJobs
+        .filter(j => !!j.date)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      if (isLoadMore) {
+        setJobs(prev => [...prev, ...validJobs]);
+      } else {
+        setJobs(validJobs);
+      }
+
+      setLastDoc(jobsSnap.docs[jobsSnap.docs.length - 1]);
+      setHasMore(jobsSnap.docs.length === 20);
+
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      if (!isLoadMore) {
+        setJobs([]);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [buildQuery, processJobData, lastDoc]);
+
+  // Real-time updates with optimization
+  const setupRealtimeListener = useCallback((userId: string, isTaskerView: boolean) => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+
+    const q = buildQuery(userId, isTaskerView);
+
+    unsubscribeRef.current = onSnapshot(q, async (jobsSnap) => {
+      const jobsData: Job[] = [];
+      const promises = jobsSnap.docs.map(doc => processJobData(doc, isTaskerView));
+
+      const processedJobs = await Promise.all(promises);
+
+      const validJobs = processedJobs
+        .filter(j => !!j.date)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      setJobs(validJobs);
       setLoading(false);
     }, (error) => {
-      console.error('Error fetching jobs:', error);
-      setJobs([]);
+      console.error('Error in real-time listener:', error);
       setLoading(false);
     });
+  }, [buildQuery, processJobData]);
 
-    return () => unsubscribe();
-  }, [activeView]);
+  // Optimistic updates
+  const optimisticUpdate = useCallback((jobId: string, updates: Partial<Job>) => {
+    setJobs(prevJobs =>
+      prevJobs.map(job =>
+        job.id === jobId ? { ...job, ...updates } : job
+      )
+    );
+  }, []);
 
-  const handleUpdateRequest = async (jobId: string, newStatus: 'in_progress' | 'rejected') => {
+  // Optimized action handlers
+  const handleUpdateRequest = useCallback(async (jobId: string, newStatus: 'in_progress' | 'rejected') => {
     setActionLoading(jobId + '-' + newStatus);
+
+    // Optimistic update
+    optimisticUpdate(jobId, { status: newStatus });
+
     try {
       const jobRef = doc(db, 'jobs', jobId);
       await updateDoc(jobRef, { status: newStatus });
+
+      // Remove from list after successful update
       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
       Alert.alert('Success', `Booking has been ${newStatus === 'in_progress' ? 'approved' : 'rejected'}.`);
     } catch (error) {
       console.error(`Error updating booking status:`, error);
+      // Revert optimistic update on error
+      optimisticUpdate(jobId, { status: 'pending_approval' });
       Alert.alert('Error', 'Failed to update the booking. Please try again.');
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [optimisticUpdate]);
 
-  const handleRejectJob = (job: Job) => {
+  const handleRejectJob = useCallback((job: Job) => {
     setJobToReject(job);
     setRejectModalVisible(true);
-  };
+  }, []);
 
-  const rejectJobWithReason = async (jobId: string, reason: string, reasonText: string) => {
+  const rejectJobWithReason = useCallback(async (jobId: string, reason: string, reasonText: string) => {
     setActionLoading(jobId + '-rejected');
+
+    // Optimistic update
+    optimisticUpdate(jobId, {
+      status: 'rejected',
+      rejectionReason: reason,
+      rejectionReasonText: reasonText,
+      rejectedAt: new Date()
+    });
+
     try {
       const jobRef = doc(db, 'jobs', jobId);
       await updateDoc(jobRef, {
@@ -216,20 +474,23 @@ const NotificationsScreen = () => {
         rejectionReasonText: reasonText,
         rejectedAt: new Date()
       });
+
       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
       Alert.alert('Success', 'Booking has been rejected.');
     } catch (error) {
       console.error('Error rejecting booking:', error);
+      // Revert optimistic update on error
+      optimisticUpdate(jobId, { status: 'pending_approval' });
       Alert.alert('Error', 'Failed to reject the booking. Please try again.');
     } finally {
       setActionLoading(null);
       setRejectModalVisible(false);
       setJobToReject(null);
     }
-  };
+  }, [optimisticUpdate]);
 
-  const renderActionButton = (job: Job) => {
-    // Show next action based on status
+  // Memoized action button renderer
+  const renderActionButton = useCallback((job: Job) => {
     if (job.status === 'pending_approval') {
       return (
         <View style={styles.actionButtonDisabled}>
@@ -293,9 +554,10 @@ const NotificationsScreen = () => {
       );
     }
     return null;
-  };
+  }, [theme.colors, styles, router]);
 
-  const renderViewSwitcher = () => {
+  // Memoized view switcher
+  const renderViewSwitcher = useMemo(() => {
     if (!isTasker) return null;
     return (
       <View style={styles.switcherContainer}>
@@ -315,94 +577,124 @@ const NotificationsScreen = () => {
         </TouchableOpacity>
       </View>
     );
-  };
+  }, [isTasker, activeView, theme.colors, styles]);
 
-  const renderTaskerContent = () => (
+  // Memoized tasker content renderer
+  const renderTaskerContent = useCallback(() => (
     <>
       <Text style={styles.title}>New Booking Requests</Text>
       <Text style={styles.subtitle}>Review and respond to new job requests from clients.</Text>
       <FlatList<Job>
-        data={jobs}
+        data={filteredJobs}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            activeOpacity={0.85}
-            onPress={() => router.push({
-              pathname: '/home/screens/JobStatusScreen',
-              params: {
-                jobId: item.id,
-                viewMode: 'tasker'
-              }
-            })}
-          >
-            <View style={styles.taskerCardContent}>
-              <View style={styles.clientInfoSection}>
-                <View style={styles.clientHeader}>
-                  <View style={styles.clientAvatar}>
-                    <Ionicons name="person" size={24} color={theme.colors.primary} />
+        renderItem={({ item }) => {
+          if (typeof item === 'string' || typeof item === 'number') {
+            console.error('FlatList item is not a React element:', item);
+            return <Text>{String(item)}</Text>;
+          }
+          return (
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.85}
+              onPress={() => router.push({
+                pathname: '/home/screens/JobStatusScreen',
+                params: {
+                  jobId: item.id,
+                  viewMode: 'tasker'
+                }
+              })}
+            >
+              <View style={styles.taskerCardContent}>
+                <View style={styles.clientInfoSection}>
+                  <View style={styles.clientHeader}>
+                    <View style={styles.clientAvatar}>
+                      <Ionicons name="person" size={24} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.clientDetails}>
+                      <Text style={styles.clientName}>{safeText(item.clientInfo?.name || 'A Client')}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
+                        <Text style={styles.clientLocation}>
+                          {safeText(item.address || 'Location not specified')}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.clientDetails}>
-                    <Text style={styles.clientName}>{safeText(item.clientInfo?.name || 'A Client')}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
-                      <Text style={styles.clientLocation}>
-                        {safeText(item.address || 'Location not specified')}
+                  <View style={styles.jobDetails}>
+                    <View style={styles.detailRow}>
+                      <Ionicons name="calendar-outline" size={16} color={theme.colors.textLight} />
+                      <Text style={styles.detailText}>
+                        {safeText(new Date(item.date).toLocaleDateString())} at {safeText(new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
                       </Text>
                     </View>
+                    {item.amount && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="pricetag-outline" size={16} color={theme.colors.textLight} />
+                        <Text style={styles.amountText}>KSh {safeText(item.amount.toLocaleString())}</Text>
+                      </View>
+                    )}
+                    {item.notes && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="document-text-outline" size={16} color={theme.colors.textLight} />
+                        <Text style={styles.notesText} numberOfLines={2}>{safeText(item.notes)}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-                <View style={styles.jobDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={16} color={theme.colors.textLight} />
-                    <Text style={styles.detailText}>
-                      {safeText(new Date(item.date).toLocaleDateString())} at {safeText(new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
-                    </Text>
+                {/* Action Area */}
+                {item.status === 'pending_approval' && (
+                  <View style={styles.actionArea}>
+                    <TouchableOpacity
+                      style={[styles.actionButtonBig, styles.approveButtonBig, actionLoading === item.id + '-in_progress' && styles.actionButtonDisabled]}
+                      onPress={() => handleUpdateRequest(item.id, 'in_progress')}
+                      disabled={actionLoading === item.id + '-in_progress'}
+                    >
+                      <Ionicons name="checkmark-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={styles.actionButtonBigText}>Approve</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButtonBig, styles.rejectButtonBig, actionLoading === item.id + '-rejected' && styles.actionButtonDisabled]}
+                      onPress={() => handleRejectJob(item)}
+                      disabled={actionLoading === item.id + '-rejected'}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={styles.actionButtonBigText}>Reject</Text>
+                    </TouchableOpacity>
                   </View>
-                  {item.amount && (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="pricetag-outline" size={16} color={theme.colors.textLight} />
-                      <Text style={styles.amountText}>KSh {safeText(item.amount.toLocaleString())}</Text>
-                    </View>
-                  )}
-                  {item.notes && (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="document-text-outline" size={16} color={theme.colors.textLight} />
-                      <Text style={styles.notesText} numberOfLines={2}>{safeText(item.notes)}</Text>
-                    </View>
-                  )}
-                </View>
+                )}
               </View>
-              {/* Action Area */}
-              {item.status === 'pending_approval' && (
-                <View style={styles.actionArea}>
-                  <TouchableOpacity
-                    style={[styles.actionButtonBig, styles.approveButtonBig, actionLoading === item.id + '-in_progress' && styles.actionButtonDisabled]}
-                    onPress={() => handleUpdateRequest(item.id, 'in_progress')}
-                    disabled={actionLoading === item.id + '-in_progress'}
-                  >
-                    <Ionicons name="checkmark-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.actionButtonBigText}>Approve</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButtonBig, styles.rejectButtonBig, actionLoading === item.id + '-rejected' && styles.actionButtonDisabled]}
-                    onPress={() => handleRejectJob(item)}
-                    disabled={actionLoading === item.id + '-rejected'}
-                  >
-                    <Ionicons name="close-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.actionButtonBigText}>Reject</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={(
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-done-circle-outline" size={48} color={theme.colors.textLight} />
             <Text style={styles.emptyText}>You have no pending booking requests.</Text>
           </View>
         )}
+        onEndReached={() => {
+          if (hasMore && !loadingMore) {
+            const user = auth.currentUser;
+            if (user) {
+              fetchJobs(user.uid, activeView === 'tasker', true);
+            }
+          }
+        }}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={loadingMore ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          </View>
+        ) : null}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={10}
+        getItemLayout={(data, index) => ({
+          length: 200, // Approximate height of each item
+          offset: 200 * index,
+          index,
+        })}
       />
       {/* Reject Modal */}
       <Modal
@@ -434,47 +726,111 @@ const NotificationsScreen = () => {
         </View>
       </Modal>
     </>
-  );
+  ), [filteredJobs, styles, theme.colors, actionLoading, handleUpdateRequest, handleRejectJob, rejectJobWithReason, hasMore, loadingMore, rejectModalVisible, jobToReject, router]);
 
-  const renderClientContent = () => (
+  // Memoized client content renderer
+  const renderClientContent = useCallback(() => (
     <>
       <Text style={styles.title}>My Booked Tasks</Text>
       <Text style={styles.subtitle}>Here you can view all the services you have booked, their status, and next actions.</Text>
-      {jobs.length === 0 ? (
+      {filteredJobs.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="notifications-outline" size={48} color={theme.colors.textLight} />
           <Text style={styles.emptyText}>You haven't booked any tasks yet. Book a service to see it here!</Text>
         </View>
       ) : (
         <FlatList<Job>
-          data={jobs}
+          data={filteredJobs}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              activeOpacity={0.85}
-              onPress={() => router.push({ pathname: '/home/screens/JobStatusScreen', params: { jobId: item.id } })}
-            >
-              <View style={styles.cardTop}>
-                <View style={styles.infoContainer}>
-                  <Text style={styles.taskerName}>{safeText(item.taskerInfo?.name || 'Tasker')}</Text>
-                  <Text style={styles.dateText}>{safeText(new Date(item.date).toLocaleString())}</Text>
-                  <View style={styles.statusRow}>
-                    {getStatusBadge(item.status, theme)}
+          renderItem={({ item }) => {
+            if (typeof item === 'string' || typeof item === 'number') {
+              console.error('FlatList item is not a React element:', item);
+              return <Text>{String(item)}</Text>;
+            }
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.85}
+                onPress={() => router.push({ pathname: '/home/screens/JobStatusScreen', params: { jobId: item.id } })}
+              >
+                <View style={styles.cardTop}>
+                  <View style={styles.infoContainer}>
+                    <Text style={styles.taskerName}>{safeText(item.taskerInfo?.name || 'Tasker')}</Text>
+                    <Text style={styles.dateText}>{safeText(new Date(item.date).toLocaleString())}</Text>
+                    <View style={styles.statusRow}>
+                      {getStatusBadge(item.status, theme)}
+                    </View>
+                    {item.amount && (
+                      <Text style={styles.amountText}>Amount: KSh {safeText(item.amount.toLocaleString())}</Text>
+                    )}
                   </View>
-                  {item.amount && (
-                    <Text style={styles.amountText}>Amount: KSh {safeText(item.amount.toLocaleString())}</Text>
-                  )}
+                  <View style={styles.actionContainer}>{renderActionButton(item)}</View>
                 </View>
-                <View style={styles.actionContainer}>{renderActionButton(item)}</View>
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) {
+              const user = auth.currentUser;
+              if (user) {
+                fetchJobs(user.uid, activeView === 'tasker', true);
+              }
+            }
+          }}
+          onEndReachedThreshold={0.1}
+          ListFooterComponent={loadingMore ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : null}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
+          getItemLayout={(data, index) => ({
+            length: 120, // Approximate height of each item
+            offset: 120 * index,
+            index,
+          })}
         />
       )}
     </>
-  );
+  ), [filteredJobs, styles, theme.colors, renderActionButton, hasMore, loadingMore, router]);
+
+  // Effects
+  useEffect(() => {
+    checkUserRole();
+  }, [checkUserRole]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
+
+    // Use real-time listener for better UX
+    setupRealtimeListener(user.uid, activeView === 'tasker');
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, [activeView, setupRealtimeListener]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      userCache.clear();
+      jobsCache.clear();
+    };
+  }, []);
 
   if (loading) {
     return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
@@ -483,7 +839,7 @@ const NotificationsScreen = () => {
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.container}>
-        {renderViewSwitcher()}
+        {renderViewSwitcher}
         {activeView === 'tasker' ? renderTaskerContent() : renderClientContent()}
       </View>
     </SafeAreaView>

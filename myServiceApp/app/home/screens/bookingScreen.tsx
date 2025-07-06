@@ -62,10 +62,18 @@ const BookingScreen = () => {
   const [selectedMonth, setSelectedMonth] = useState(date.getMonth());
   const [selectedYear, setSelectedYear] = useState(date.getFullYear());
 
-  // For time selection
-  const [selectedHour, setSelectedHour] = useState(date.getHours());
-  const [selectedMinute, setSelectedMinute] = useState(date.getMinutes());
-  const [selectedAmPm, setSelectedAmPm] = useState(date.getHours() >= 12 ? 'PM' : 'AM');
+  // For time selection - start with a reasonable default time (next hour)
+  const [selectedHour, setSelectedHour] = useState(() => {
+    const now = new Date();
+    const nextHour = now.getHours() + 1;
+    return nextHour > 12 ? nextHour - 12 : nextHour === 0 ? 12 : nextHour;
+  });
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  const [selectedAmPm, setSelectedAmPm] = useState(() => {
+    const now = new Date();
+    const nextHour = now.getHours() + 1;
+    return nextHour >= 12 ? 'PM' : 'AM';
+  });
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
@@ -112,6 +120,8 @@ const BookingScreen = () => {
     loadAddresses();
     requestLocationPermission();
   }, []);
+
+
 
   const requestLocationPermission = async () => {
     try {
@@ -459,6 +469,14 @@ const BookingScreen = () => {
 
     newDate.setHours(hour);
     newDate.setMinutes(selectedMinute);
+
+    // Check if the selected time has already passed
+    const now = new Date();
+    if (newDate <= now) {
+      Alert.alert('Invalid Time', 'You cannot select a time that has already passed.');
+      return;
+    }
+
     setDate(newDate);
     setShowTimeModal(false);
   };
@@ -948,42 +966,30 @@ const BookingScreen = () => {
               <View style={styles.pickerColumn}>
                 <FlatList
                   data={hours}
-                  initialScrollIndex={hours.indexOf(selectedHour === 0 ? 12 : selectedHour > 12 ? selectedHour - 12 : selectedHour)}
+                  initialScrollIndex={hours.indexOf(selectedHour)}
                   getItemLayout={(data, index) => ({
                     length: 50,
                     offset: 50 * index,
                     index,
                   })}
-                  renderItem={({ item }) => {
-                    const displayHour = selectedHour === 0 ? 12 : selectedHour > 12 ? selectedHour - 12 : selectedHour;
-                    const isSelected = item === displayHour;
-
-                    return (
-                      <TouchableOpacity
-                        style={[styles.pickerItem, isSelected && styles.selectedPickerItem]}
-                        onPress={() => {
-                          if (selectedAmPm === 'PM' && item !== 12) {
-                            setSelectedHour(item + 12);
-                          } else if (selectedAmPm === 'AM' && item === 12) {
-                            setSelectedHour(0);
-                          } else {
-                            setSelectedHour(item);
-                          }
-                        }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.pickerItem, item === selectedHour && styles.selectedPickerItem]}
+                      onPress={() => setSelectedHour(item)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          item === selectedHour && styles.selectedPickerItemText
+                        ]}
                       >
-                        <Text
-                          style={[
-                            styles.pickerItemText,
-                            isSelected && styles.selectedPickerItemText
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }}
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   keyExtractor={(item) => item.toString()}
                   showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
                 />
               </View>
 
@@ -991,7 +997,7 @@ const BookingScreen = () => {
               <View style={styles.pickerColumn}>
                 <FlatList
                   data={minutes}
-                  initialScrollIndex={Math.floor(selectedMinute / 5)}
+                  initialScrollIndex={minutes.indexOf(selectedMinute)}
                   getItemLayout={(data, index) => ({
                     length: 50,
                     offset: 50 * index,
@@ -1014,6 +1020,7 @@ const BookingScreen = () => {
                   )}
                   keyExtractor={(item) => item.toString()}
                   showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
                 />
               </View>
 
@@ -1030,15 +1037,7 @@ const BookingScreen = () => {
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={[styles.pickerItem, item === selectedAmPm && styles.selectedPickerItem]}
-                      onPress={() => {
-                        setSelectedAmPm(item);
-                        // Adjust hours when AM/PM changes
-                        if (item === 'PM' && selectedHour < 12) {
-                          setSelectedHour(selectedHour + 12);
-                        } else if (item === 'AM' && selectedHour >= 12) {
-                          setSelectedHour(selectedHour - 12);
-                        }
-                      }}
+                      onPress={() => setSelectedAmPm(item)}
                     >
                       <Text
                         style={[
@@ -1052,6 +1051,7 @@ const BookingScreen = () => {
                   )}
                   keyExtractor={(item) => item}
                   showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
                 />
               </View>
             </View>
@@ -1193,6 +1193,9 @@ const createStyles = createThemedStyles(theme => ({
   pickerColumn: {
     flex: 1,
     height: 200,
+  },
+  pickerContentContainer: {
+    paddingVertical: 75, // Add padding to center items in the visible area
   },
   pickerItem: {
     height: 50,

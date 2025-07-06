@@ -4,16 +4,16 @@
     "consumer_secret": "bhEqOsXJ8Sr2vziSlKywtUa1uz9DmheEmcAu4kFUlSk3IkzMulA29SamCBuTfvAn",
     "passkey": "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919",
     "shortcode": "174379",
-    "callback_url": "https://1dca-156-0-233-52.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/callback"
+    "callback_url": "https://9cb1-41-80-112-42.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/callback"
   },
   "b2c": {
     "consumer_key": "CGuBxH0KSBJtmix9xBbdO8g47RUZKVqEs9oANCCDXlCEGGNH",
     "consumer_secret": "2Ez67Bs0H614Vtn6BNgZUMFotVSR9AvsAtTKPbCAp96787Ax69qitTGaW38d4xu3",
     "shortcode": "600998",
     "initiator_name": "testapi",
-    "security_credential": "l5EOUjbRSWubXwV28E5IlJVI/Nc+XbVwwBD0feBcMpih8FWalhfn7GUGLZ0oFCZazG2TbS7rQYvu+8Q4Vtv02FWGeCgDsl+3+qDyT1Rgy1xIQEZkaIxC+3W1RARb6ZeBoczkA1dUNMKeCd7AH/W72jt10CA9ew4QGZLFIYssJiuar/koDSR8PxtbNmyTgmFnnW9+bNpzU/5VRnVCpolq2GD8UCybdVqjDCI7yP0fhYcZm7NdAkhJU5prbq1lGDmZE6XuJeIV+a3W7+uAcsG8+0frX3cXYXF+VroqqdowFwWJQkTnj/cXx2gMQt8wriiOOpAQ2WxnWPaH2Bp6jBVEJQ==",
-    "timeout_url": "https://1dca-156-0-233-52.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c_timeout",
-    "result_url": "https://1dca-156-0-233-52.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c_result"
+    "security_credential": "d+LBRBIwa19Y4mQUwbQMRsgDhlSjahzwtp6zK8tqrKop3Jmj3B7frnOwDQxdocSZWbTjtmVPejo10dnBniWqCgENMXkW5NE6s5cLJ7KOQdl9Ex30xEBAFh3YCVMgaW0zZgDaD0VorEQbo4YqO4Y48kVRN1CbrMtWZm/VO3Bx1Hf/n1zU7e4cszO3iiYJ8D3Rlh+Vgq1lsHKgH2Ehvykcq0eIi9DF+l4KxxCoo/yYDRosfnjQYF+YC1E2LoRAvXqLMHLm1QfFyjuQyW4XoFzVr+ZpP6U7KhFTu8I/LAysPt7IBwau58vNJzvaccGs8u3NClJrv2xg0mdx0isTVI46Hw==",
+    "timeout_url": "https://9cb1-41-80-112-42.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c_timeout",
+    "result_url": "https://9cb1-41-80-112-42.ngrok-free.app/taskconnect-30e07/us-central1/api/mpesa/b2c_result"
   },
   "sandbox": "true"
 }

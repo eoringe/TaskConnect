@@ -54,10 +54,27 @@ service cloud.firestore {
         // that is currently 'pending_approval'. This is for the `handleUpdateRequest` function.
         (
           request.auth.uid == resource.data.taskerId &&
-          request.writeFields.size() == 1 &&
-          request.writeFields.hasAll(['status']) &&
-          (request.resource.data.status == 'in_progress' || request.resource.data.status == 'rejected') &&
-          resource.data.status == 'pending_approval'
+          (
+            // Simple status update (for handleUpdateRequest)
+            (
+              request.writeFields.size() == 1 &&
+              request.writeFields.hasAll(['status']) &&
+              (request.resource.data.status == 'in_progress' || request.resource.data.status == 'rejected') &&
+              resource.data.status == 'pending_approval'
+            ) ||
+            // Detailed rejection with reason (for rejectJobWithReason)
+            (
+              request.writeFields.size() == 4 &&
+              request.writeFields.hasAll(['status', 'rejectionReason', 'rejectionReasonText', 'rejectedAt']) &&
+              request.resource.data.status == 'rejected' &&
+              resource.data.status == 'pending_approval' &&
+              request.resource.data.rejectionReason in ['unavailable', 'location', 'details', 'other'] &&
+              request.resource.data.rejectionReasonText is string &&
+              request.resource.data.rejectionReasonText.size() > 0 &&
+              request.resource.data.rejectionReasonText.size() <= 500 &&
+              request.resource.data.rejectedAt is timestamp
+            )
+          )
         ) ||
         // --- Client Actions ---
         // Allows a client to add/update a `checkoutRequestId` to initiate payment.
@@ -67,6 +84,14 @@ service cloud.firestore {
           request.writeFields.size() == 1 &&
           request.writeFields.hasAll(['checkoutRequestId']) &&
           resource.data.status == 'in_progress'
+        ) ||
+        // --- Payment Status Updates ---
+        // Allow system to update payment status
+        (
+          request.auth.uid == resource.data.clientId &&
+          request.writeFields.size() == 1 &&
+          request.writeFields.hasAll(['paymentStatus']) &&
+          request.resource.data.paymentStatus in ['pending', 'processing', 'completed', 'failed']
         ) ||
         // --- Admin Actions ---
         isAdmin() // Admins can update any field
