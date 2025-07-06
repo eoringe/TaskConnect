@@ -123,6 +123,26 @@ const debugFirestoreAccess = async (db: any, otherParticipantId: string) => {
   console.log(`=== END DEBUG ===\n`);
 };
 
+// Helper to get initials from a name
+function getInitials(name: string) {
+  if (!name) return '';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Helper to generate a color from a string
+function stringToColor(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const c = (hash & 0x00FFFFFF)
+    .toString(16)
+    .toUpperCase();
+  return '#' + '00000'.substring(0, 6 - c.length) + c;
+}
+
 const ChatListScreen: React.FC = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -440,9 +460,18 @@ const ChatListScreen: React.FC = () => {
               {item.otherParticipantPhoto ? (
                 <Image source={{ uri: item.otherParticipantPhoto }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person-circle-outline" size={50} color={theme.colors.textLight} />
-                </View>
+                // If no photo, show initials for customers (users), else fallback to Ionicons for taskers
+                (item.otherParticipantName === 'User' || item.otherParticipantName === 'Unknown User') ? (
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: stringToColor(item.otherParticipantName || 'U') }]}> 
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 22 }}>
+                      {getInitials(item.otherParticipantName || 'U')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person-circle-outline" size={50} color={theme.colors.textLight} />
+                  </View>
+                )
               )}
               <View style={styles.chatContent}>
                 <Text style={styles.chatPartnerName}>{item.otherParticipantName}</Text>
