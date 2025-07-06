@@ -721,6 +721,18 @@ const BookingScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Book Tasker</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <TouchableOpacity 
         style={styles.card}
         onPress={() => {
@@ -752,9 +764,6 @@ const BookingScreen = () => {
           <Text style={styles.name}>{tasker.taskerName}</Text>
           <Text style={styles.detail}>{tasker.category}</Text>
           <Text style={styles.detail}>{tasker.price}</Text>
-          {tasker.bio && (
-            <Text style={styles.bio}>{tasker.bio}</Text>
-          )}
         </View>
         <View style={styles.cardActions}>
           <TouchableOpacity
@@ -1139,13 +1148,7 @@ const createStyles = createThemedStyles(theme => ({
     color: theme.colors.textLight,
     marginBottom: 2,
   },
-  bio: {
-    fontSize: 13,
-    color: theme.colors.textLight,
-    marginTop: 8,
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
+
   dateTimeSection: {
     marginBottom: 20,
   },
@@ -1472,6 +1475,24 @@ const createStyles = createThemedStyles(theme => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingVertical: 30,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  headerSpacer: {
+    width: 40,
   },
 }));
 

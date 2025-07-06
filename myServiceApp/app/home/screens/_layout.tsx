@@ -80,6 +80,20 @@ export default function ScreensLayout() {
           title: "Tasker Profile"
         }}
       />
+      <Stack.Screen
+        name="CustomerTaskerProfileScreen"
+        options={{
+          headerShown: false,
+          title: "Tasker Profile"
+        }}
+      />
+      <Stack.Screen
+        name="bookingScreen"
+        options={{
+          headerShown: false,
+          title: "Book Tasker"
+        }}
+      />
     </Stack>
   );
 }

@@ -70,6 +70,7 @@ function RootLayoutNav() {
         <Stack.Screen name="booking" options={{ headerShown: false }} />
         <Stack.Screen name="bookingSummary" options={{ headerShown: false }} />
         <Stack.Screen name="home/screens/ChatRoomScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="home/screens/CustomerTaskerProfileScreen" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{
