@@ -155,8 +155,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
         marginBottom: 15,
     },
     descriptionInput: {
@@ -165,8 +165,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 8,
         padding: 10,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
         minHeight: 80,
         textAlignVertical: 'top',
         marginBottom: 15,
@@ -537,7 +537,7 @@ export default function SupportingDocumentsScreen() {
                                     if (errors.name) setErrors(prev => { const newErrors = { ...prev }; delete newErrors.name; return newErrors; });
                                 }}
                                 placeholder="Document Name (e.g., 'Plumbing Certificate', 'Client Referral')"
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
                             <TextInput
@@ -546,7 +546,7 @@ export default function SupportingDocumentsScreen() {
                                 onChangeText={(text) => setCurrentDocument(prev => ({ ...prev, description: text }))}
                                 placeholder="Description (e.g., 'Certified in advanced plumbing techniques')"
                                 multiline
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.file && <Text style={styles.errorText}>{errors.file}</Text>}
                             <TouchableOpacity style={styles.saveButton} onPress={handleAddDocument} disabled={isProcessing}>

@@ -11,7 +11,8 @@ import {
   StatusBar,
   SafeAreaView,
   Alert,
-  ScrollView
+  ScrollView,
+  Modal
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +23,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useThemedStyles } from '../hooks/useThemedStyles';
 
 const SignUpScreen = () => {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [countryCode, setCountryCode] = useState('+1'); // Default to US
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,7 +35,9 @@ const SignUpScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Error states
-  const [nameError, setNameError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
@@ -41,7 +47,9 @@ const SignUpScreen = () => {
     let isValid = true;
 
     // Reset previous errors
-    setNameError('');
+    setFirstNameError('');
+    setLastNameError('');
+    setPhoneError('');
     setEmailError('');
     setPasswordError('');
     setConfirmPasswordError('');
@@ -126,7 +134,6 @@ const SignUpScreen = () => {
         }
       }, 2000);
     } catch (error) {
-      // Handle specific Firebase auth errors
       let errorMessage = 'Failed to create account. Please try again.';
 
       if (error && error.code === 'auth/email-already-in-use') {
@@ -336,14 +343,66 @@ const SignUpScreen = () => {
                 placeholderTextColor={theme.colors.textLight}
                 value={name}
                 onChangeText={(text) => {
-                  setName(text);
-                  if (nameError) setNameError('');
+                  setLastName(text);
+                  if (lastNameError) setLastNameError('');
                 }}
                 autoCapitalize="words"
                 editable={!isLoading}
               />
             </View>
-            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            {lastNameError ? <Text style={styles.errorText}>{lastNameError}</Text> : null}
+
+            {/* Country Code and Phone Number */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.inputContainer, phoneError ? styles.inputError : null, { flex: 1.8, marginRight: 8 }]}> 
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 10 }}
+                  onPress={() => setShowCountryDropdown(true)}
+                >
+                  <Text style={{ color: '#fff', fontSize: 16 }}>{countryOptions.find(c => c.code === countryCode)?.label || countryCode}</Text>
+                  <Ionicons name="chevron-down" size={18} color="#fff" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+                {/* Country dropdown modal */}
+                <Modal
+                  visible={showCountryDropdown}
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setShowCountryDropdown(false)}
+                >
+                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 16, width: 250 }}>
+                      {countryOptions.map(option => (
+                        <TouchableOpacity
+                          key={option.code}
+                          style={{ paddingVertical: 10 }}
+                          onPress={() => {
+                            setCountryCode(option.code);
+                            setShowCountryDropdown(false);
+                          }}
+                        >
+                          <Text style={{ fontSize: 16 }}>{option.label} ({option.code})</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </Modal>
+              </View>
+              <View style={[styles.inputContainer, phoneError ? styles.inputError : null, { flex: 3 }]}> 
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone Number"
+                  placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                  value={phone}
+                  onChangeText={(text) => {
+                    setPhone(text);
+                    if (phoneError) setPhoneError('');
+                  }}
+                  keyboardType="phone-pad"
+                  editable={!isLoading}
+                />
+              </View>
+            </View>
+            {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
             {/* Email Input */}
             <Text style={styles.inputLabel}>Email Address</Text>
@@ -470,6 +529,80 @@ const SignUpScreen = () => {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* OTP Method Selection Modal */}
+      <Modal
+        visible={showOtpMethodModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOtpMethodModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '80%', alignItems: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#222' }}>Choose Verification Method</Text>
+            <Text style={{ fontSize: 16, color: '#444', marginBottom: 24, textAlign: 'center' }}>
+              Where should we send your verification code?
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#3C9D4E', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, marginBottom: 16, width: '100%' }}
+              onPress={handlePhoneVerification}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>Send to Phone ({countryCode} {phone})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 8 }}
+              onPress={() => setShowOtpMethodModal(false)}
+            >
+              <Text style={{ color: '#888', fontSize: 15 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Phone OTP Modal */}
+      <Modal
+        visible={showPhoneOtpModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhoneOtpModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '80%', alignItems: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#222' }}>Enter OTP</Text>
+            <Text style={{ fontSize: 16, color: '#444', marginBottom: 24, textAlign: 'center' }}>
+              We sent a code to {countryCode} {phone}. Enter it below to verify your phone number.
+            </Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 18, width: '80%', marginBottom: 12, textAlign: 'center' }}
+              placeholder="Enter OTP"
+              keyboardType="number-pad"
+              value={otp}
+              onChangeText={setOtp}
+              editable={!isVerifying}
+              maxLength={6}
+            />
+            {otpError ? <Text style={{ color: 'red', marginBottom: 8 }}>{otpError}</Text> : null}
+            <TouchableOpacity
+              style={{ backgroundColor: '#3C9D4E', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, marginBottom: 8, width: '100%' }}
+              onPress={handleVerifyOtp}
+              disabled={isVerifying}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>{isVerifying ? 'Verifying...' : 'Verify'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 8 }}
+              onPress={() => setShowPhoneOtpModal(false)}
+            >
+              <Text style={{ color: '#888', fontSize: 15 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+      />
     </KeyboardAvoidingView>
   );
 };

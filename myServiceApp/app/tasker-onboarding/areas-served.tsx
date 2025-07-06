@@ -71,8 +71,8 @@ const createStyles = createThemedStyles(theme => ({
         flex: 1,
         height: 50,
         fontSize: 16,
-        color: '#fff',
-        backgroundColor: '#222',
+        color: theme.dark ? '#fff' : '#000',
+        backgroundColor: theme.dark ? '#222' : '#fff',
     },
     searchLoadingIndicator: {
         marginLeft: 10,
@@ -346,7 +346,7 @@ export default function AreasServedScreen() {
                                     fetchMapboxResults(searchQuery);
                                 }
                             }}
-                            placeholderTextColor={theme.colors.textLight}
+                            placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                         />
                         {loadingSearch && <ActivityIndicator size="small" color="#4A80F0" style={styles.searchLoadingIndicator} />}
                         {searchQuery.length > 0 && !loadingSearch && (

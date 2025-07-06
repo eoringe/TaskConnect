@@ -68,8 +68,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 12,
         padding: 15,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     inputError: {
         borderColor: theme.colors.error,
@@ -327,7 +327,7 @@ export default function IDVerificationScreen() {
                                 autoCapitalize="characters"
                                 maxLength={11}
                                 editable={!isProcessing}
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.kraPin && (
                                 <Text style={styles.errorText}>{errors.kraPin}</Text>
@@ -349,7 +349,7 @@ export default function IDVerificationScreen() {
                                 keyboardType="number-pad"
                                 maxLength={8}
                                 editable={!isProcessing}
-                                placeholderTextColor={theme.colors.textLight}
+                                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                             />
                             {errors.idNumber && (
                                 <Text style={styles.errorText}>{errors.idNumber}</Text>

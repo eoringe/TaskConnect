@@ -179,8 +179,22 @@ const DashboardTaskers = ({
                 <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
                   {editId === tasker.id ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <input type="text" value={editData.idNumber || ''} onChange={e => handleEditChange('idNumber', e.target.value)} style={{ ...inputStyle, width: '200px' }} placeholder="ID Number" />
-                      <input type="text" value={editData.kraPin || ''} style={{ ...inputStyle, width: '200px', background: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }} placeholder="KRA Pin" readOnly tabIndex={-1} />
+                      <input 
+                        type="text" 
+                        value={editData.idNumber || ''} 
+                        style={{ ...inputStyle, width: '200px', background: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }} 
+                        placeholder="ID Number" 
+                        readOnly 
+                        tabIndex={-1} 
+                      />
+                      <input 
+                        type="text" 
+                        value={editData.kraPin || ''} 
+                        style={{ ...inputStyle, width: '200px', background: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }} 
+                        placeholder="KRA Pin" 
+                        readOnly 
+                        tabIndex={-1} 
+                      />
                     </div>
                   ) : (
                     <>

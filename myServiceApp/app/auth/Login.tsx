@@ -589,7 +589,7 @@ const LoginScreen = () => {
       </View>
     );
   };
-
+  
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -761,19 +761,21 @@ const LoginScreen = () => {
             </View>
           </>
         )}
+        <View style={{ height: insets.bottom }} />
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = createThemedStyles(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: theme.dark ? theme.colors.background : '#fff',
   },
   safeArea: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? 30 : 10,
+    backgroundColor: theme.dark ? theme.colors.background : '#fff',
   },
   gradient: {
     position: 'absolute',
@@ -786,7 +788,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
-    backgroundColor: '#111',
+    backgroundColor: theme.colors.background,
   },
   codeInputHeaderContainer: {
     alignItems: 'center',
@@ -797,7 +799,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   cancelButtonText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textLight,
     fontSize: 16,
     textDecorationLine: 'underline',
   },
@@ -808,9 +810,9 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: theme.colors.shadowOpacity,
     shadowRadius: 5,
     elevation: 6,
   },
@@ -829,12 +831,12 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   subHeaderText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textLight,
   },
   formContainer: {
     paddingHorizontal: 30,
@@ -843,17 +845,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: theme.dark ? theme.colors.border : '#000',
     paddingHorizontal: 15,
   },
   inputError: {
-    borderColor: '#ff6b6b',
+    borderColor: theme.colors.error,
   },
   errorText: {
-    color: '#ff6b6b',
+    color: theme.colors.error,
     fontSize: 12,
     marginBottom: 12,
     marginLeft: 5,
@@ -865,11 +867,12 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 10,
+    color: theme.colors.textLight,
   },
   input: {
     flex: 1,
     height: 55,
-    color: '#fff',
+    color: theme.dark ? theme.colors.text : '#000',
     fontSize: 16,
   },
   passwordToggle: {
@@ -880,7 +883,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontSize: 14,
   },
   signInButton: {
@@ -889,9 +892,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 25,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: theme.colors.shadowOpacity,
     shadowRadius: 5,
     elevation: 5,
   },
@@ -903,10 +906,10 @@ const styles = StyleSheet.create({
   biometricButton: {
     marginBottom: 25,
     borderWidth: 1,
-    borderColor: 'rgba(92, 189, 106, 0.6)',
+    borderColor: theme.colors.primaryLight,
     borderRadius: 12,
     padding: 12,
-    backgroundColor: 'rgba(92, 189, 106, 0.1)',
+    backgroundColor: theme.colors.primaryLight,
   },
   biometricButtonContent: {
     flexDirection: 'row',
@@ -915,9 +918,10 @@ const styles = StyleSheet.create({
   },
   biometricIcon: {
     marginRight: 8,
+    color: '#fff',
   },
   biometricButtonText: {
-    color: '#5CBD6A',
+    color: theme.dark ? theme.colors.primary : '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -929,10 +933,10 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: theme.colors.border,
   },
   dividerText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.colors.textLight,
     fontSize: 12,
     fontWeight: '600',
     marginHorizontal: 10,
@@ -945,12 +949,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: theme.colors.border,
   },
   socialButtonDisabled: {
     opacity: 0.6,
@@ -962,11 +966,11 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   signUpText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textLight,
     fontSize: 15,
   },
   signUpLink: {
-    color: '#5CBD6A',
+    color: theme.colors.primary,
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -1026,6 +1030,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-});
+}));
 
 export default LoginScreen;

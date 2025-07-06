@@ -124,8 +124,8 @@ const createStyles = createThemedStyles(theme => ({
         borderRadius: 12,
         padding: 15,
         fontSize: 16,
-        backgroundColor: '#222',
-        color: '#fff',
+        backgroundColor: theme.dark ? '#222' : '#fff',
+        color: theme.dark ? '#fff' : '#000',
     },
     inputError: {
         borderColor: theme.colors.error,
@@ -155,7 +155,8 @@ export default function PaymentMethodsScreen() {
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [showMpesaModal, setShowMpesaModal] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const theme = useTheme();
+    const { theme } = useTheme();
+    const styles = useThemedStyles(createStyles);
 
     const paymentMethods = [
         { id: 'mpesa', label: 'M-Pesa', icon: 'phone-portrait-outline' },
@@ -313,7 +314,7 @@ export default function PaymentMethodsScreen() {
                                     }}
                                     placeholder="Enter M-Pesa number"
                                     keyboardType="phone-pad"
-                                    placeholderTextColor={theme.colors.textLight}
+                                    placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                                 />
                                 {errors.phoneNumber && (
                                     <Text style={styles.errorText}>{errors.phoneNumber}</Text>
@@ -336,7 +337,7 @@ export default function PaymentMethodsScreen() {
                                         }
                                     }}
                                     placeholder="Enter account name"
-                                    placeholderTextColor={theme.colors.textLight}
+                                    placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
                                 />
                                 {errors.name && (
                                     <Text style={styles.errorText}>{errors.name}</Text>

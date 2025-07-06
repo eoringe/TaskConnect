@@ -4,9 +4,13 @@ import { db } from "./firebaseConfig";
 import {
   collection,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
+  writeBatch,
+  arrayRemove,
+  setDoc,
 } from "firebase/firestore";
 import * as IonIcons from "react-icons/io5";
 import DashboardOverview from './components/DashboardOverview';
@@ -92,10 +96,12 @@ export default function AdminDashboard() {
   const fetchCategories = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "serviceCategories"));
-      const data: ServiceCategory[] = querySnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as ServiceCategory[];
+      const data: ServiceCategory[] = querySnapshot.docs
+        .map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        } as ServiceCategory))
+        .filter((category) => category.name !== 'All');
       setCategories(data);
     } catch (err: any) {
       setError("Failed to fetch categories: " + err.message);
@@ -142,12 +148,100 @@ export default function AdminDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this tasker?")) return;
+    if (!confirm("Are you sure you want to delete this tasker? This will also remove all their services from the platform.")) return;
     try {
+      // First, get all service categories and remove all services by this tasker
+      const batch = writeBatch(db);
+      const serviceCategoriesSnapshot = await getDocs(collection(db, "serviceCategories"));
+      
+      for (const categoryDoc of serviceCategoriesSnapshot.docs) {
+        const categoryData = categoryDoc.data();
+        if (categoryData.services && Array.isArray(categoryData.services)) {
+          // Filter out all services that belong to this tasker
+          const servicesToRemove = categoryData.services.filter((service: any) => 
+            service.taskerId === id
+          );
+          
+          // Remove each service that belongs to this tasker
+          for (const serviceToRemove of servicesToRemove) {
+            console.log('Removing service from category:', categoryDoc.id, serviceToRemove);
+            batch.update(categoryDoc.ref, {
+              services: arrayRemove(serviceToRemove)
+            });
+          }
+        }
+      }
+      
+      // Delete the tasker document
       await deleteDoc(doc(db, "taskers", id));
+      
+      // Commit all the service removals
+      await batch.commit();
+      
+      // Update local state
       setTaskers((prev) => prev.filter((t) => t.id !== id));
+      
+      // Refresh categories to reflect the changes
+      fetchCategories();
     } catch (err: any) {
       setError("Failed to delete tasker: " + err.message);
+    }
+  };
+
+  const handleAddCategory = async (name: string, icon: string) => {
+    try {
+      // Check if category already exists
+      const existingCategory = categories.find(cat => cat.name.toLowerCase() === name.toLowerCase());
+      if (existingCategory) {
+        throw new Error('A category with this name already exists');
+      }
+
+      // Create document ID from the category name
+      const documentId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      
+      // Check if document already exists in Firestore
+      const existingDoc = await getDoc(doc(db, "serviceCategories", documentId));
+      if (existingDoc.exists()) {
+        throw new Error('A category with this name already exists');
+      }
+
+      // Create new category document with name as ID
+      const newCategoryRef = doc(db, "serviceCategories", documentId);
+      const newCategory = {
+        id: documentId,
+        name: name,
+        icon: icon || '',
+        services: []
+      };
+
+      await setDoc(newCategoryRef, {
+        name: name,
+        icon: icon || '',
+        services: []
+      });
+
+      // Update local state
+      setCategories(prev => [...prev, newCategory]);
+      
+      console.log('Category added successfully:', newCategory);
+    } catch (err: any) {
+      console.error('Error adding category:', err);
+      throw new Error(err.message || 'Failed to add category');
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      // Delete the category document
+      await deleteDoc(doc(db, "serviceCategories", categoryId));
+      
+      // Update local state
+      setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+      
+      console.log('Category deleted successfully:', categoryId);
+    } catch (err: any) {
+      console.error('Error deleting category:', err);
+      setError("Failed to delete category: " + err.message);
     }
   };
 
@@ -256,6 +350,8 @@ export default function AdminDashboard() {
       setShowCategoryModal={setShowCategoryModal}
       getIonIconComponent={getIonIconComponent}
       getTaskersForCategory={getTaskersForCategory}
+      onAddCategory={handleAddCategory}
+      onDeleteCategory={handleDeleteCategory}
     />
   );
 
