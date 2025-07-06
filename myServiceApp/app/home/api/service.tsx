@@ -53,6 +53,8 @@ export async function fetchServicesByCategory(category: string): Promise<Service
         console.log('🔍 DEBUG SERVICE API: Tasker services:', tasker.services);
         console.log('🔍 DEBUG SERVICE API: Tasker profileImageBase64 exists:', !!tasker.profileImageBase64);
         console.log('🔍 DEBUG SERVICE API: Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
+        console.log('🔍 DEBUG SERVICE API: Tasker phone:', tasker.phoneNumber || tasker.phone);
+        console.log('🔍 DEBUG SERVICE API: Tasker email:', tasker.email);
 
         return {
           id: svc.id,
@@ -77,6 +79,10 @@ export async function fetchServicesByCategory(category: string): Promise<Service
           taskerId: taskerId,
           // Add the actual tasker Firestore document ID
           taskerFirestoreId: taskerId,
+          // Add contact information
+          phoneNumber: tasker.phoneNumber ?? null,
+          phone: tasker.phone ?? null,
+          email: tasker.email ?? null,
         } as unknown as Service;
     })
   );
@@ -105,6 +111,8 @@ export async function fetchAllServices(): Promise<Service[]> {
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker services:', tasker.services);
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker profileImageBase64 exists:', !!tasker.profileImageBase64);
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker phone:', tasker.phoneNumber || tasker.phone);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker email:', tasker.email);
 
         return {
           id: svc.id,
@@ -129,6 +137,10 @@ export async function fetchAllServices(): Promise<Service[]> {
           taskerId: taskerId,
           // Add the actual tasker Firestore document ID
           taskerFirestoreId: taskerId,
+          // Add contact information
+          phoneNumber: tasker.phoneNumber ?? null,
+          phone: tasker.phone ?? null,
+          email: tasker.email ?? null,
         } as unknown as Service;
       })
     );
