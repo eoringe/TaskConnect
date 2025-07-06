@@ -1,6 +1,4 @@
-"import React, { useEffect, useState } from 'react';"
-
-import React from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/context/ThemeContext';
@@ -123,7 +121,7 @@ const TaskerRatingsScreen = () => {
             case 'recent':
                 return reviews.slice(0, 10);
             case 'top':
-                return reviews.filter(review => review.stars >= 4).slice(0, 10);
+                return reviews.filter((review: Review) => review.stars >= 4).slice(0, 10);
             default:
                 return reviews;
         }

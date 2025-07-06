@@ -68,56 +68,48 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         // Tasker approves/rejects
         (
-        request.auth.uid == resource.data.taskerId &&
-        request.resource.data.status in ['in_progress', 'rejected'] &&
-        resource.data.status == 'pending_approval' &&
-        (
-          // approving: only status
+          request.auth.uid == resource.data.taskerId &&
           (
-            request.resource.data.status == 'in_progress' &&
-            request.writeFields.hasOnly(['status'])
+            // Simple status update (for handleUpdateRequest)
+            (
+              request.writeFields.size() == 1 &&
+              request.writeFields.hasAll(['status']) &&
+              (request.resource.data.status == 'in_progress' || request.resource.data.status == 'rejected') &&
+              resource.data.status == 'pending_approval'
+            ) ||
+            // Detailed rejection with reason (for rejectJobWithReason)
+            (
+              request.writeFields.size() == 4 &&
+              request.writeFields.hasAll(['status', 'rejectionReason', 'rejectionReasonText', 'rejectedAt']) &&
+              request.resource.data.status == 'rejected' &&
+              resource.data.status == 'pending_approval' &&
+              request.resource.data.rejectionReason in ['unavailable', 'location', 'details', 'other'] &&
+              request.resource.data.rejectionReasonText is string &&
+              request.resource.data.rejectionReasonText.size() > 0 &&
+              request.resource.data.rejectionReasonText.size() <= 500 &&
+              request.resource.data.rejectedAt is timestamp
+            )
           )
-          ||
-          // rejecting: status + reason fields
-          (
-            request.resource.data.status == 'rejected' &&
-            request.writeFields.hasOnly([
-              'status',
-              'rejectionReason',
-              'rejectionReasonText',
-              'rejectedAt'
-            ])
-          )
-        )
-      )
-        ||
-        // Client kicks off STK-push by adding checkoutRequestId
+        ) ||
+        // --- Client Actions ---
+        // Allows a client to add/update a `checkoutRequestId` to initiate payment.
+        // This action is only allowed when the job has been approved by the tasker.
         (
-          request.auth.uid == resource.data.clientId
-          && request.writeFields.hasOnly(['checkoutRequestId'])
-          && resource.data.status in ['pending_approval','in_progress']
-        )
-         ||
-        // — **DEMO ONLY**: client marks payment received into escrow —
+          request.auth.uid == resource.data.clientId &&
+          request.writeFields.size() == 1 &&
+          request.writeFields.hasAll(['checkoutRequestId']) &&
+          resource.data.status == 'in_progress'
+        ) ||
+        // --- Payment Status Updates ---
+        // Allow system to update payment status
         (
-          request.auth.uid == resource.data.clientId
-          // only these three fields…
-          && request.writeFields.hasOnly(['status','paymentStatus','paymentDetails'])
-          // …and they must be moving into escrow/paid
-          && request.resource.data.status == 'in_escrow'
-          && request.resource.data.paymentStatus == 'paid'
-        )
-
-        ||
-        // Client submits rating & marks completed
-         (
-          request.auth.uid == resource.data.clientId
-          && request.writeFields.hasOnly(['rating','status'])
-          // no extra checks needed for testing
-        )
-        ||
-        // Admin can do anything
-        isAdmin()
+          request.auth.uid == resource.data.clientId &&
+          request.writeFields.size() == 1 &&
+          request.writeFields.hasAll(['paymentStatus']) &&
+          request.resource.data.paymentStatus in ['pending', 'processing', 'completed', 'failed']
+        ) ||
+        // --- Admin Actions ---
+        isAdmin() // Admins can update any field
       );
 
       allow delete: if false;

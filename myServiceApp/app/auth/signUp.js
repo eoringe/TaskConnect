@@ -1,12 +1,12 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  TextInput, 
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   StatusBar,
   SafeAreaView,
@@ -17,12 +17,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, sendEmailVerification, signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth'; 
+import { createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebase-config';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
-import { firebaseConfig } from '../../firebase-config';
 import { useTheme } from '../context/ThemeContext';
-import { useThemedStyles, createThemedStyles } from '../hooks/useThemedStyles';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 const SignUpScreen = () => {
   const [firstName, setFirstName] = useState('');
@@ -35,7 +33,7 @@ const SignUpScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Error states
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
@@ -44,32 +42,10 @@ const SignUpScreen = () => {
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [signupError, setSignupError] = useState('');
-  
-  const [showOtpMethodModal, setShowOtpMethodModal] = useState(false);
-  const [showPhoneOtpModal, setShowPhoneOtpModal] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  
-  const countryOptions = [
-    { code: '+1', label: '🇺🇸 US' },
-    { code: '+254', label: '🇰🇪 KE' },
-    { code: '+234', label: '🇳🇬 NG' },
-    { code: '+44', label: '🇬🇧 UK' },
-    { code: '+91', label: '🇮🇳 IN' },
-  ];
-  
-  const recaptchaVerifier = useRef(null);
-  
-  const { theme } = useTheme();
-  const styles = useThemedStyles(createStyles);
-  
+
   const validateForm = () => {
     let isValid = true;
-    
+
     // Reset previous errors
     setFirstNameError('');
     setLastNameError('');
@@ -78,25 +54,13 @@ const SignUpScreen = () => {
     setPasswordError('');
     setConfirmPasswordError('');
     setSignupError('');
-    
-    // Validate first name
-    if (!firstName.trim()) {
-      setFirstNameError('First name is required');
+
+    // Validate name
+    if (!name.trim()) {
+      setNameError('Name is required');
       isValid = false;
     }
-    
-    // Validate last name
-    if (!lastName.trim()) {
-      setLastNameError('Last name is required');
-      isValid = false;
-    }
-    
-    // Validate phone
-    if (!phone.trim()) {
-      setPhoneError('Phone number is required');
-      isValid = false;
-    }
-    
+
     // Validate email
     if (!email.trim()) {
       setEmailError('Email is required');
@@ -105,7 +69,7 @@ const SignUpScreen = () => {
       setEmailError('Email format is invalid');
       isValid = false;
     }
-    
+
     // Validate password
     if (!password) {
       setPasswordError('Password is required');
@@ -114,29 +78,64 @@ const SignUpScreen = () => {
       setPasswordError('Password must be at least 6 characters');
       isValid = false;
     }
-    
+
     // Validate password confirmation
     if (password !== confirmPassword) {
       setConfirmPasswordError('Passwords do not match');
       isValid = false;
     }
-    
+
     return isValid;
   };
 
   const handleSignUp = async () => {
     if (!validateForm()) return;
+
     setIsLoading(true);
     setSignupError('');
+
     try {
       // Create user with email and password
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+      // Update user profile with name
       await updateProfile(userCredential.user, {
-        displayName: `${firstName} ${lastName}`,
-        phoneNumber: phone
+        displayName: name
       });
+
+
+
+      // Set up a listener to ensure auth state is properly updated before navigation
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+
+          router.replace('/home');
+          unsubscribe(); // Remove the listener once we've navigated
+        }
+      });
+
+      // Fallback if the auth state doesn't update within 2 seconds
+      setTimeout(() => {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+
+          unsubscribe(); // Remove the listener
+          router.replace('/home');
+        } else {
+
+          unsubscribe(); // Remove the listener
+          Alert.alert(
+            'Account Created',
+            'Your account has been created successfully. Please sign in now.',
+            [
+              { text: 'OK', onPress: () => router.replace('/auth/Login') }
+            ]
+          );
+        }
+      }, 2000);
     } catch (error) {
       let errorMessage = 'Failed to create account. Please try again.';
+
       if (error && error.code === 'auth/email-already-in-use') {
         errorMessage = 'This email is already in use';
       } else if (error && error.code === 'auth/invalid-email') {
@@ -144,6 +143,7 @@ const SignUpScreen = () => {
       } else if (error && error.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak';
       }
+
       setSignupError(errorMessage);
       Alert.alert('Sign-Up Error', errorMessage);
     } finally {
@@ -151,83 +151,175 @@ const SignUpScreen = () => {
     }
   };
 
-  const handleGoToLogin = () => { 
+  const handleGoToLogin = () => {
     router.push('/auth/Login');
   };
 
-  const handlePhoneVerification = async () => {
-    setShowOtpMethodModal(false);
-    setShowPhoneOtpModal(true);
-    setOtp('');
-    setOtpError('');
-    try {
-      // Set up invisible reCAPTCHA (web only, for native use expo-firebase-recaptcha)
-      let appVerifier;
-      if (typeof window !== 'undefined') {
-        if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', { size: 'invisible' }, auth);
-        }
-        appVerifier = window.recaptchaVerifier;
-      } else {
-        // For native, skip reCAPTCHA (handled by Firebase natively)
-        appVerifier = undefined;
-      }
-      const fullPhone = `${countryCode}${phone}`;
-      const confirmation = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
-      setConfirmationResult(confirmation);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to send OTP.');
-      setShowPhoneOtpModal(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    setIsVerifying(true);
-    setOtpError('');
-    try {
-      if (confirmationResult) {
-        await confirmationResult.confirm(otp);
-        // Now create the Firebase account
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(userCredential.user, {
-          displayName: `${firstName} ${lastName}`,
-          phoneNumber: phone
-        });
-        setShowPhoneOtpModal(false);
-        router.replace('/home');
-      } else {
-        setOtpError('No OTP session found.');
-      }
-    } catch (e) {
-      setOtpError('Invalid OTP or failed to create account. Please try again.');
-    }
-    setIsVerifying(false);
-  };
+  const { theme, isDarkMode } = useTheme();
+  const styles = useThemedStyles((theme) => ({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    safeArea: {
+      flex: 1,
+      paddingTop: Platform.OS === 'android' ? 30 : 10,
+      backgroundColor: theme.colors.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 30,
+    },
+    gradient: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      // Use a transparent overlay for both modes
+    },
+    headerContainer: {
+      alignItems: 'center',
+      marginTop: Platform.OS === 'ios' ? 60 : 60,
+      marginBottom: 40,
+    },
+    logoContainer: {
+      marginBottom: 20,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.colors.shadowOpacity,
+      shadowRadius: 5,
+      elevation: 6,
+    },
+    logoGradient: {
+      width: 60,
+      height: 60,
+      borderRadius: 15,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    logoText: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+    headerText: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 8,
+    },
+    subHeaderText: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    formContainer: {
+      paddingHorizontal: 30,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 8,
+      marginLeft: 5,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingHorizontal: 15,
+    },
+    inputError: {
+      borderColor: theme.colors.error,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontSize: 12,
+      marginBottom: 12,
+      marginLeft: 5,
+    },
+    generalError: {
+      textAlign: 'center',
+      marginBottom: 15,
+      fontSize: 14,
+    },
+    inputIcon: {
+      marginRight: 10,
+      color: theme.colors.textLight,
+    },
+    input: {
+      flex: 1,
+      height: 55,
+      color: theme.colors.text,
+      fontSize: 16,
+    },
+    passwordToggle: {
+      padding: 8,
+    },
+    buttonContainer: {
+      marginTop: 15,
+      marginBottom: 25,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.colors.shadowOpacity,
+      shadowRadius: 5,
+      elevation: 5,
+    },
+    signUpButton: {
+      height: 55,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    signUpButtonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    signInContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+    signInText: {
+      color: theme.colors.textSecondary,
+      fontSize: 15,
+    },
+    signInLink: {
+      color: theme.colors.primary,
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+  }));
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
-      <StatusBar barStyle="light-content" />
-      
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
       <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+        colors={isDarkMode ? ['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)'] : ['rgba(255,255,255,0.8)', 'rgba(255,255,255,0.6)']}
         style={styles.gradient}
       />
-      
+
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
             <View style={styles.logoContainer}>
               <LinearGradient
-                colors={['#5CBD6A', '#3C9D4E']}
+                colors={[theme.colors.primary, theme.colors.primaryDark]}
                 start={[0, 0]}
-                end={[1, 1]}
+                end={[1, 0]}
                 style={styles.logoGradient}
               >
                 <Text style={styles.logoText}>TC</Text>
@@ -238,32 +330,18 @@ const SignUpScreen = () => {
           </View>
 
           <View style={styles.formContainer}>
-            {/* First Name Input */}
-            <View style={[styles.inputContainer, firstNameError ? styles.inputError : null]}>
-              <Ionicons name="person-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+            {/* Name Input */}
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <View style={[
+              styles.inputContainer,
+              nameError ? styles.inputError : null
+            ]}>
+              <Ionicons name="person-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="First Name"
-                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
-                value={firstName}
-                onChangeText={(text) => {
-                  setFirstName(text);
-                  if (firstNameError) setFirstNameError('');
-                }}
-                autoCapitalize="words"
-                editable={!isLoading}
-              />
-            </View>
-            {firstNameError ? <Text style={styles.errorText}>{firstNameError}</Text> : null}
-
-            {/* Last Name Input */}
-            <View style={[styles.inputContainer, lastNameError ? styles.inputError : null]}>
-              <Ionicons name="person-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Last Name"
-                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
-                value={lastName}
+                placeholder="Enter your full name"
+                placeholderTextColor={theme.colors.textLight}
+                value={name}
                 onChangeText={(text) => {
                   setLastName(text);
                   if (lastNameError) setLastNameError('');
@@ -327,15 +405,16 @@ const SignUpScreen = () => {
             {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
             {/* Email Input */}
+            <Text style={styles.inputLabel}>Email Address</Text>
             <View style={[
-              styles.inputContainer, 
+              styles.inputContainer,
               emailError ? styles.inputError : null
             ]}>
-              <Ionicons name="mail-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Email Address"
-                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                placeholder="Enter your email address"
+                placeholderTextColor={theme.colors.textLight}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -349,15 +428,16 @@ const SignUpScreen = () => {
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
             {/* Password Input */}
+            <Text style={styles.inputLabel}>Password</Text>
             <View style={[
               styles.inputContainer,
               passwordError ? styles.inputError : null
             ]}>
-              <Ionicons name="lock-closed-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Password"
-                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                placeholder="Enter your password"
+                placeholderTextColor={theme.colors.textLight}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -367,30 +447,31 @@ const SignUpScreen = () => {
                 autoCapitalize="none"
                 editable={!isLoading}
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.passwordToggle}
                 onPress={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
               >
-                <Ionicons 
-                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={22} 
-                  color="rgba(255,255,255,0.7)" 
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={theme.colors.textLight}
                 />
               </TouchableOpacity>
             </View>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
             {/* Confirm Password Input */}
+            <Text style={styles.inputLabel}>Confirm Password</Text>
             <View style={[
               styles.inputContainer,
               confirmPasswordError ? styles.inputError : null
             ]}>
-              <Ionicons name="lock-closed-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                placeholder="Confirm your password"
+                placeholderTextColor={theme.colors.textLight}
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
@@ -400,15 +481,15 @@ const SignUpScreen = () => {
                 autoCapitalize="none"
                 editable={!isLoading}
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.passwordToggle}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 disabled={isLoading}
               >
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={22} 
-                  color="rgba(255,255,255,0.7)" 
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={theme.colors.textLight}
                 />
               </TouchableOpacity>
             </View>
@@ -418,14 +499,14 @@ const SignUpScreen = () => {
             {signupError ? <Text style={[styles.errorText, styles.generalError]}>{signupError}</Text> : null}
 
             {/* Sign Up Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleSignUp}
               disabled={isLoading}
               style={styles.buttonContainer}
             >
               <LinearGradient
-                colors={['#5CBD6A', '#3C9D4E']}
+                colors={[theme.colors.primary, theme.colors.primaryDark]}
                 start={[0, 0]}
                 end={[1, 0]}
                 style={styles.signUpButton}
@@ -525,137 +606,5 @@ const SignUpScreen = () => {
     </KeyboardAvoidingView>
   );
 };
-
-const createStyles = createThemedStyles(theme => ({
-  container: {
-    flex: 1,
-    backgroundColor: theme.dark ? theme.colors.background : '#fff',
-  },
-  safeArea: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? 30 : 10,
-    backgroundColor: theme.dark ? theme.colors.background : '#fff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 30,
-  },
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginTop: Platform.OS === 'ios' ? 60 : 60,
-    marginBottom: 40,
-  },
-  logoContainer: {
-    marginBottom: 20,
-    shadowColor: theme.colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: theme.colors.shadowOpacity,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  logoGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  headerText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  subHeaderText: {
-    fontSize: 16,
-    color: theme.colors.textLight,
-  },
-  formContainer: {
-    paddingHorizontal: 30,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.dark ? theme.colors.border : '#000',
-    paddingHorizontal: 15,
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 12,
-    marginBottom: 12,
-    marginLeft: 5,
-  },
-  generalError: {
-    textAlign: 'center',
-    marginBottom: 15,
-    fontSize: 14,
-  },
-  inputIcon: {
-    marginRight: 10,
-    color: theme.colors.textLight,
-  },
-  input: {
-    flex: 1,
-    height: 55,
-    color: theme.dark ? theme.colors.text : '#000',
-    fontSize: 16,
-  },
-  passwordToggle: {
-    padding: 8,
-  },
-  buttonContainer: {
-    marginTop: 15,
-    marginBottom: 25,
-    shadowColor: theme.colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: theme.colors.shadowOpacity,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  signUpButton: {
-    height: 55,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  signUpButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  signInContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  signInText: {
-    color: theme.colors.textLight,
-    fontSize: 15,
-  },
-  signInLink: {
-    color: theme.colors.primary,
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-}));
 
 export default SignUpScreen;
