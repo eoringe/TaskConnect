@@ -7,8 +7,8 @@ import { useRouter } from 'expo-router';
 import { Service } from '../types';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase-config';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/firebase-config';
 
 interface ServiceCardProps {
   service: Service;
@@ -24,6 +24,51 @@ interface Review {
   createdAt: any;
 }
 
+// Helper to calculate distance between two lat/lng points (Haversine formula)
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const R = 6371; // Radius of the Earth in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// In-memory cache for geocoded addresses
+const geocodeCache: Record<string, { lat: number, lon: number }> = {};
+
+// Geocode an address string using OpenStreetMap Nominatim
+async function geocodeAddress(address: string): Promise<{ lat: number, lon: number } | null> {
+  if (geocodeCache[address]) return geocodeCache[address];
+  try {
+    console.log('[ServiceCard] Geocoding address:', address);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'TaskConnectApp/1.0 (your@email.com)',
+        'Accept': 'application/json'
+      }
+    });
+    const data = await response.json();
+    if (data && data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      geocodeCache[address] = { lat, lon };
+      console.log('[ServiceCard] Geocoding result:', { lat, lon });
+      return { lat, lon };
+    }
+    console.warn('[ServiceCard] Geocoding failed: No results for', address);
+    return null;
+  } catch (err) {
+    console.error('[ServiceCard] Geocoding error for', address, err);
+    return null;
+  }
+}
+
 const ServiceCard = ({ service }: ServiceCardProps) => {
   const router = useRouter();
   const { theme } = useTheme();
@@ -32,6 +77,8 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [distance, setDistance] = useState<string>('');
+  const [debugAddress, setDebugAddress] = useState<string>('');
 
   // Calculate average rating from reviews
   const calculateAverageRating = (reviews: Review[]): number => {
@@ -44,6 +91,7 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
   // Load reviews when component mounts
   useEffect(() => {
     loadReviews();
+    fetchAndCalculateDistance();
   }, [service]);
 
   const loadReviews = async () => {
@@ -90,6 +138,83 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
       // Fallback to static values if reviews fail to load
       setAverageRating(service.rating || 0);
       setTotalReviews(service.reviews || 0);
+    }
+  };
+
+  const fetchAndCalculateDistance = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      const taskerId = (service as any).taskerFirestoreId || (service as any).taskerIdString || service.taskerId;
+      if (!currentUser || !taskerId) {
+        setDistance('');
+        setDebugAddress('No current user or taskerId');
+        return;
+      }
+      // Fetch logged-in user's default address
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      // Fetch tasker's default address
+      const taskerDoc = await getDoc(doc(db, 'users', taskerId));
+      if (!userDoc.exists() || !taskerDoc.exists()) {
+        setDistance('');
+        setDebugAddress('User or tasker doc does not exist');
+        return;
+      }
+      const userData = userDoc.data();
+      const taskerData = taskerDoc.data();
+      const getDefaultAddress = (data: any) => {
+        if (!data.addresses || !Array.isArray(data.addresses)) return null;
+        return data.addresses.find((a: any) => a.isDefault) || data.addresses[0] || null;
+      };
+      const userAddress = getDefaultAddress(userData);
+      const taskerAddress = getDefaultAddress(taskerData);
+      if (!userAddress || !taskerAddress) {
+        setDistance('');
+        setDebugAddress('No default address for user or tasker');
+        return;
+      }
+      // Get coordinates for both addresses (use geocoding if missing)
+      let userLat = userAddress.latitude, userLon = userAddress.longitude;
+      let taskerLat = taskerAddress.latitude, taskerLon = taskerAddress.longitude;
+      let userGeoTried = false, taskerGeoTried = false;
+      if (!userLat || !userLon) {
+        const userFullAddress = `${userAddress.street || ''}, ${userAddress.city || ''}, ${userAddress.state || ''}, ${userAddress.country || ''}`;
+        setDebugAddress('User address: ' + userFullAddress);
+        const geo = await geocodeAddress(userFullAddress);
+        userGeoTried = true;
+        if (geo) {
+          userLat = geo.lat;
+          userLon = geo.lon;
+        }
+      }
+      if (!taskerLat || !taskerLon) {
+        const taskerFullAddress = `${taskerAddress.street || ''}, ${taskerAddress.city || ''}, ${taskerAddress.state || ''}, ${taskerAddress.country || ''}`;
+        setDebugAddress(prev => prev + '\nTasker address: ' + taskerFullAddress);
+        const geo = await geocodeAddress(taskerFullAddress);
+        taskerGeoTried = true;
+        if (geo) {
+          taskerLat = geo.lat;
+          taskerLon = geo.lon;
+        }
+      }
+      if (userLat && userLon && taskerLat && taskerLon) {
+        const dist = haversineDistance(
+          parseFloat(userLat),
+          parseFloat(userLon),
+          parseFloat(taskerLat),
+          parseFloat(taskerLon)
+        );
+        setDistance(`${dist.toFixed(1)} km away`);
+        setDebugAddress('');
+      } else {
+        setDistance('');
+        let msg = 'Distance unavailable.';
+        if (userGeoTried && (!userLat || !userLon)) msg += ' User geocode failed.';
+        if (taskerGeoTried && (!taskerLat || !taskerLon)) msg += ' Tasker geocode failed.';
+        setDebugAddress(msg);
+      }
+    } catch (err) {
+      setDistance('');
+      setDebugAddress('Error: ' + (err?.message || err));
     }
   };
 
@@ -171,8 +296,11 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
           </View>
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
-            <Text style={styles.serviceLocation}>{service.location}</Text>
+            <Text style={styles.serviceLocation}>{distance || 'Distance unavailable'}</Text>
           </View>
+          {debugAddress ? (
+            <Text style={{ color: 'red', fontSize: 10 }}>{debugAddress}</Text>
+          ) : null}
           <View style={styles.priceRow}>
             <Ionicons name="cash-outline" size={14} color={theme.colors.primary} />
             <Text style={styles.priceText}>{service.price}</Text>
