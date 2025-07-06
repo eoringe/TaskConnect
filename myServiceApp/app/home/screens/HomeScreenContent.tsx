@@ -30,6 +30,52 @@ import { allServices, cities } from '../data/mockData';
 // Local types
 type City = { name: string; latitude: number; longitude: number };
 type FilterOptions = { minRating: number; maxPrice: number; maxDistance: number; sortBy: 'rating' | 'price' | 'distance' };
+type ServiceWithDistance = Service & { distanceKm?: number };
+
+// Helper to calculate distance between two lat/lng points (Haversine formula)
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const R = 6371; // Radius of the Earth in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Helper to get default address from user data
+const getDefaultAddress = (data: any) => {
+  if (!data.addresses || !Array.isArray(data.addresses)) return null;
+  return data.addresses.find((a: any) => a.isDefault) || data.addresses[0] || null;
+};
+
+// Helper to get coordinates from address (with geocoding fallback)
+const geocodeCache: Record<string, { lat: number, lon: number }> = {};
+async function geocodeAddress(address: string): Promise<{ lat: number, lon: number } | null> {
+  if (geocodeCache[address]) return geocodeCache[address];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'TaskConnectApp/1.0 (your@email.com)',
+        'Accept': 'application/json'
+      }
+    });
+    const data = await response.json();
+    if (data && data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      geocodeCache[address] = { lat, lon };
+      return { lat, lon };
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
 
 export default function HomeScreenContent() {
   const { theme } = useTheme();
@@ -37,7 +83,7 @@ export default function HomeScreenContent() {
   const router = useRouter();
 
   // state
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ServiceWithDistance[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -51,6 +97,7 @@ export default function HomeScreenContent() {
   const [isTasker, setIsTasker] = useState<boolean>(false);
   const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number, lon: number } | null>(null);
 
   // Get current user UID
   const currentUserUid = auth.currentUser?.uid;
@@ -96,6 +143,35 @@ export default function HomeScreenContent() {
     })();
   }, []);
 
+  // Fetch the logged-in user's default address and coordinates on mount
+  useEffect(() => {
+    (async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const userAddress = getDefaultAddress(userData);
+          let lat = userAddress?.latitude, lon = userAddress?.longitude;
+          if (!lat || !lon) {
+            const userFullAddress = `${userAddress?.street || ''}, ${userAddress?.city || ''}, ${userAddress?.state || ''}, ${userAddress?.country || ''}`;
+            const geo = await geocodeAddress(userFullAddress);
+            if (geo) {
+              lat = geo.lat;
+              lon = geo.lon;
+            }
+          }
+          if (lat && lon) setUserCoords({ lat: parseFloat(lat), lon: parseFloat(lon) });
+          else setUserCoords(null);
+        } else {
+          setUserCoords(null);
+        }
+      } else {
+        setUserCoords(null);
+      }
+    })();
+  }, []);
+
   // whenever category changes, reload services
   useEffect(() => {
     (async () => {
@@ -104,17 +180,43 @@ export default function HomeScreenContent() {
         const data = selectedCategory === 'All'
           ? await fetchAllServices()
           : await fetchServicesByCategory(selectedCategory);
-        setServices(data);
+        // For each service, calculate distanceKm property
+        const enriched = await Promise.all(data.map(async (svc) => {
+          const taskerId = (svc as any).taskerFirestoreId || (svc as any).taskerIdString || (svc as any).taskerId;
+          let dist = Infinity;
+          if (userCoords && taskerId) {
+            // Fetch tasker's default address
+            const taskerDoc = await getDoc(doc(db, 'users', taskerId));
+            if (taskerDoc.exists()) {
+              const taskerData = taskerDoc.data();
+              const taskerAddress = getDefaultAddress(taskerData);
+              let lat = taskerAddress?.latitude, lon = taskerAddress?.longitude;
+              if (!lat || !lon) {
+                const taskerFullAddress = `${taskerAddress?.street || ''}, ${taskerAddress?.city || ''}, ${taskerAddress?.state || ''}, ${taskerAddress?.country || ''}`;
+                const geo = await geocodeAddress(taskerFullAddress);
+                if (geo) {
+                  lat = geo.lat;
+                  lon = geo.lon;
+                }
+              }
+              if (lat && lon) {
+                dist = haversineDistance(userCoords.lat, userCoords.lon, parseFloat(lat), parseFloat(lon));
+              }
+            }
+          }
+          return { ...svc, distanceKm: dist };
+        }));
+        setServices(enriched);
       } catch (e) {
         console.error('Error loading services:', e);
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [selectedCategory]);
+  }, [selectedCategory, userCoords]);
 
   // Combined search and filter logic
-  const filteredServices = services
+  const filteredServices: ServiceWithDistance[] = services
     .filter(s => {
       // Exclude services belonging to the logged-in user
       const serviceTaskerId = (s as any).taskerFirestoreId || (s as any).taskerIdString || (s as any).taskerId;
@@ -132,12 +234,12 @@ export default function HomeScreenContent() {
     .filter(s => s.rating >= filterOptions.minRating)
     .filter(s => parseInt(s.price.replace('Ksh', '')) <= filterOptions.maxPrice)
     .filter(s => parseFloat(s.location) <= filterOptions.maxDistance)
-    .sort((a, b) => filterOptions.sortBy === 'rating'
-      ? b.rating - a.rating
-      : filterOptions.sortBy === 'price'
-        ? parseInt(a.price.replace('Ksh', '')) - parseInt(b.price.replace('Ksh', ''))
-        : parseFloat(a.location) - parseFloat(b.location)
-    );
+    .sort((a, b) => {
+      const aDist = a.distanceKm !== undefined ? a.distanceKm : Infinity;
+      const bDist = b.distanceKm !== undefined ? b.distanceKm : Infinity;
+      if (aDist !== bDist) return aDist - bDist;
+      return b.rating - a.rating;
+    });
 
   // Prepare dropdown results for SearchBar
   const searchResults = searchQuery.trim()
