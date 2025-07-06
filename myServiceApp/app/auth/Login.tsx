@@ -1,14 +1,14 @@
 // app/(tabs)/auth/Login.tsx
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  TextInput, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   StatusBar,
   SafeAreaView,
@@ -18,22 +18,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import useGoogleSignIn from './googleSignIn';
 import { router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth'; 
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase-config';
 import BiometricHelper from '../home/utils/BiometricHelper';
 import { FirebaseError } from 'firebase/app';
+import { useTheme } from '../context/ThemeContext';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 const LoginScreen = () => {
   // Extract necessary functions from the hook
-  const { 
-    signIn, 
-    waitingForManualReturn, 
-    authCode, 
-    setAuthCode, 
+  const {
+    signIn,
+    waitingForManualReturn,
+    authCode,
+    setAuthCode,
     handleCodeSubmit,
-    error: googleSignInError, 
+    error: googleSignInError,
   } = useGoogleSignIn();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,26 +46,299 @@ const LoginScreen = () => {
   const [loginError, setLoginError] = useState('');
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
-  
+
+  const { theme, isDarkMode } = useTheme();
+  const styles = useThemedStyles((theme) => ({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    safeArea: {
+      flex: 1,
+      paddingTop: Platform.OS === 'android' ? 30 : 10,
+      backgroundColor: theme.colors.background,
+    },
+    gradient: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+    },
+    codeInputWrapper: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 30,
+      backgroundColor: theme.colors.background,
+    },
+    codeInputHeaderContainer: {
+      alignItems: 'center',
+      marginBottom: 30,
+    },
+    cancelButton: {
+      marginTop: 20,
+      alignSelf: 'center',
+    },
+    cancelButtonText: {
+      color: theme.colors.textSecondary,
+      fontSize: 16,
+      textDecorationLine: 'underline',
+    },
+    headerContainer: {
+      alignItems: 'center',
+      marginTop: Platform.OS === 'ios' ? 80 : 90,
+      marginBottom: 40,
+    },
+    logoContainer: {
+      marginBottom: 20,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.colors.shadowOpacity,
+      shadowRadius: 5,
+      elevation: 6,
+    },
+    logoGradient: {
+      width: 60,
+      height: 60,
+      borderRadius: 15,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    logoText: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+    headerText: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 8,
+    },
+    subHeaderText: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    formContainer: {
+      paddingHorizontal: 30,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 8,
+      marginLeft: 5,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingHorizontal: 15,
+    },
+    inputError: {
+      borderColor: theme.colors.error,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontSize: 12,
+      marginBottom: 12,
+      marginLeft: 5,
+    },
+    generalError: {
+      textAlign: 'center',
+      marginBottom: 15,
+      fontSize: 14,
+    },
+    inputIcon: {
+      marginRight: 10,
+      color: theme.colors.textLight,
+    },
+    input: {
+      flex: 1,
+      height: 55,
+      color: theme.colors.text,
+      fontSize: 16,
+    },
+    passwordToggle: {
+      padding: 8,
+    },
+    forgotPasswordButton: {
+      alignSelf: 'flex-end',
+      marginBottom: 20,
+    },
+    forgotPasswordText: {
+      color: theme.colors.primary,
+      fontSize: 14,
+    },
+    signInButton: {
+      height: 55,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 25,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.colors.shadowOpacity,
+      shadowRadius: 5,
+      elevation: 5,
+    },
+    signInButtonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    biometricButton: {
+      marginBottom: 25,
+      borderWidth: 1,
+      borderColor: theme.colors.primary + '99',
+      borderRadius: 12,
+      padding: 12,
+      backgroundColor: theme.colors.primaryLight,
+    },
+    biometricButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    biometricIcon: {
+      marginRight: 8,
+      color: theme.colors.primary,
+    },
+    biometricButtonText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    dividerContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 25,
+    },
+    divider: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.colors.border,
+    },
+    dividerText: {
+      color: theme.colors.textLight,
+      fontSize: 12,
+      fontWeight: '600',
+      marginHorizontal: 10,
+    },
+    socialButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+    },
+    socialButton: {
+      width: 60,
+      height: 60,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 10,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    socialButtonDisabled: {
+      opacity: 0.6,
+    },
+    signUpContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 'auto',
+      marginBottom: 30,
+    },
+    signUpText: {
+      color: theme.colors.textSecondary,
+      fontSize: 15,
+    },
+    signUpLink: {
+      color: theme.colors.primary,
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+    // Styles for the code input component
+    codeInputContainer: {
+      marginVertical: 20,
+      padding: 20,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    codeInputTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 15,
+      textAlign: 'center',
+      color: theme.colors.text,
+    },
+    codeInputInstructions: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 20,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    codeInput: {
+      height: 60,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 15,
+      marginBottom: 20,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+      color: theme.colors.text,
+      fontSize: 16,
+      textAlign: 'center',
+      letterSpacing: 1.5,
+    },
+    submitButtonContainer: {
+      marginTop: 5,
+      marginBottom: 10,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.colors.shadowOpacity,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    submitButtonGradient: {
+      height: 55,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    submitButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+  }));
+
   // Check for biometric authentication availability on component mount
   useEffect(() => {
     checkBiometricAvailability();
   }, []);
-  
+
   // Function to check biometric availability
   const checkBiometricAvailability = async () => {
     try {
       const isEnabled = await BiometricHelper.isBiometricEnabled();
       const isAvailable = await BiometricHelper.isBiometricAvailable();
       const hasCredentials = await BiometricHelper.hasStoredCredentials();
-      
+
       // Only show biometric option if all three conditions are met
       setIsBiometricAvailable(isEnabled && isAvailable && hasCredentials);
-      
+
       // Get the biometric type name
       const biometricName = BiometricHelper.getBiometricName();
       setBiometricType(biometricName);
-      
+
       // If biometric is available and enabled, show the biometric prompt immediately
       if (isEnabled && isAvailable && hasCredentials) {
         // Get the stored email to show in the UI
@@ -71,7 +346,7 @@ const LoginScreen = () => {
         if (storedEmail) {
           setEmail(storedEmail); // Pre-fill the email field
         }
-        
+
         // Small delay before showing biometric prompt
         setTimeout(() => {
           handleBiometricLogin();
@@ -81,30 +356,30 @@ const LoginScreen = () => {
       console.log('Error checking biometric status:', error);
     }
   };
-  
+
   // Handle biometric login
   const handleBiometricLogin = async () => {
     try {
       setIsLoading(true);
-      
+
       // Use the new method to get stored credentials after biometric authentication
       const result = await BiometricHelper.authenticateAndGetCredentials();
-      
+
       if (result.success && result.email && result.password) {
         try {
           // Sign in to Firebase using the stored credentials
           await signInWithEmailAndPassword(auth, result.email, result.password);
-          
+
           // Navigate to home screen on success
           router.push('/home');
         } catch (error) {
 
           setIsLoading(false);
-          
+
           // Handle authentication errors
-          if ((error as FirebaseError).code === 'auth/invalid-credential' || 
-              (error as FirebaseError).code === 'auth/user-not-found' || 
-              (error as FirebaseError).code === 'auth/wrong-password') {
+          if ((error as FirebaseError).code === 'auth/invalid-credential' ||
+            (error as FirebaseError).code === 'auth/user-not-found' ||
+            (error as FirebaseError).code === 'auth/wrong-password') {
             Alert.alert(
               'Authentication Failed',
               'Your saved login credentials are no longer valid. Please sign in with your email and password, then re-enable biometric login.',
@@ -120,7 +395,7 @@ const LoginScreen = () => {
         }
       } else {
         setIsLoading(false);
-        
+
         // Handle specific error types
         if (result.errorType === 'no_credentials') {
           Alert.alert(
@@ -147,11 +422,11 @@ const LoginScreen = () => {
 
   const validateForm = () => {
     let isValid = true;
-    
+
     // Reset previous errors
     setEmailError('');
     setPasswordError('');
-    
+
     // Validate email
     if (!email.trim()) {
       setEmailError('Email is required');
@@ -160,7 +435,7 @@ const LoginScreen = () => {
       setEmailError('Email format is invalid');
       isValid = false;
     }
-    
+
     // Validate password
     if (!password) {
       setPasswordError('Password is required');
@@ -169,20 +444,20 @@ const LoginScreen = () => {
       setPasswordError('Password must be at least 6 characters');
       isValid = false;
     }
-    
+
     return isValid;
   };
 
   const handleEmailSignIn = async () => {
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
     setLoginError('');
-    
+
     try {
       // Sign in with firebase using email and password
       await signInWithEmailAndPassword(auth, email, password);
-      
+
       // Store email and password for future biometric login
       // This happens quietly in the background - user can enable biometric in Security screen
       if (await BiometricHelper.isBiometricAvailable()) {
@@ -190,19 +465,19 @@ const LoginScreen = () => {
         // User will need to explicitly enable biometrics in Security screen
         await BiometricHelper.storeCredentials(email, password);
       }
-      
+
       router.push('/home');
     } catch (error) {
       // Handle specific Firebase auth errors
       let errorMessage = 'Failed to sign in. Please try again.';
-      
-      if ((error as FirebaseError).code === 'auth/user-not-found' || 
-          (error as FirebaseError).code === 'auth/wrong-password') {
+
+      if ((error as FirebaseError).code === 'auth/user-not-found' ||
+        (error as FirebaseError).code === 'auth/wrong-password') {
         errorMessage = 'Incorrect email or password';
       } else if ((error as FirebaseError).code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed login attempts. Please try again later';
       }
-      
+
       setLoginError(errorMessage);
       Alert.alert('Sign-In Error', errorMessage);
     } finally {
@@ -218,7 +493,7 @@ const LoginScreen = () => {
       console.error('Error during Google sign-in:', err);
     }
   };
-  
+
   const handleSignUp = () => {
     router.push('/auth/signup');
   };
@@ -237,7 +512,7 @@ const LoginScreen = () => {
     try {
       await handleCodeSubmit();
     } catch (error) {
-     
+
       Alert.alert('Error', 'Failed to submit authentication code');
     } finally {
       setIsCodeSubmitting(false);
@@ -251,7 +526,7 @@ const LoginScreen = () => {
         <View style={styles.codeInputHeaderContainer}>
           <View style={styles.logoContainer}>
             <LinearGradient
-              colors={['#5CBD6A', '#3C9D4E']}
+              colors={[theme.colors.primary, theme.colors.primaryDark]}
               start={[0, 0]}
               end={[1, 1]}
               style={styles.logoGradient}
@@ -262,32 +537,32 @@ const LoginScreen = () => {
           <Text style={styles.headerText}>Google Sign-In</Text>
           <Text style={styles.subHeaderText}>Enter the authentication code from the browser</Text>
         </View>
-        
+
         <View style={styles.codeInputContainer}>
           <Text style={styles.codeInputTitle}>Enter Authentication Code</Text>
           <Text style={styles.codeInputInstructions}>
-            After signing in with Google, you'll receive a code in the browser. 
+            After signing in with Google, you'll receive a code in the browser.
             Please copy and paste that code below.
           </Text>
-          
+
           <TextInput
             style={styles.codeInput}
             value={authCode}
             onChangeText={setAuthCode}
             placeholder="Enter code from browser"
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.colors.textLight}
             autoCapitalize="none"
             autoComplete="off"
             autoCorrect={false}
           />
-          
+
           <TouchableOpacity
             style={styles.submitButtonContainer}
             onPress={handleCodeSubmitWithLoading}
             disabled={isCodeSubmitting}
           >
             <LinearGradient
-              colors={['#5CBD6A', '#3C9D4E']}
+              colors={[theme.colors.primary, theme.colors.primaryDark]}
               start={[0, 0]}
               end={[1, 0]}
               style={styles.submitButtonGradient}
@@ -299,13 +574,13 @@ const LoginScreen = () => {
               )}
             </LinearGradient>
           </TouchableOpacity>
-          
+
           {googleSignInError ? (
             <Text style={styles.errorText}>{googleSignInError}</Text>
           ) : null}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.cancelButton}
           onPress={() => router.push('/')}
         >
@@ -316,18 +591,18 @@ const LoginScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
-      <StatusBar barStyle="light-content" />
-      
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
       <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+        colors={isDarkMode ? ['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)'] : ['rgba(255,255,255,0.8)', 'rgba(255,255,255,0.6)']}
         style={styles.gradient}
       />
-      
+
       <SafeAreaView style={styles.safeArea}>
         {waitingForManualReturn ? (
           renderCodeInput()
@@ -336,7 +611,7 @@ const LoginScreen = () => {
             <View style={styles.headerContainer}>
               <View style={styles.logoContainer}>
                 <LinearGradient
-                  colors={['#5CBD6A', '#3C9D4E']}
+                  colors={[theme.colors.primary, theme.colors.primaryDark]}
                   start={[0, 0]}
                   end={[1, 1]}
                   style={styles.logoGradient}
@@ -350,15 +625,16 @@ const LoginScreen = () => {
 
             <View style={styles.formContainer}>
               {/* Email Input */}
+              <Text style={styles.inputLabel}>Email Address</Text>
               <View style={[
-                styles.inputContainer, 
+                styles.inputContainer,
                 emailError ? styles.inputError : null
               ]}>
-                <Ionicons name="mail-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Email Address"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  placeholder="Enter your email address"
+                  placeholderTextColor={theme.colors.textLight}
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -372,15 +648,16 @@ const LoginScreen = () => {
               {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
               {/* Password Input */}
+              <Text style={styles.inputLabel}>Password</Text>
               <View style={[
                 styles.inputContainer,
                 passwordError ? styles.inputError : null
               ]}>
-                <Ionicons name="lock-closed-outline" size={22} color="rgba(255,255,255,0.7)" style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={22} color={theme.colors.textLight} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  placeholder="Enter your password"
+                  placeholderTextColor={theme.colors.textLight}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -390,21 +667,21 @@ const LoginScreen = () => {
                   autoCapitalize="none"
                   editable={!isLoading}
                 />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.passwordToggle}
                   onPress={() => setShowPassword(!showPassword)}
                   disabled={isLoading}
                 >
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={22} 
-                    color="rgba(255,255,255,0.7)" 
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color={theme.colors.textLight}
                   />
                 </TouchableOpacity>
               </View>
               {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.forgotPasswordButton}
                 onPress={handleForgotPassword}
                 disabled={isLoading}
@@ -416,13 +693,13 @@ const LoginScreen = () => {
               {loginError ? <Text style={[styles.errorText, styles.generalError]}>{loginError}</Text> : null}
 
               {/* Sign In Button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={handleEmailSignIn}
                 disabled={isLoading}
               >
                 <LinearGradient
-                  colors={['#5CBD6A', '#3C9D4E']}
+                  colors={[theme.colors.primary, theme.colors.primaryDark]}
                   start={[0, 0]}
                   end={[1, 0]}
                   style={styles.signInButton}
@@ -437,17 +714,17 @@ const LoginScreen = () => {
 
               {/* Biometric Login Button (visible only if biometric is available) */}
               {isBiometricAvailable && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.biometricButton}
                   onPress={handleBiometricLogin}
                   disabled={isLoading}
                 >
                   <View style={styles.biometricButtonContent}>
-                    <Ionicons 
-                      name={Platform.OS === 'ios' ? "finger-print-outline" : "finger-print"} 
-                      size={22} 
-                      color="#5CBD6A" 
-                      style={styles.biometricIcon} 
+                    <Ionicons
+                      name={Platform.OS === 'ios' ? "finger-print-outline" : "finger-print"}
+                      size={22}
+                      color={theme.colors.primary}
+                      style={styles.biometricIcon}
                     />
                     <Text style={styles.biometricButtonText}>
                       Sign in with {biometricType}
@@ -466,7 +743,7 @@ const LoginScreen = () => {
               {/* Social Login Buttons */}
               <View style={styles.socialButtonsContainer}>
                 {/* Google Login */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.socialButton}
                   onPress={handleGoogleSignIn}
                 >
