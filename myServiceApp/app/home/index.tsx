@@ -59,20 +59,32 @@ const HomeScreen = () => {
       unsubscribe = onSnapshot(q, async (snapshot) => {
         let unreadChatsCount = 0;
         for (const docSnap of snapshot.docs) {
+          const conversationData = docSnap.data();
           const conversationId = docSnap.id;
-          // Query unread messages for this conversation
-          const messagesQ = query(
-            collection(db, 'messages'),
-            where('conversationId', '==', conversationId),
-            where('receiverId', '==', user.uid),
-            where('read', '==', false)
-          );
-          const messagesSnap = await getDocs(messagesQ);
-          if (messagesSnap.size > 0) {
-            unreadChatsCount += 1;
+          
+          // Check if the current user sent the last message
+          const lastMessageSenderId = conversationData.lastMessageSenderId;
+          const currentUserSentLastMessage = lastMessageSenderId === user.uid;
+          
+          // Only count unread messages if the current user didn't send the last message
+          if (!currentUserSentLastMessage) {
+            // Query unread messages for this conversation
+            const messagesQ = query(
+              collection(db, 'messages'),
+              where('conversationId', '==', conversationId),
+              where('receiverId', '==', user.uid),
+              where('read', '==', false)
+            );
+            const messagesSnap = await getDocs(messagesQ);
+            if (messagesSnap.size > 0) {
+              unreadChatsCount += 1;
+              console.log(`HomeScreen: Conversation ${conversationId} has ${messagesSnap.size} unread messages`);
+            }
+          } else {
+            console.log(`HomeScreen: Conversation ${conversationId} - Current user sent last message, skipping unread count`);
           }
         }
-        setUnreadChats(Math.max(unreadChatsCount - 1, 0));
+        setUnreadChats(unreadChatsCount);
       });
     };
     fetchUnreadChats();

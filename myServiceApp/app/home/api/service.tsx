@@ -35,17 +35,21 @@ export async function fetchServices(): Promise<Service[]> {
 
 // Fetch services by a given category
 export async function fetchServicesByCategory(category: string): Promise<Service[]> {
+  console.log('🔍 DEBUG SERVICE API: fetchServicesByCategory called for category:', category);
   const catSnap = await getDoc(doc(db, 'serviceCategories', category));
   if (!catSnap.exists()) return [];
 
   const raw = catSnap.data() as { services?: any[] };
   const list = raw.services ?? [];
+  console.log('🔍 DEBUG SERVICE API: Found', list.length, 'services in category', category);
 
   const enriched = await Promise.all(
     list.map(async (svc) => {
               const taskerId = svc.taskerId ?? '';
+        console.log('🔍 DEBUG SERVICE API: Fetching tasker document for ID:', taskerId);
         const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
         const tasker = taskerSnap.exists() ? (taskerSnap.data() as any) : {};
+        console.log('🔍 DEBUG SERVICE API: Tasker document exists:', taskerSnap.exists());
 
         console.log('🔍 DEBUG SERVICE API: Tasker data for', taskerId, ':', tasker);
         console.log('🔍 DEBUG SERVICE API: Tasker bio:', tasker.bio);
@@ -55,6 +59,9 @@ export async function fetchServicesByCategory(category: string): Promise<Service
         console.log('🔍 DEBUG SERVICE API: Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
         console.log('🔍 DEBUG SERVICE API: Tasker phone:', tasker.phoneNumber || tasker.phone);
         console.log('🔍 DEBUG SERVICE API: Tasker email:', tasker.email);
+        console.log('🔍 DEBUG SERVICE API: Full tasker object keys:', Object.keys(tasker));
+        console.log('🔍 DEBUG SERVICE API: Tasker has phoneNumber field:', 'phoneNumber' in tasker);
+        console.log('🔍 DEBUG SERVICE API: Tasker has phone field:', 'phone' in tasker);
 
         return {
           id: svc.id,
@@ -92,8 +99,10 @@ export async function fetchServicesByCategory(category: string): Promise<Service
 
 // Fetch all services across categories
 export async function fetchAllServices(): Promise<Service[]> {
+  console.log('🔍 DEBUG SERVICE API: fetchAllServices called');
   const categoriesSnap = await getDocs(collection(db, 'serviceCategories'));
   const allServices: Service[] = [];
+  console.log('🔍 DEBUG SERVICE API: Found', categoriesSnap.size, 'categories');
 
   for (const categoryDoc of categoriesSnap.docs) {
     const { services } = categoryDoc.data() as { services?: any[] };
@@ -102,8 +111,10 @@ export async function fetchAllServices(): Promise<Service[]> {
     const enriched = await Promise.all(
       services.map(async (svc) => {
         const taskerId = svc.taskerId ?? '';
+        console.log('🔍 DEBUG SERVICE API (ALL): Fetching tasker document for ID:', taskerId);
         const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
         const tasker = taskerSnap.exists() ? (taskerSnap.data() as any) : {};
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker document exists:', taskerSnap.exists());
 
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker data for', taskerId, ':', tasker);
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker bio:', tasker.bio);
@@ -113,6 +124,9 @@ export async function fetchAllServices(): Promise<Service[]> {
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker phone:', tasker.phoneNumber || tasker.phone);
         console.log('🔍 DEBUG SERVICE API (ALL): Tasker email:', tasker.email);
+        console.log('🔍 DEBUG SERVICE API (ALL): Full tasker object keys:', Object.keys(tasker));
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker has phoneNumber field:', 'phoneNumber' in tasker);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker has phone field:', 'phone' in tasker);
 
         return {
           id: svc.id,

@@ -214,10 +214,11 @@ const ChatRoomScreen: React.FC = () => {
       read: false,
       attachments: { name: '', type: '', url: '', content: '' }
     });
-    // Update the conversation document with the latest message and timestamp
+    // Update the conversation document with the latest message, timestamp, and sender ID
     await updateDoc(doc(db, 'conversations', chatId), {
       lastMessage: messageText.trim(),
       lastMessageTimestamp: serverTimestamp(),
+      lastMessageSenderId: currentUser.uid,
     });
     setMessageText('');
   };

@@ -295,14 +295,23 @@ const ChatListScreen: React.FC = () => {
         // Count unread messages for this conversation
         let unreadCount = 0;
         if (currentUser) {
-          const messagesQ = query(
-            collection(db, 'messages'),
-            where('conversationId', '==', docSnapshot.id),
-            where('receiverId', '==', currentUser.uid),
-            where('read', '==', false)
-          );
-          const messagesSnap = await getDocs(messagesQ);
-          unreadCount = messagesSnap.size;
+          // Check if the current user sent the last message
+          const lastMessageSenderId = conversationData.lastMessageSenderId;
+          const currentUserSentLastMessage = lastMessageSenderId === currentUser.uid;
+          
+          // Only count unread messages if the current user didn't send the last message
+          if (!currentUserSentLastMessage) {
+            const messagesQ = query(
+              collection(db, 'messages'),
+              where('conversationId', '==', docSnapshot.id),
+              where('receiverId', '==', currentUser.uid),
+              where('read', '==', false)
+            );
+            const messagesSnap = await getDocs(messagesQ);
+            unreadCount = messagesSnap.size;
+          }
+          
+          console.log(`ChatListScreen: Conversation ${docSnapshot.id} - Current user sent last message: ${currentUserSentLastMessage}, Unread count: ${unreadCount}`);
         }
 
         // Construct the chat item with the fetched details
