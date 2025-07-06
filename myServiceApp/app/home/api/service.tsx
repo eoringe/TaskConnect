@@ -43,27 +43,41 @@ export async function fetchServicesByCategory(category: string): Promise<Service
 
   const enriched = await Promise.all(
     list.map(async (svc) => {
-      const taskerId = svc.taskerId ?? '';
-      const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
-      const tasker = taskerSnap.exists() ? (taskerSnap.data() as any) : {};
+              const taskerId = svc.taskerId ?? '';
+        const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
+        const tasker = taskerSnap.exists() ? (taskerSnap.data() as any) : {};
 
-      return {
-        id: svc.id,
-        name: svc.title,
-        title: svc.title,
-        category: svc.category,
-        description: svc.description,
-        price: `Ksh ${svc.rate}`,
-        submissionDate: new Date(svc.submissionDate),
-        location: svc.location ?? '0 km',
-        rating: svc.rating ?? 4.0,
-        reviews: svc.reviews ?? 0,
-        coordinates: svc.coordinates ?? { latitude: 0, longitude: 0 },
-        taskerName: `${tasker.firstName ?? ''} ${tasker.lastName ?? ''}`.trim(),
-        taskerProfileImage: tasker.profileImageBase64 ?? null,
-        taskerIdString: taskerId,
-        rate: svc.rate,
-      } as unknown as Service;
+        console.log('🔍 DEBUG SERVICE API: Tasker data for', taskerId, ':', tasker);
+        console.log('🔍 DEBUG SERVICE API: Tasker bio:', tasker.bio);
+        console.log('🔍 DEBUG SERVICE API: Tasker areas served:', tasker.areasServed);
+        console.log('🔍 DEBUG SERVICE API: Tasker services:', tasker.services);
+        console.log('🔍 DEBUG SERVICE API: Tasker profileImageBase64 exists:', !!tasker.profileImageBase64);
+        console.log('🔍 DEBUG SERVICE API: Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
+
+        return {
+          id: svc.id,
+          name: svc.title,
+          title: svc.title,
+          category: svc.category,
+          description: svc.description,
+          price: `Ksh ${svc.rate}`,
+          submissionDate: new Date(svc.submissionDate),
+          location: svc.location ?? '0 km',
+          rating: svc.rating ?? 4.0,
+          reviews: svc.reviews ?? 0,
+          coordinates: svc.coordinates ?? { latitude: 0, longitude: 0 },
+          taskerName: `${tasker.firstName ?? ''} ${tasker.lastName ?? ''}`.trim(),
+          taskerProfileImage: tasker.profileImageBase64 ?? null,
+          taskerIdString: taskerId,
+          rate: svc.rate,
+          // Add the missing fields
+          bio: tasker.bio ?? null,
+          areasServed: tasker.areasServed ?? [],
+          services: tasker.services ?? [],
+          taskerId: taskerId,
+          // Add the actual tasker Firestore document ID
+          taskerFirestoreId: taskerId,
+        } as unknown as Service;
     })
   );
 
@@ -85,6 +99,13 @@ export async function fetchAllServices(): Promise<Service[]> {
         const taskerSnap = await getDoc(doc(db, 'taskers', taskerId));
         const tasker = taskerSnap.exists() ? (taskerSnap.data() as any) : {};
 
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker data for', taskerId, ':', tasker);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker bio:', tasker.bio);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker areas served:', tasker.areasServed);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker services:', tasker.services);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker profileImageBase64 exists:', !!tasker.profileImageBase64);
+        console.log('🔍 DEBUG SERVICE API (ALL): Tasker profileImageBase64 length:', tasker.profileImageBase64?.length);
+
         return {
           id: svc.id,
           name: svc.title,
@@ -101,6 +122,13 @@ export async function fetchAllServices(): Promise<Service[]> {
           taskerProfileImage: tasker.profileImageBase64 ?? null,
           taskerIdString: taskerId,
           rate: svc.rate,
+          // Add the missing fields
+          bio: tasker.bio ?? null,
+          areasServed: tasker.areasServed ?? [],
+          services: tasker.services ?? [],
+          taskerId: taskerId,
+          // Add the actual tasker Firestore document ID
+          taskerFirestoreId: taskerId,
         } as unknown as Service;
       })
     );

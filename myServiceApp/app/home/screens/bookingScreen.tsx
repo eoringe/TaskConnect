@@ -11,8 +11,10 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  PanResponder
+  PanResponder,
+  Image
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
@@ -48,8 +50,16 @@ const BookingScreen = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<SearchParamTypes['bookingScreen']>();
+  console.log('🔍 DEBUG BOOKING: Raw params:', params);
+  console.log('🔍 DEBUG BOOKING: params.tasker:', params.tasker);
   const tasker = JSON.parse(params.tasker);
+  console.log('🔍 DEBUG BOOKING: Parsed tasker:', tasker);
+  console.log('🔍 DEBUG BOOKING: Tasker bio:', tasker.bio);
+  console.log('🔍 DEBUG BOOKING: Tasker areas served:', tasker.areasServed);
+  console.log('🔍 DEBUG BOOKING: Tasker profile image:', !!tasker.profileImageBase64);
+  console.log('🔍 DEBUG BOOKING: Tasker services:', tasker.services);
 
   const [date, setDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -693,20 +703,54 @@ const BookingScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.card}>
-        <Ionicons name="person-circle-outline" size={50} color={theme.colors.primary} />
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => {
+          console.log('🔍 DEBUG BOOKING: Tasker data being passed:', tasker);
+          console.log('🔍 DEBUG BOOKING: Tasker bio:', tasker.bio);
+          console.log('🔍 DEBUG BOOKING: Tasker areas served:', tasker.areasServed);
+          console.log('🔍 DEBUG BOOKING: Tasker profile image:', !!tasker.profileImageBase64);
+          console.log('🔍 DEBUG BOOKING: Tasker services:', tasker.services);
+          router.push({
+            pathname: '/home/screens/CustomerTaskerProfileScreen',
+            params: {
+              taskerData: JSON.stringify(tasker)
+            }
+          });
+        }}
+      >
+        {(tasker.taskerProfileImage || tasker.profileImageBase64) ? (
+          <Image
+            source={{ uri: `data:image/jpeg;base64,${tasker.taskerProfileImage || tasker.profileImageBase64}` }}
+            style={{ width: 50, height: 50, borderRadius: 25 }}
+            resizeMode="cover"
+            onError={(error) => console.log('🔍 DEBUG BOOKING IMAGE ERROR:', error.nativeEvent)}
+            onLoad={() => console.log('🔍 DEBUG BOOKING IMAGE LOADED SUCCESSFULLY')}
+          />
+        ) : (
+          <Ionicons name="person-circle-outline" size={50} color={theme.colors.primary} />
+        )}
         <View style={styles.taskerInfo}>
           <Text style={styles.name}>{tasker.taskerName}</Text>
           <Text style={styles.detail}>{tasker.category}</Text>
           <Text style={styles.detail}>{tasker.price}</Text>
+          {tasker.bio && (
+            <Text style={styles.bio}>{tasker.bio}</Text>
+          )}
         </View>
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={handleChatPress}
-        >
-          <Ionicons name="chatbubble-outline" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleChatPress();
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
+        </View>
+      </TouchableOpacity>
 
       {/* Date & Time Selection */}
       <View style={styles.dateTimeSection}>
@@ -809,6 +853,9 @@ const BookingScreen = () => {
       <TouchableOpacity style={styles.button} onPress={handleBooking}>
         <Text style={styles.buttonText}>Continue to Summary</Text>
       </TouchableOpacity>
+      
+      {/* Bottom safe area to prevent button from clashing with phone navigation */}
+      <View style={{ height: insets.bottom + 20 }} />
 
       {/* Custom Date Modal */}
       <Modal
@@ -1091,6 +1138,13 @@ const createStyles = createThemedStyles(theme => ({
     fontSize: 14,
     color: theme.colors.textLight,
     marginBottom: 2,
+  },
+  bio: {
+    fontSize: 13,
+    color: theme.colors.textLight,
+    marginTop: 8,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
   dateTimeSection: {
     marginBottom: 20,
@@ -1410,6 +1464,11 @@ const createStyles = createThemedStyles(theme => ({
   },
   chatButton: {
     padding: 8,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
 }));
 

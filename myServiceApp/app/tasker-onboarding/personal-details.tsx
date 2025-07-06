@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { 
+    View, 
+    Text, 
+    StyleSheet, 
+    ScrollView, 
+    TextInput, 
+    TouchableOpacity, 
+    Alert, 
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getFirestore, doc, getDoc } from 'firebase/firestore'; // Removed setDoc import as we won't save here
@@ -193,8 +205,17 @@ export default function PersonalDetailsScreen() {
     }
 
     return (
-        <>
-            <ScrollView style={styles.container}>
+        <KeyboardAvoidingView 
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+            <ScrollView 
+                style={styles.container}
+                contentContainerStyle={{ flexGrow: 1 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.content}>
                     <Text style={styles.description}>
                         Let's start with your basic information. This will be used to create your tasker profile.
@@ -215,6 +236,7 @@ export default function PersonalDetailsScreen() {
                                 placeholder="Enter your first name"
                                 editable={!isProcessing}
                                 placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                                returnKeyType="next"
                             />
                             {errors.firstName && (
                                 <Text style={styles.errorText}>{errors.firstName}</Text>
@@ -235,6 +257,7 @@ export default function PersonalDetailsScreen() {
                                 placeholder="Enter your last name"
                                 editable={!isProcessing}
                                 placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                                returnKeyType="next"
                             />
                             {errors.lastName && (
                                 <Text style={styles.errorText}>{errors.lastName}</Text>
@@ -264,6 +287,8 @@ export default function PersonalDetailsScreen() {
                                 keyboardType="phone-pad"
                                 editable={!isProcessing}
                                 placeholderTextColor={theme.dark ? theme.colors.textLight : '#000'}
+                                returnKeyType="done"
+                                onSubmitEditing={() => Keyboard.dismiss()}
                             />
                         </View>
                     </View>
@@ -282,6 +307,6 @@ export default function PersonalDetailsScreen() {
                 </View>
             </ScrollView>
             <BottomBarSpace />
-        </>
+        </KeyboardAvoidingView>
     );
 }

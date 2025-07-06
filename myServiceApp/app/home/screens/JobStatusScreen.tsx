@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, onSnapshot, getDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase-config';
 import { useTheme } from '@/app/context/ThemeContext';
@@ -39,6 +40,7 @@ const JobStatusScreen = () => {
     const router = useRouter();
     const { theme } = useTheme();
     const styles = useThemedStyles(createStyles);
+    const insets = useSafeAreaInsets();
     const [job, setJob] = useState<JobData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -669,6 +671,9 @@ const JobStatusScreen = () => {
             <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => router.replace('/home')}>
                 <Text style={[styles.buttonText, styles.secondaryButtonText]}>Back to Home</Text>
             </TouchableOpacity>
+
+            {/* Bottom safe area to prevent button from clashing with phone navigation */}
+            <View style={{ height: insets.bottom + 20 }} />
 
         </ScrollView>
     );

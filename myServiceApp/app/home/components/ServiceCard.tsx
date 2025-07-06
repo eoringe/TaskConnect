@@ -19,14 +19,22 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
 
   // Helper to handle both base64 and URL images
   const getImageSource = (img: string | null | undefined) => {
+    console.log('🔍 DEBUG SERVICECARD IMAGE: Raw image data:', img?.substring(0, 50));
+    console.log('🔍 DEBUG SERVICECARD IMAGE: Image length:', img?.length);
+    console.log('🔍 DEBUG SERVICECARD IMAGE: Starts with data:image:', img?.startsWith('data:image'));
+    console.log('🔍 DEBUG SERVICECARD IMAGE: Starts with http:', img?.startsWith('http'));
+    
     if (!img) return undefined;
     if (img.startsWith('data:image')) {
+      console.log('🔍 DEBUG SERVICECARD IMAGE: Using as data URI');
       return { uri: img };
     }
     // Heuristic: if it's a long string and not a URL, treat as base64
     if (!img.startsWith('http') && img.length > 100) {
+      console.log('🔍 DEBUG SERVICECARD IMAGE: Converting to data URI');
       return { uri: `data:image/jpeg;base64,${img}` };
     }
+    console.log('🔍 DEBUG SERVICECARD IMAGE: Using as URL');
     return { uri: img };
   };
 
@@ -39,6 +47,8 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
               source={getImageSource(service.taskerProfileImage)}
               style={{ width: 60, height: 60, borderRadius: 30, alignSelf: 'center' }}
               resizeMode="cover"
+              onError={(error) => console.log('🔍 DEBUG SERVICECARD IMAGE ERROR:', error.nativeEvent)}
+              onLoad={() => console.log('🔍 DEBUG SERVICECARD IMAGE LOADED SUCCESSFULLY')}
             />
           ) : (
             <Ionicons name="person" size={36} color={theme.colors.primary} />
@@ -66,6 +76,11 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
         style={styles.bookBtn}
         onPress={() => {
           try {
+            console.log('🔍 DEBUG SERVICECARD: Service data being passed:', service);
+            console.log('🔍 DEBUG SERVICECARD: Service bio:', (service as any).bio);
+            console.log('🔍 DEBUG SERVICECARD: Service areas served:', (service as any).areasServed);
+            console.log('🔍 DEBUG SERVICECARD: Service profile image:', !!service.taskerProfileImage);
+            console.log('🔍 DEBUG SERVICECARD: Service services:', (service as any).services);
             router.push({
               pathname: "/home/screens/bookingScreen",
               params: { tasker: JSON.stringify(service) }
