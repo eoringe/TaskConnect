@@ -1,21 +1,97 @@
 // app/(tabs)/home/components/ServiceCard.tsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Service } from '../types';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useThemedStyles, createThemedStyles } from '@/app/hooks/useThemedStyles';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase-config';
 
 interface ServiceCardProps {
   service: Service;
+}
+
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  reviewerName: string;
+  reviewerId: string;
+  taskerId: string;
+  createdAt: any;
 }
 
 const ServiceCard = ({ service }: ServiceCardProps) => {
   const router = useRouter();
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+
+  // Calculate average rating from reviews
+  const calculateAverageRating = (reviews: Review[]): number => {
+    if (reviews.length === 0) return 0;
+    const totalStars = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const average = totalStars / reviews.length;
+    return Math.round(average * 10) / 10; // Round to 1 decimal place
+  };
+
+  // Load reviews when component mounts
+  useEffect(() => {
+    loadReviews();
+  }, [service]);
+
+  const loadReviews = async () => {
+    try {
+      // Use the correct tasker ID for loading reviews
+      const correctTaskerId = (service as any).taskerFirestoreId || (service as any).taskerIdString || service.taskerId;
+      
+      if (!correctTaskerId) {
+        console.log('🔍 DEBUG SERVICECARD: No tasker ID available for reviews');
+        return;
+      }
+
+      console.log('🔍 DEBUG SERVICECARD: Loading reviews for tasker ID:', correctTaskerId);
+      
+      const reviewsRef = collection(db, 'reviews');
+      const q = query(reviewsRef, where('taskerId', '==', correctTaskerId));
+      
+      const querySnapshot = await getDocs(q);
+      console.log('🔍 DEBUG SERVICECARD: Found', querySnapshot.size, 'reviews');
+      
+      const reviewsData: Review[] = [];
+      querySnapshot.forEach((doc) => {
+        const reviewData = doc.data();
+        reviewsData.push({
+          id: doc.id,
+          rating: reviewData.rating || 0,
+          comment: reviewData.comment || '',
+          reviewerName: reviewData.reviewerName || 'Anonymous',
+          reviewerId: reviewData.reviewerId || '',
+          taskerId: reviewData.taskerId || '',
+          createdAt: reviewData.createdAt,
+        });
+      });
+
+      setReviews(reviewsData);
+      const avgRating = calculateAverageRating(reviewsData);
+      setAverageRating(avgRating);
+      setTotalReviews(reviewsData.length);
+      
+      console.log('🔍 DEBUG SERVICECARD: Calculated average rating:', avgRating);
+      console.log('🔍 DEBUG SERVICECARD: Total reviews:', reviewsData.length);
+    } catch (error) {
+      console.error('🔍 DEBUG SERVICECARD: Error loading reviews:', error);
+      // Fallback to static values if reviews fail to load
+      setAverageRating(service.rating || 0);
+      setTotalReviews(service.reviews || 0);
+    }
+  };
 
   // Helper to handle both base64 and URL images
   const getImageSource = (img: string | null | undefined) => {
@@ -38,6 +114,37 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
     return { uri: img };
   };
 
+  // Render stars based on rating
+  const renderStars = (rating: number = 0) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    // Add full stars
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(
+        <Ionicons key={`full-${i}`} name="star" size={16} color="#FFD700" />
+      );
+    }
+    
+    // Add half star if needed
+    if (hasHalfStar) {
+      stars.push(
+        <Ionicons key="half" name="star-half" size={16} color="#FFD700" />
+      );
+    }
+    
+    // Add empty stars
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(
+        <Ionicons key={`empty-${i}`} name="star-outline" size={16} color="#FFD700" />
+      );
+    }
+    
+    return stars;
+  };
+
   return (
     <View style={styles.serviceCard}>
       <View style={styles.serviceCardTop}>
@@ -58,9 +165,9 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
           <Text style={styles.serviceName}>{service.title}</Text>
           <Text style={styles.taskerName}>{service.taskerName}</Text>
           <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#FFD700" />
-            <Text style={styles.ratingText}>{service.rating}</Text>
-            <Text style={styles.reviewsText}>({service.reviews} reviews)</Text>
+            {renderStars(averageRating)}
+            <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
+            <Text style={styles.reviewsText}>({totalReviews} reviews)</Text>
           </View>
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color={theme.colors.textLight} />
