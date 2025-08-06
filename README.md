@@ -54,7 +54,11 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
 - ❓ **Instant Support**: Answers to common questions about app usage.
 - 💰 **Payment Guidance**: Helps with M-PESA STK Push transactions and escrow payments.
 
+
+<img width="336" height="712" alt="image" src="https://github.com/user-attachments/assets/eefb38db-993b-408b-a52f-9be884cbf177" />
 <img src="https://github.com/user-attachments/assets/09a98c08-6017-4ad3-9603-96d2effabccb" width="30%"/>
+
+
 
 ---
 
