@@ -37,10 +37,11 @@
   - Check ratings
   - Manage profile
   - Access support
-  - <img width="333" height="704" alt="image" src="https://github.com/user-attachments/assets/24428402-7e06-4468-bb60-da3c396816bc" />
+  - 
+  <img width="333" height="704" alt="image" src="https://github.com/user-attachments/assets/24428402-7e06-4468-bb60-da3c396816bc" />
   <img width="341" height="713" alt="image" src="https://github.com/user-attachments/assets/72f1fc22-47af-4cd6-982d-ba0f52c5f3f6" />
   <img width="334" height="704" alt="image" src="https://github.com/user-attachments/assets/94e1301c-4001-4d73-a5e6-54fc29d25433" />
-  <img width="338" height="705" alt="image" src="https://github.com/user-attachments/assets/a27f8ae6-1a0f-4281-8216-bf76d0c1c350" />
+
 
 
 
@@ -66,6 +67,7 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
 - 📋 **Service Listing**: List services, set rates, and define service areas.
 - 📎 **Document Uploads**: Upload supporting documents securely.
 - 🔍 **Admin Approval**: All profiles are reviewed by the admin for quality assurance.
+- 
 <img width="339" height="683" alt="image" src="https://github.com/user-attachments/assets/e73458f2-4d4c-43b7-8950-78ab0c2966c1" />
 <img width="332" height="646" alt="image" src="https://github.com/user-attachments/assets/952b06a5-c13e-4b96-9bde-62f648d926d5" />
 <img width="337" height="705" alt="image" src="https://github.com/user-attachments/assets/36e3d046-ea08-49d0-ad18-839e83313f81" />
