@@ -10,14 +10,22 @@
 
 - 🔎 **Search Functionality**: Quickly find services using the search bar.
 - 📂 **Category Browsing**: Explore services organized into clear categories (e.g., All, Baby Sitting, Chef, Cleaning).
-- 📅 **Booking Management**: Submit service requests and await approval or rejection from the Tasker.
-
 <table>
   <tr>
     <td><img src="https://github.com/user-attachments/assets/b5c08300-0fb7-414a-b6db-32fda8e327dd" width="100%"/></td>
     <td><img src="https://github.com/user-attachments/assets/e5f9ed61-a366-41a7-85bf-023162fdeb7c" width="100%"/></td>
     <td><img src="https://github.com/user-attachments/assets/384fdef5-15c8-47ed-b642-fb951b93529b" width="100%"/></td>
   </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/57e7df70-3404-4ca2-94d6-c8038966bb9c" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/7fad0917-7732-4a0e-a7c7-3d81ce267d31" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/d8365965-bfff-4e68-9188-511a358e5870" width="100%"/></td>
+  </tr>
+</table>
+
+- 📅 **Booking Management**: Submit service requests and await approval or rejection from the Tasker.
+
+<table>
   <tr>
     <td><img src="https://github.com/user-attachments/assets/57e7df70-3404-4ca2-94d6-c8038966bb9c" width="100%"/></td>
     <td><img src="https://github.com/user-attachments/assets/7fad0917-7732-4a0e-a7c7-3d81ce267d31" width="100%"/></td>
