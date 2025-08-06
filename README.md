@@ -84,10 +84,9 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
     <td><img src="https://github.com/user-attachments/assets/e73458f2-4d4c-43b7-8950-78ab0c2966c1" width="100%"/></td>
     <td><img src="https://github.com/user-attachments/assets/952b06a5-c13e-4b96-9bde-62f648d926d5" width="100%"/></td>
     <td><img src="https://github.com/user-attachments/assets/36e3d046-ea08-49d0-ad18-839e83313f81" width="100%"/></td>
+     <td><img src="https://github.com/user-attachments/assets/5043eb45-01b7-450d-b98f-cc75cd06cfd7" width="100%"/></td>
   </tr>
-  <tr>
-    <td><img src="https://github.com/user-attachments/assets/5043eb45-01b7-450d-b98f-cc75cd06cfd7" width="100%"/></td>
-  </tr>
+ 
 </table>
 
 ---
