@@ -22,7 +22,6 @@
   <img width="333" height="712" alt="image" src="https://github.com/user-attachments/assets/57e7df70-3404-4ca2-94d6-c8038966bb9c" />
   <img width="333" height="701" alt="image" src="https://github.com/user-attachments/assets/7fad0917-7732-4a0e-a7c7-3d81ce267d31" />
   <img width="330" height="707" src="https://github.com/user-attachments/assets/d8365965-bfff-4e68-9188-511a358e5870" />
-
 </p>
 
 ---
@@ -89,8 +88,57 @@ Admins have powerful tools to manage the platform, users, and services.
   <img width="1903" height="951" alt="image" src="https://github.com/user-attachments/assets/c51b1f0d-5229-4a26-822c-ac2b4e2e7266" />
   <img width="1911" height="952" alt="image" src="https://github.com/user-attachments/assets/97509e09-7688-40e3-b83a-0eada380ec66" />
   <img width="1915" height="951" alt="image" src="https://github.com/user-attachments/assets/af2e8abf-8d40-47ed-998c-78d16d88ec89" />
+</p>
+
+---
+
+### 6. ✅ Profile Management & Security
+
+Users have full control over their personal accounts with advanced security options.
+
+- 🔑 **Change Password**: Update your password at any time.
+- 🔒 **Two-Factor Authentication (2FA)**: Enable 2FA with Google Authenticator.
+- 🧬 **Biometric Unlock**: Use device biometrics (fingerprint/face ID) for quick login.
+- 🛡️ **App Lock**: Add an extra layer of security by enabling app lock.
+
+<p align="center">
+  <img width="335" height="717" alt="image" src="https://github.com/user-attachments/assets/c4567b29-6c2a-4c2e-a4b4-e8b60e0b9136" />
+  <img width="334" height="656" alt="image" src="https://github.com/user-attachments/assets/79703cd0-eaef-4d17-9613-a126f184725d" />
+  <img width="334" height="714" alt="image" src="https://github.com/user-attachments/assets/4c940466-9798-4f83-9e09-9029118ff9f2" />
+  <img width="342" height="712" alt="image" src="https://github.com/user-attachments/assets/411b990d-93c7-4966-8874-0499a46a17b4" />
+</p>
+
+---
+
+### 7. 💬 In-App Chat & Messaging
+
+Seamlessly communicate with Taskers directly from the app.
+
+- 📨 **Real-Time Messaging**: Send and receive messages from taskers.
+- 👤 **User-Centric Chat**: View tasker name, profile picture, and chat history.
+- 🕒 **Message Timestamps**: Know exactly when a message was sent or read.
+
+<p align="center">
+  <img width="332" height="742" alt="image" src="https://github.com/user-attachments/assets/7b2c5472-c420-477b-a447-50ed2cf472f4" />
+  <img width="328" height="707" alt="image" src="https://github.com/user-attachments/assets/8f8c8929-8f12-4d36-8481-d55c00ab8ab2" />
 
 </p>
 
 ---
 
+## 📦 Getting Started
+
+More detailed instructions for installation, setup, and usage will be added soon.
+
+---
+
+## 🖼️ How to Add Screenshots
+
+To add your own screenshots:
+
+1. Save them in a `screenshots/` folder in your repo, **or**
+2. Drag and drop them into GitHub’s web editor and copy the generated URL
+
+Markdown syntax:
+```md
+![Home](screenshots/home.png)
