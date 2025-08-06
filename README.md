@@ -86,7 +86,14 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
 - 🧬 **Enable Biometric Unlock**
 - 🔐 **2FA using Google Authenticator**
 
-<img src="https://github.com/user-attachments/assets/11cf1496-3d37-4901-a9b0-ef0e40d6937c" width="30%"/>
+<table>
+  <tr>
+    <td><img width="335" height="717" alt="image" src="https://github.com/user-attachments/assets/af29996f-c939-4b85-853e-d1f2e80b9efc" width="100%"/></td>
+    <td><img width="334" height="656" alt="image" src="https://github.com/user-attachments/assets/8854a417-d628-4229-a514-7285bf83c489" width="100%"/></td>
+    <td><img width="334" height="714" alt="image" src="https://github.com/user-attachments/assets/86e9c425-2467-4da9-8137-0b7ba513cf45" width="100%"/></td>
+    <td><img width="342" height="712" alt="image" src="https://github.com/user-attachments/assets/9b1202cd-4540-4fb8-8eae-de44ce50e710" width="100%"/></td>
+  </tr>
+</table>
 
 ---
 
@@ -94,7 +101,13 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
 
 - 💬 **Message Taskers directly** for queries and clarifications.
 
-<img src="https://github.com/user-attachments/assets/23f7a22c-f103-44a0-8883-8ce25c2ec63e" width="30%"/>
+<table>
+  <tr>
+    <td><img width="332" height="742" alt="image" src="https://github.com/user-attachments/assets/5b541063-0cf0-4ab4-b54e-39802b12690a" width="100%"/></td>
+    <td><img width="328" height="707" alt="image" src="https://github.com/user-attachments/assets/0f4ea023-0c75-4dcf-9789-af4437ba3981" width="100%"/>
+</td>
+  </tr>
+</table>
 
 ---
 
