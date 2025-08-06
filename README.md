@@ -66,7 +66,7 @@ Meet **Ella**, a friendly in-app assistant ready to help with:
 - 📋 **Service Listing**: List services, set rates, and define service areas.
 - 📎 **Document Uploads**: Upload supporting documents securely.
 - 🔍 **Admin Approval**: All profiles are reviewed by the admin for quality assurance.
-- <img width="339" height="683" alt="image" src="https://github.com/user-attachments/assets/e73458f2-4d4c-43b7-8950-78ab0c2966c1" />
+<img width="339" height="683" alt="image" src="https://github.com/user-attachments/assets/e73458f2-4d4c-43b7-8950-78ab0c2966c1" />
 <img width="332" height="646" alt="image" src="https://github.com/user-attachments/assets/952b06a5-c13e-4b96-9bde-62f648d926d5" />
 <img width="337" height="705" alt="image" src="https://github.com/user-attachments/assets/36e3d046-ea08-49d0-ad18-839e83313f81" />
 <img width="339" height="718" alt="image" src="https://github.com/user-attachments/assets/5043eb45-01b7-450d-b98f-cc75cd06cfd7" />
